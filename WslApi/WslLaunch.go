@@ -98,25 +98,25 @@ func (process WslProcess) AsyncWait(timeout time.Duration) (chan ExitCode, chan 
 }
 
 // Close closes a WslProcess and returns its exit status.
-func (process *WslProcess) Close() (status ExitCode, err error) {
+func (process *WslProcess) Close() (exitStatus ExitCode, err error) {
 	if process.Handle == 0 {
 		return 0, fmt.Errorf("cannot close a null process")
 	}
 
-	if status, err = process.GetStatus(); err != nil {
-		return
+	if exitStatus, err = process.GetStatus(); err != nil {
+		return exitStatus, err
 	}
 
 	err = syscall.CloseHandle(process.Handle)
 	process.Handle = 0
 
-	return
+	return exitStatus, err
 }
 
 // GetStatus querries a process to get its status.
-func (process WslProcess) GetStatus() (status ExitCode, err error) {
-	err = syscall.GetExitCodeProcess(process.Handle, &status)
-	return
+func (process WslProcess) GetStatus() (exitStatus ExitCode, err error) {
+	err = syscall.GetExitCodeProcess(process.Handle, &exitStatus)
+	return exitStatus, err
 }
 
 // toWin32Miliseconds converts time.Duration into a uint32 and performs bounds checking

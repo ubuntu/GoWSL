@@ -1,52 +1,76 @@
 package WslApi_test
 
 import (
+	"WslApi"
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
 	"strings"
 	"testing"
 )
 
-const distroSuffix = "wsltesting"
+const (
+	distroSuffix string = "wsltesting"
+	jammyRootFs  string = `C:\Users\edu19\Work\images\jammy.tar.gz`
+)
 
 type Tester struct {
 	*testing.T
+	distros []WslApi.Distro
 }
 
 func TestMain(m *testing.M) {
-	cleanUpDistros()
+	shutdownWSL()
+	cleanupAllDistros()
+
 	exitVal := m.Run()
+
+	cleanupAllDistros()
+	shutdownWSL()
+
 	os.Exit(exitVal)
 }
 
+func shutdownWSL() error {
+	return exec.Command("wsl.exe", "--shutdown").Run()
+}
+
+// NewTester extends Tester with some WSL-specific functionality and cleanup
 func NewTester(tst *testing.T) (t Tester) {
 	t = Tester{T: tst}
-	t.Cleanup(cleanUpDistros)
+	t.Cleanup(func() { cleanUpDistros(t.distros) })
 	return t
 }
 
-// mangleName avoids name collisions with existing distros by adding a suffix
-func mangleName(name string) string {
-	pc, _, _, ok := runtime.Caller(1)
-	if !ok {
-		panic(fmt.Errorf("Failed to get caller name"))
-	}
-	funcname := runtime.FuncForPC(pc).Name()
-	return fmt.Sprintf("%s_%s_%s", name, funcname, distroSuffix)
+// NewDistro creates a new distro with a mangled name and adds it to list of distros to remove.
+// Note that the distro is not registered.
+func (t *Tester) NewDistro(name string) WslApi.Distro {
+	d := WslApi.Distro{Name: t.mangleName(name)}
+	t.distros = append(t.distros, d)
+	return d
 }
 
-// cleanUpDistros finds all distros with mangled name and unregisters them
-func cleanUpDistros() {
+// mangleName avoids name collisions with existing distros by adding a suffix
+func (t Tester) mangleName(name string) string {
+	return fmt.Sprintf("%s_%s_%s", name, t.Name(), distroSuffix)
+}
+
+// cleanupAllDistros finds all distros with a mangled name and unregisters them
+func cleanupAllDistros() {
 	testDistros, err := findTestDistros()
 	if err != nil {
-		panic(fmt.Errorf("failed to get test distros"))
+		return
 	}
+	if len(testDistros) != 0 {
+		fmt.Printf("The following distros were not properly cleaned up: %v\n", testDistros)
+	}
+	cleanUpDistros(testDistros)
+}
 
-	for _, distroName := range testDistros {
-		name, test := unmangleName(distroName)
-		err := exec.Command("wsl.exe", "--unregister", distroName).Run()
+func cleanUpDistros(distros []WslApi.Distro) {
+	for _, distro := range distros {
+		name, test := unmangleName(distro.Name)
+		err := distro.Unregister()
 		if err != nil {
 			fmt.Printf("failed to clean up test distro (name=%s, test=%s)\n", name, test)
 		}
@@ -63,8 +87,8 @@ func unmangleName(mangledName string) (name string, test string) {
 }
 
 // findTestDistros finds all distros with a mangled name
-func findTestDistros() ([]string, error) {
-	distros := []string{}
+func findTestDistros() ([]WslApi.Distro, error) {
+	distros := []WslApi.Distro{}
 
 	outp, err := exec.Command("powershell.exe", "-command", "$env:WSL_UTF8=1 ; wsl.exe --list --quiet").CombinedOutput()
 	if err != nil {
@@ -75,7 +99,7 @@ func findTestDistros() ([]string, error) {
 		if !strings.HasSuffix(line, distroSuffix) {
 			continue
 		}
-		distros = append(distros, line)
+		distros = append(distros, WslApi.Distro{Name: line})
 	}
 
 	return distros, nil

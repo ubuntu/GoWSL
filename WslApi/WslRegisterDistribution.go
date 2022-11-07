@@ -32,7 +32,7 @@ func (distro Distro) Register(rootFsPath string) error {
 		uintptr(unsafe.Pointer(rootFsPathUTF16)))
 
 	if r1 != 0 {
-		return fmt.Errorf("failed syscall to WslLaunchInteractive")
+		return fmt.Errorf("failed syscall to wslRegisterDistribution")
 	}
 
 	registered, err := distro.IsRegistered()

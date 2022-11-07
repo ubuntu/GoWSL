@@ -83,7 +83,7 @@ func processEnvVariables(cStringArray **char, len uint64) map[string]string {
 	return m
 }
 
-// string converts a null-terminated *char into a string
+// stringCtoGo converts a null-terminated *char into a string
 func stringCtoGo(cString *char) (goString string) {
 	size := strnlen(cString, 32768)
 	return string(unsafe.Slice(cString, size))

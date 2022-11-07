@@ -6,15 +6,6 @@ import (
 	"unsafe"
 )
 
-/*
-HRESULT WslUnregisterDistribution(
-	[in] PCWSTR distributionName
-);
-
-https://learn.microsoft.com/en-us/windows/win32/api/wslapi/nf-wslapi-wslunregisterdistribution
-*/
-var wslUnregisterDistribution = wslApiDll.NewProc("WslUnregisterDistribution")
-
 // Register is a wrapper around Win32's WslUnregisterDistribution.
 func (distro *Distro) Unregister() error {
 	r, err := distro.IsRegistered()

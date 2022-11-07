@@ -40,49 +40,48 @@ func (conf Configuration) String() string {
 }
 
 // unpackFlags examines a winWslFlags object and stores its findings in the Configuration
-func (conf *Configuration) unpackFlags(flags winWslFlags) {
+func (conf *Configuration) unpackFlags(flags wslFlags) {
 	conf.InteropEnabled = false
-	if flags&flagENABLE_INTEROP != 0 {
+	if flags&fENABLE_INTEROP != 0 {
 		conf.InteropEnabled = true
 	}
 
 	conf.PathAppended = false
-	if flags&flagAPPEND_NT_PATH != 0 {
+	if flags&fAPPEND_NT_PATH != 0 {
 		conf.PathAppended = true
 	}
 
 	conf.DriveMountingEnabled = false
-	if flags&flagENABLE_DRIVE_MOUNTING != 0 {
+	if flags&fENABLE_DRIVE_MOUNTING != 0 {
 		conf.DriveMountingEnabled = true
 	}
 
 	conf.undocumentedWSLVersion = 1
-	if flags&flagUNDOCUMENTED_WSL_VERSION != 0 {
+	if flags&fUNDOCUMENTED_WSL_VERSION != 0 {
 		conf.undocumentedWSLVersion = 2
 	}
-
 }
 
 // packFlags generates a winWslFlags object from the Configuration
-func (conf Configuration) packFlags() (winWslFlags, error) {
-	flags := flagNONE
+func (conf Configuration) packFlags() (wslFlags, error) {
+	flags := fNONE
 
 	if conf.InteropEnabled {
-		flags = flags | flagENABLE_INTEROP
+		flags = flags | fENABLE_INTEROP
 	}
 
 	if conf.PathAppended {
-		flags = flags | flagAPPEND_NT_PATH
+		flags = flags | fAPPEND_NT_PATH
 	}
 
 	if conf.DriveMountingEnabled {
-		flags = flags | flagENABLE_DRIVE_MOUNTING
+		flags = flags | fENABLE_DRIVE_MOUNTING
 	}
 
 	switch conf.undocumentedWSLVersion {
 	case 1:
 	case 2:
-		flags = flags | flagUNDOCUMENTED_WSL_VERSION
+		flags = flags | fUNDOCUMENTED_WSL_VERSION
 	default:
 		return flags, fmt.Errorf("unknown WSL version %d", conf.undocumentedWSLVersion)
 	}

@@ -1,12 +1,15 @@
-// This file contains windows-specific typedefs and constants
 package WslApi
 
+// Distro is an abstraction around a WSL instance.
+type Distro struct {
+	Name string
+}
+
 // Windows' typedefs
-type winBOOL = int     // Windows' BOOL
-type winULONG = uint32 // Windows' ULONG
+type wBOOL = int       // Windows' BOOL
+type wULONG = uint32   // Windows' ULONG
 type ExitCode = uint32 // Windows' DWORD
 type char byte         // Windows' CHAR (which is the same as C's char)
-
 
 // Windows' constants
 const (
@@ -16,16 +19,16 @@ const (
 
 // Windows' WSL_DISTRIBUTION_FLAGS
 // https://learn.microsoft.com/en-us/windows/win32/api/wslapi/ne-wslapi-wsl_distribution_flags
-type winWslFlags int
+type wslFlags int
 
 const (
-	flagNONE                  winWslFlags = 0x0
-	flagENABLE_INTEROP        winWslFlags = 0x1
-	flagAPPEND_NT_PATH        winWslFlags = 0x2
-	flagENABLE_DRIVE_MOUNTING winWslFlags = 0x4
+	fNONE                  wslFlags = 0x0
+	fENABLE_INTEROP        wslFlags = 0x1
+	fAPPEND_NT_PATH        wslFlags = 0x2
+	fENABLE_DRIVE_MOUNTING wslFlags = 0x4
 
 	// Per conversation at https://github.com/microsoft/WSL-DistroLauncher/issues/96
 	// the information about version 1 or 2 is on the 4th bit of the distro flags, which is not
 	// currently referenced by the API nor docs.
-	flagUNDOCUMENTED_WSL_VERSION winWslFlags = 0x8
+	fUNDOCUMENTED_WSL_VERSION wslFlags = 0x8
 )

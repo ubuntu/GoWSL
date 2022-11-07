@@ -6,16 +6,6 @@ import (
 	"unsafe"
 )
 
-/*
-HRESULT WslRegisterDistribution(
-  [in] PCWSTR distributionName,
-  [in] PCWSTR tarGzFilename
-);
-
-https://learn.microsoft.com/en-us/windows/win32/api/wslapi/nf-wslapi-wslregisterdistribution
-*/
-var wslRegisterDistribution = wslApiDll.NewProc("WslRegisterDistribution")
-
 // Register is a wrapper around Win32's WslRegisterDistribution
 func (distro Distro) Register(rootFsPath string) error {
 

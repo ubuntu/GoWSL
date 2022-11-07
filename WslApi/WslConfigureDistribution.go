@@ -6,17 +6,6 @@ import (
 	"unsafe"
 )
 
-/*
-HRESULT WslConfigureDistribution(
-  PCWSTR                 distributionName,
-  ULONG                  defaultUID,
-  WSL_DISTRIBUTION_FLAGS wslDistributionFlags
-);
-
-https://learn.microsoft.com/en-us/windows/win32/api/wslapi/nf-wslapi-wslconfiguredistribution
-*/
-var wslConfigureDistribution = wslApiDll.NewProc("WslConfigureDistribution")
-
 // Configure is a wrapper around Win32's WslConfigureDistribution.
 // Note that only the following config is mutable:
 //  - DefaultUID

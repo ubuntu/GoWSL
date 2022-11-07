@@ -8,20 +8,6 @@ import (
 	"unsafe"
 )
 
-/*
-HRESULT WslGetDistributionConfiguration(
-  [in]  PCWSTR                 distributionName,
-  [out] ULONG                  *distributionVersion,
-  [out] ULONG                  *defaultUID,
-  [out] WSL_DISTRIBUTION_FLAGS *wslDistributionFlags,
-  [out] PSTR                   **defaultEnvironmentVariables,
-  [out] ULONG                  *defaultEnvironmentVariableCount
-);
-
-https://learn.microsoft.com/en-us/windows/win32/api/wslapi/nf-wslapi-wslgetdistributionconfiguration
-*/
-var wslGetDistributionConfiguration = wslApiDll.NewProc("WslGetDistributionConfiguration")
-
 // GetConfiguration is a wrapper around Win32's WslGetDistributionConfiguration.
 func (distro Distro) GetConfiguration() (Configuration, error) {
 	var conf Configuration
@@ -32,7 +18,7 @@ func (distro Distro) GetConfiguration() (Configuration, error) {
 	}
 
 	var (
-		flags        winWslFlags
+		flags        wslFlags
 		envVarsBegin = new(*char)
 		envVarsLen   uint64 // size_t
 	)

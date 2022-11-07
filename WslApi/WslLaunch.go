@@ -8,21 +8,6 @@ import (
 	"unsafe"
 )
 
-/*
-HRESULT WslLaunch(
-  [in]           PCWSTR distributionName,
-  [in, optional] PCWSTR command,
-  [in]           BOOL   useCurrentWorkingDirectory,
-  [in]           HANDLE stdIn,
-  [in]           HANDLE stdOut,
-  [in]           HANDLE stdErr,
-  [out]          HANDLE *process
-);
-
-https://learn.microsoft.com/en-us/windows/win32/api/wslapi/nf-wslapi-wsllaunch
-*/
-var wslLaunch = wslApiDll.NewProc("WslLaunch")
-
 // WslProcess is a wrapper around the Windows process spawned by WslLaunch
 type WslProcess struct {
 	syscall.Handle
@@ -41,7 +26,7 @@ func (distro *Distro) Launch(command string, useCWD bool, stdIn syscall.Handle, 
 		return WslProcess{0}, fmt.Errorf("failed to convert '%s' to UTF16", command)
 	}
 
-	var useCwd winBOOL = 0
+	var useCwd wBOOL = 0
 	if useCWD {
 		useCwd = 1
 	}

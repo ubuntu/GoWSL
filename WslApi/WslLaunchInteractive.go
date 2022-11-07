@@ -6,18 +6,6 @@ import (
 	"unsafe"
 )
 
-/*
-HRESULT WslLaunchInteractive(
-  [in]           PCWSTR distributionName,
-  [in, optional] PCWSTR command,
-  [in]           BOOL   useCurrentWorkingDirectory,
-  [out]          DWORD  *exitCode
-);
-
-https://learn.microsoft.com/en-us/windows/win32/api/wslapi/nf-wslapi-wsllaunchinteractive
-*/
-var wslLaunchInteractive = wslApiDll.NewProc("WslLaunchInteractive")
-
 // LaunchInteractive is a wrapper around Win32's WslLaunchInteractive.
 func (distro *Distro) LaunchInteractive(command string, useCWD bool) (ExitCode, error) {
 	distroNameUTF16, err := syscall.UTF16PtrFromString(distro.Name)
@@ -30,7 +18,7 @@ func (distro *Distro) LaunchInteractive(command string, useCWD bool) (ExitCode, 
 		return 0, fmt.Errorf("failed to convert '%s' to UTF16", command)
 	}
 
-	var useCwd winBOOL = 0
+	var useCwd wBOOL = 0
 	if useCWD {
 		useCwd = 1
 	}

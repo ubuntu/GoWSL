@@ -1,7 +1,7 @@
 package WslApi
 
 // Types
-type Flags = winWslFlags
+type Flags = wslFlags
 
 // Configuration methods
 

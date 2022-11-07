@@ -16,7 +16,7 @@ func TestIsRegistered(tst *testing.T) {
 		wantRegistered bool
 	}{
 		"nominal":    {distroName: "UbuntuNominal", register: true, wantError: false, wantRegistered: true},
-		"inexistant": {distroName: "Ubuntu.inexistant", register: false, wantError: false, wantRegistered: false},
+		"inexistent": {distroName: "Ubuntu.inexistent", register: false, wantError: false, wantRegistered: false},
 		"invalid":    {distroName: "Ubuntu . invalid", register: false, wantError: false, wantRegistered: false},
 	}
 

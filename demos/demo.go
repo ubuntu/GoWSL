@@ -36,10 +36,10 @@ func main() {
 
 	// Launching async command
 	process, err := distro.Launch(`sleep 3 && echo "Good morning!"`, false, 0, syscall.Stdout, syscall.Stdout)
-	defer process.Close()
 	if err != nil {
 		panic(err)
 	}
+	defer process.Close()
 	pStatus, pError := process.AsyncWait(time.Minute)
 
 	// Launching a regular command (should fail as per config change)

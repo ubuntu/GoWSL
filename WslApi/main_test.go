@@ -16,29 +16,28 @@ const (
 
 type Tester struct {
 	*testing.T
-	distros []WslApi.Distro
+	distros *[]WslApi.Distro
 }
 
 func TestMain(m *testing.M) {
-	shutdownWSL()
+	WslApi.Shutdown()
 	cleanupAllDistros()
 
 	exitVal := m.Run()
 
+	WslApi.Shutdown()
 	cleanupAllDistros()
-	shutdownWSL()
 
 	os.Exit(exitVal)
 }
 
-func shutdownWSL() error {
-	return exec.Command("wsl.exe", "--shutdown").Run()
-}
-
 // NewTester extends Tester with some WSL-specific functionality and cleanup
 func NewTester(tst *testing.T) (t Tester) {
-	t = Tester{T: tst}
-	t.Cleanup(func() { cleanUpDistros(t.distros) })
+	distros := new([]WslApi.Distro)
+	t = Tester{T: tst, distros: distros}
+	t.Cleanup(func() {
+		cleanUpDistros(*distros)
+	})
 	return t
 }
 
@@ -46,7 +45,7 @@ func NewTester(tst *testing.T) (t Tester) {
 // Note that the distro is not registered.
 func (t *Tester) NewDistro(name string) WslApi.Distro {
 	d := WslApi.Distro{Name: t.mangleName(name)}
-	t.distros = append(t.distros, d)
+	*t.distros = append(*t.distros, d)
 	return d
 }
 
@@ -69,9 +68,13 @@ func cleanupAllDistros() {
 
 func cleanUpDistros(distros []WslApi.Distro) {
 	for _, distro := range distros {
-		name, test := unmangleName(distro.Name)
+		if r, err := distro.IsRegistered(); err == nil && !r {
+			continue
+		}
+
 		err := distro.Unregister()
 		if err != nil {
+			name, test := unmangleName(distro.Name)
 			fmt.Printf("failed to clean up test distro (name=%s, test=%s)\n", name, test)
 		}
 	}

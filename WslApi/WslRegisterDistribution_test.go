@@ -14,7 +14,6 @@ func TestRegister(tst *testing.T) {
 
 	err := distro1.Register(jammyRootFs)
 	require.NoError(t, err)
-	defer distro1.Unregister()
 
 	err = distro2.Register(jammyRootFs)
 	require.Error(t, err) // Space not allowed in name
@@ -26,5 +25,4 @@ func TestRegister(tst *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, testDistros, distro1)
 	require.NotContains(t, testDistros, distro2)
-
 }

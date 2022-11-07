@@ -7,8 +7,6 @@ import (
 )
 
 func TestIsRegistered(tst *testing.T) {
-	NewTester(tst) // defering cleanup
-
 	tests := map[string]struct {
 		distroName     string
 		register       bool
@@ -26,7 +24,6 @@ func TestIsRegistered(tst *testing.T) {
 
 		func(tst *testing.T) {
 			t := NewTester(tst)
-
 			distro := t.NewDistro(config.distroName)
 
 			if config.register {

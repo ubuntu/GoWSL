@@ -88,11 +88,10 @@ func (distro *Distro) LaunchInteractive(command string, useCWD bool) error {
 // Note that the returned process is the Windows process, and closing it will not close the Linux process it invoked.
 func (distro *Distro) Launch(command string, useCWD bool, stdIn syscall.Handle, stdOut syscall.Handle, stdErr syscall.Handle) (WslProcess, error) {
 	process := distro.NewWslProcess(command)
-	process.Start()
-	return process, nil
+	return process, process.Start()
 }
 
-// Start starts the specified command but does not wait for it to complete.
+// Start starts the specified WslProcess but does not wait for it to complete.
 //
 // The Wait method will return the exit code and release associated resources
 // once the command exits.
@@ -142,7 +141,7 @@ func (p WslProcess) Wait() error {
 	return p.queryStatus()
 }
 
-// Run starts the specified command and waits for it to complete.
+// Run starts the specified WslProcess and waits for it to complete.
 //
 // The returned error is nil if the command runs and exits with a zero exit status.
 //

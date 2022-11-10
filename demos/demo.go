@@ -17,11 +17,7 @@ func main() {
 	}
 
 	// Ensuring the instance is unregistered at the end
-	defer func() {
-		if err := instance.Unregister(); err != nil {
-			panic(err)
-		}
-	}()
+	defer instance.Unregister()
 
 	// Getting config and printing it
 	config, err := instance.GetConfiguration()
@@ -35,21 +31,32 @@ func main() {
 	instance.Configure(config)
 
 	// Launching async command (Win32 style)
-	process, err := instance.Launch(`sleep 3 && echo "Good morning!"`, false, 0, syscall.Stdout, syscall.Stdout)
+	process1, err := instance.Launch(`sleep 3 && cat goodmorning.txt`, false, 0, syscall.Stdout, syscall.Stdout)
 	if err != nil {
 		panic(err)
 	}
-	defer process.Close()
+	defer process1.Close()
+
+	// Launching async command (Go style)
+	process2 := instance.NewWslProcess(`echo "Hello, world from WSL!" > "goodmorning.txt"`)
+	process2.Stdin = 0 // (nullptr) TODO: Make this more Go-like with readers and writers
+	process2.Start()
 
 	// Launching a regular command (should fail as per config change)
 	err = instance.LaunchInteractive("notepad.exe", false)
 	if err != nil {
 		fmt.Printf("Sync command unsuccesful: %v\n", err)
+	} else {
+		fmt.Printf("Sync command succesful\n")
 	}
-	fmt.Printf("Sync command succesful\n")
 
-	// Managing the result of the async command
-	err = process.Wait()
+	// Managing the result of the async commands
+	err = process2.Wait()
+	if err != nil {
+		panic(err)
+	}
+
+	err = process1.Wait()
 	if err != nil && !errors.Is(err, &WslApi.ExitError{}) {
 		panic(err)
 	}

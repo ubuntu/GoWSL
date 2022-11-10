@@ -2,8 +2,6 @@ package WslApi
 
 import (
 	"fmt"
-	"os/exec"
-	"strings"
 	"syscall"
 	"unsafe"
 )
@@ -48,15 +46,20 @@ func (distro Distro) Register(rootFsPath string) error {
 	return nil
 }
 
+// ListDistros returns a slice of the registered distros
+func RegisteredDistros() ([]Distro, error) {
+	return registeredDistros()
+}
+
 // IsRegistered returns whether a distro is registered in WSL or not.
-func (distro Distro) IsRegistered() (bool, error) {
-	outp, err := exec.Command("powershell.exe", "-command", "$env:WSL_UTF8=1 ; wsl.exe --list --quiet").CombinedOutput()
+func (target Distro) IsRegistered() (bool, error) {
+	distros, err := RegisteredDistros()
 	if err != nil {
 		return false, err
 	}
 
-	for _, line := range strings.Fields(string(outp)) {
-		if line != distro.Name {
+	for _, d := range distros {
+		if d.Name != target.Name {
 			continue
 		}
 		return true, nil

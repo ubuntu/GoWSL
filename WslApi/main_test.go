@@ -72,10 +72,8 @@ func (t *Tester) cleanUpDistros() {
 func (t *Tester) cleanUpTempDirectories() {
 	for _, dir := range t.tmpdirs {
 		dir := dir
-		go func() {
-			err := os.RemoveAll(dir)
-			t.Logf("Failed to remove temp directory %s: %v", dir, err)
-		}()
+		err := os.RemoveAll(dir)
+		t.Logf("Failed to remove temp directory %s: %v", dir, err)
 	}
 }
 
@@ -144,6 +142,7 @@ func registerViaCommandline(t *Tester, distro WslApi.Distro) {
 	tmpdir, err := t.NewTestDir(distro.Name)
 	require.NoError(t, err)
 
-	str, err := exec.Command("wsl.exe", "--import", distro.Name, tmpdir, jammyRootFs).CombinedOutput()
+	cmdString := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --import %s %s %s", distro.Name, tmpdir, jammyRootFs)
+	str, err := exec.Command("powershell.exe", "-Command", cmdString).CombinedOutput()
 	require.NoError(t, err, str)
 }

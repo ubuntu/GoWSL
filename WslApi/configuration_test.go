@@ -110,8 +110,8 @@ func TestConfigure(tst *testing.T) {
 
 	for name, wants := range tests {
 		tst.Run(name, func(tst *testing.T) {
+			defer distro.Configure(default_config) // Reseting to default state
 			t := NewTester(tst)
-			distro.Configure(default_config) // Reseting to default state
 
 			err = distro.Configure(wants)
 			require.NoError(t, err)

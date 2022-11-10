@@ -10,6 +10,8 @@ import (
 )
 
 func TestUnpackFlags(t *testing.T) {
+	t.Parallel()
+
 	tests := map[WslApi.Flags]WslApi.Configuration{
 		0x0: {InteropEnabled: false, PathAppended: false, DriveMountingEnabled: false},
 		0x1: {InteropEnabled: true, PathAppended: false, DriveMountingEnabled: false},
@@ -44,6 +46,8 @@ func TestUnpackFlags(t *testing.T) {
 }
 
 func TestPackFlags(t *testing.T) {
+	t.Parallel()
+
 	tests := map[WslApi.Flags]WslApi.Configuration{
 		0x0: {InteropEnabled: false, PathAppended: false, DriveMountingEnabled: false},
 		0x1: {InteropEnabled: true, PathAppended: false, DriveMountingEnabled: false},

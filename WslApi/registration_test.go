@@ -34,8 +34,8 @@ func TestRegisteredDistros(tst *testing.T) {
 	d2 := t.NewDistro("Ubuntu.Again")
 	d3 := t.NewDistro("NotRegistered")
 
-	registerViaCommandline(t, d1)
-	registerViaCommandline(t, d2)
+	t.RegisterFromPowershell(d1, emptyRootFs)
+	t.RegisterFromPowershell(d2, emptyRootFs)
 
 	list, err := WslApi.RegisteredDistros()
 	require.NoError(t, err)
@@ -66,7 +66,7 @@ func TestIsRegistered(tst *testing.T) {
 			distro := t.NewDistro(config.distroName)
 
 			if config.register {
-				registerViaCommandline(t, distro)
+				t.RegisterFromPowershell(distro, emptyRootFs)
 			}
 
 			reg, err := distro.IsRegistered()
@@ -92,7 +92,7 @@ func TestUnRegister(tst *testing.T) {
 	distro2 := t.NewDistro("ThisDistroDoesNotExist")
 	distro3 := t.NewDistro("This Distro Is Not Valid")
 
-	registerViaCommandline(t, distro1)
+	t.RegisterFromPowershell(distro1, emptyRootFs)
 
 	testDistros, err := RegisteredTestDistros()
 	require.NoError(t, err)

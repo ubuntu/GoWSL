@@ -4,7 +4,6 @@ import (
 	"WslApi"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -67,74 +66,66 @@ func TestPackFlags(t *testing.T) {
 	}
 }
 
-func TestConfigure(tst *testing.T) {
-	tst.Skip("This test is not yet ready")
-
-	tests := map[string]WslApi.Configuration{
-		"root000": {DefaultUID: 0, InteropEnabled: false, PathAppended: false, DriveMountingEnabled: false},
-		"root001": {DefaultUID: 0, InteropEnabled: false, PathAppended: false, DriveMountingEnabled: true},
-		"root010": {DefaultUID: 0, InteropEnabled: false, PathAppended: true, DriveMountingEnabled: false},
-		"root011": {DefaultUID: 0, InteropEnabled: false, PathAppended: true, DriveMountingEnabled: true},
-		"root100": {DefaultUID: 0, InteropEnabled: true, PathAppended: false, DriveMountingEnabled: false},
-		"root101": {DefaultUID: 0, InteropEnabled: true, PathAppended: false, DriveMountingEnabled: true},
-		"root110": {DefaultUID: 0, InteropEnabled: true, PathAppended: true, DriveMountingEnabled: false},
-		"root111": {DefaultUID: 0, InteropEnabled: true, PathAppended: true, DriveMountingEnabled: true},
-		"user000": {DefaultUID: 1000, InteropEnabled: false, PathAppended: false, DriveMountingEnabled: false},
-		"user001": {DefaultUID: 1000, InteropEnabled: false, PathAppended: false, DriveMountingEnabled: true},
-		"user010": {DefaultUID: 1000, InteropEnabled: false, PathAppended: true, DriveMountingEnabled: false},
-		"user011": {DefaultUID: 1000, InteropEnabled: false, PathAppended: true, DriveMountingEnabled: true},
-		"user100": {DefaultUID: 1000, InteropEnabled: true, PathAppended: false, DriveMountingEnabled: false},
-		"user101": {DefaultUID: 1000, InteropEnabled: true, PathAppended: false, DriveMountingEnabled: true},
-		"user110": {DefaultUID: 1000, InteropEnabled: true, PathAppended: true, DriveMountingEnabled: false},
-		"user111": {DefaultUID: 1000, InteropEnabled: true, PathAppended: true, DriveMountingEnabled: true},
-	}
-
-	for name, wants := range tests {
-		t := NewTester(tst)
-		time.Sleep(15 * time.Second)
-		t.Logf("Running test case %s\n", name)
-
-		distro := setUpDistro(t, name)
-		conf, err := distro.GetConfiguration()
-		require.NoError(t, err)
-
-		conf.DefaultUID = wants.DefaultUID
-		conf.InteropEnabled = wants.InteropEnabled
-		conf.PathAppended = wants.PathAppended
-		conf.DriveMountingEnabled = wants.DriveMountingEnabled
-
-		err = distro.Configure(conf)
-		require.NoError(t, err)
-
-		got, err := distro.GetConfiguration()
-		require.NoError(t, err)
-
-		// Config test
-		require.Equal(t, wants.DefaultUID, got.DefaultUID)
-		require.Equal(t, wants.InteropEnabled, got.InteropEnabled)
-		require.Equal(t, wants.PathAppended, got.PathAppended)
-		require.Equal(t, wants.DriveMountingEnabled, got.DriveMountingEnabled)
-
-		// TODO: behviour tests
-	}
-
+// Overrides the values in baseline with the ones passed as arguments
+// The arguments are the mutable values in WslApi.Distro.Configure
+func overrideMutableConfig(baseline WslApi.Configuration, DefaultUID uint32, InteropEnabled bool, PathAppended bool, DriveMountingEnabled bool) WslApi.Configuration {
+	baseline.DefaultUID = DefaultUID
+	baseline.InteropEnabled = InteropEnabled
+	baseline.PathAppended = PathAppended
+	baseline.DriveMountingEnabled = DriveMountingEnabled
+	return baseline
 }
 
-// setUpDistros registers and creates a user
-func setUpDistro(t *Tester, name string) WslApi.Distro {
-	distro := t.NewDistro(name)
-	registerViaCommandline(t, distro)
+func TestConfigure(tst *testing.T) {
+	t := NewTester(tst)
 
-	reg, err := distro.IsRegistered()
-	require.NoError(t, err)
-	require.True(t, reg)
+	distro := t.NewDistro("jammy")
+	t.RegisterFromPowershell(distro, jammyRootFs)
 
 	exitCode, err := distro.LaunchInteractive("useradd testuser", false)
 	require.NoError(t, err)
 	require.Equal(t, exitCode, WslApi.ExitCode(0))
 
-	err = distro.Terminate()
+	default_config, err := distro.GetConfiguration()
 	require.NoError(t, err)
 
-	return distro
+	tests := map[string]WslApi.Configuration{
+		"root000": overrideMutableConfig(default_config, 0, false, false, false),
+		"root001": overrideMutableConfig(default_config, 0, false, false, true),
+		"root010": overrideMutableConfig(default_config, 0, false, true, false),
+		"root011": overrideMutableConfig(default_config, 0, false, true, true),
+		"root100": overrideMutableConfig(default_config, 0, true, false, false),
+		"root101": overrideMutableConfig(default_config, 0, true, false, true),
+		"root110": overrideMutableConfig(default_config, 0, true, true, false),
+		"root111": overrideMutableConfig(default_config, 0, true, true, true),
+		"user000": overrideMutableConfig(default_config, 1000, false, false, false),
+		"user001": overrideMutableConfig(default_config, 1000, false, false, true),
+		"user010": overrideMutableConfig(default_config, 1000, false, true, false),
+		"user011": overrideMutableConfig(default_config, 1000, false, true, true),
+		"user100": overrideMutableConfig(default_config, 1000, true, false, false),
+		"user101": overrideMutableConfig(default_config, 1000, true, false, true),
+		"user110": overrideMutableConfig(default_config, 1000, true, true, false),
+		"user111": overrideMutableConfig(default_config, 1000, true, true, true),
+	}
+
+	for name, wants := range tests {
+		tst.Run(name, func(tst *testing.T) {
+			t := NewTester(tst)
+			distro.Configure(default_config) // Reseting to default state
+
+			err = distro.Configure(wants)
+			require.NoError(t, err)
+
+			got, err := distro.GetConfiguration()
+			require.NoError(t, err)
+
+			// Config test
+			require.Equal(t, wants.DefaultUID, got.DefaultUID)
+			require.Equal(t, wants.InteropEnabled, got.InteropEnabled)
+			require.Equal(t, wants.PathAppended, got.PathAppended)
+			require.Equal(t, wants.DriveMountingEnabled, got.DriveMountingEnabled)
+
+			// TODO: behaviour tests
+		})
+	}
 }

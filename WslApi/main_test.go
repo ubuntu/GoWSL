@@ -2,19 +2,22 @@ package WslApi_test
 
 import (
 	"WslApi"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
 const (
 	distroSuffix string = "wsltesting"
-	jammyRootFs  string = `C:\Users\edu19\Work\images\jammy.tar.gz`
+	emptyRootFs  string = `C:\Users\edu19\Work\images\empty.tar.gz` // Empty non-functional image. It registers instantly.
+	jammyRootFs  string = `C:\Users\edu19\Work\images\jammy.tar.gz` // Fully functional rootfs
 )
 
 type Tester struct {
@@ -24,14 +27,15 @@ type Tester struct {
 }
 
 func TestMain(m *testing.M) {
-	WslApi.Shutdown()
-	cleanUpTestDistros()
+	fullCleanup := func() {
+		WslApi.Shutdown()
+		cleanUpTestDistros()
+	}
+
+	fullCleanup()
+	defer fullCleanup()
 
 	exitVal := m.Run()
-
-	WslApi.Shutdown()
-	cleanUpTestDistros()
-
 	os.Exit(exitVal)
 }
 
@@ -73,7 +77,9 @@ func (t *Tester) cleanUpTempDirectories() {
 	for _, dir := range t.tmpdirs {
 		dir := dir
 		err := os.RemoveAll(dir)
-		t.Logf("Failed to remove temp directory %s: %v", dir, err)
+		if err != nil {
+			t.Logf("Failed to remove temp directory %s: %v\n", dir, err)
+		}
 	}
 }
 
@@ -137,12 +143,16 @@ func unmangleName(mangledName string) (name string, test string) {
 	return name, test
 }
 
-// registerViaCommandline registers a distro bypassing the WslApi module, for better test segmentation
-func registerViaCommandline(t *Tester, distro WslApi.Distro) {
+// registerFromPowershell registers a distro bypassing the WslApi module, for better test segmentation
+func (t *Tester) RegisterFromPowershell(distro WslApi.Distro, image string) {
 	tmpdir, err := t.NewTestDir(distro.Name)
 	require.NoError(t, err)
 
 	cmdString := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --import %s %s %s", distro.Name, tmpdir, jammyRootFs)
-	str, err := exec.Command("powershell.exe", "-Command", cmdString).CombinedOutput()
-	require.NoError(t, err, str)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second) // WSL sometimes gets stuck installing
+	defer cancel()
+
+	output, err := exec.CommandContext(ctx, "powershell.exe", "-Command", cmdString).CombinedOutput()
+	require.NoError(t, err, string(output))
 }

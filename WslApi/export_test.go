@@ -1,5 +1,7 @@
 package WslApi
 
+// This file exports private functions used for unit testing
+
 // Types
 type Flags = wslFlags
 

@@ -1,5 +1,7 @@
 package WslApi
 
+// This file contains utilities to launch commands into WSL instances.
+
 import (
 	"fmt"
 	"syscall"

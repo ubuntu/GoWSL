@@ -1,5 +1,7 @@
 package WslApi_test
 
+// This file conatains testing functionality
+
 import (
 	"WslApi"
 	"context"

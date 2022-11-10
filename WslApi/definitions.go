@@ -1,5 +1,7 @@
 package WslApi
 
+// This file has various constant and type definitions.
+
 // Instance is an abstraction around a WSL instance.
 type Instance struct {
 	Name string

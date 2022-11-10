@@ -1,10 +1,21 @@
 package WslApi
 
+// This file contains utilities to create, destroy, stop WSL instances,
+// as well as utilities to query this status.
+
 import (
 	"fmt"
 	"syscall"
 	"unsafe"
 )
+
+func (i Instance) Shutdown() error {
+	return shutdown()
+}
+
+func (i Instance) Terminate() error {
+	return terminate(i.Name)
+}
 
 // Register is a wrapper around Win32's WslRegisterDistribution
 func (instance Instance) Register(rootFsPath string) error {

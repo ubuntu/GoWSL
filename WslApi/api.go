@@ -1,7 +1,7 @@
 package WslApi
 
-// Distro is an abstraction around a WSL instance.
-type Distro struct {
+// Instance is an abstraction around a WSL instance.
+type Instance struct {
 	Name string
 }
 
@@ -28,7 +28,7 @@ const (
 	fENABLE_DRIVE_MOUNTING wslFlags = 0x4
 
 	// Per conversation at https://github.com/microsoft/WSL-DistroLauncher/issues/96
-	// the information about version 1 or 2 is on the 4th bit of the distro flags, which is not
+	// the information about version 1 or 2 is on the 4th bit of the flags, which is not
 	// currently referenced by the API nor docs.
 	fUNDOCUMENTED_WSL_VERSION wslFlags = 0x8
 )

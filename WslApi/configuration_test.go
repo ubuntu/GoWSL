@@ -67,7 +67,7 @@ func TestPackFlags(t *testing.T) {
 }
 
 // Overrides the values in baseline with the ones passed as arguments
-// The arguments are the mutable values in WslApi.Distro.Configure
+// The arguments are the mutable values in WslApi.Instance.Configure
 func overrideMutableConfig(baseline WslApi.Configuration, DefaultUID uint32, InteropEnabled bool, PathAppended bool, DriveMountingEnabled bool) WslApi.Configuration {
 	baseline.DefaultUID = DefaultUID
 	baseline.InteropEnabled = InteropEnabled
@@ -79,14 +79,13 @@ func overrideMutableConfig(baseline WslApi.Configuration, DefaultUID uint32, Int
 func TestConfigure(tst *testing.T) {
 	t := NewTester(tst)
 
-	distro := t.NewDistro("jammy")
-	t.RegisterFromPowershell(distro, jammyRootFs)
+	inst := t.NewWslInstance("jammy")
+	t.RegisterFromPowershell(inst, jammyRootFs)
 
-	exitCode, err := distro.LaunchInteractive("useradd testuser", false)
+	err := inst.LaunchInteractive("useradd testuser", false)
 	require.NoError(t, err)
-	require.Equal(t, exitCode, WslApi.ExitCode(0))
 
-	default_config, err := distro.GetConfiguration()
+	default_config, err := inst.GetConfiguration()
 	require.NoError(t, err)
 
 	tests := map[string]WslApi.Configuration{
@@ -110,13 +109,13 @@ func TestConfigure(tst *testing.T) {
 
 	for name, wants := range tests {
 		tst.Run(name, func(tst *testing.T) {
-			defer distro.Configure(default_config) // Reseting to default state
+			defer inst.Configure(default_config) // Reseting to default state
 			t := NewTester(tst)
 
-			err = distro.Configure(wants)
+			err = inst.Configure(wants)
 			require.NoError(t, err)
 
-			got, err := distro.GetConfiguration()
+			got, err := inst.GetConfiguration()
 			require.NoError(t, err)
 
 			// Config test

@@ -30,15 +30,15 @@ func Shutdown() error {
 	return exec.Command("wsl.exe", "--shutdown").Run()
 }
 
-func (distro Distro) Terminate() error {
-	return exec.Command("wsl.exe", "--terminate", distro.Name).Run()
+func (i Instance) Terminate() error {
+	return exec.Command("wsl.exe", "--terminate", i.Name).Run()
 }
 
-// ListDistros returns a slice of the registered distros
-func registeredDistros() ([]Distro, error) {
+// registeredInstances returns a slice of the registered instances
+func registeredInstances() ([]Instance, error) {
 	lxssKey, err := registry.OpenKey(lxssRegistry, lxssPath, registry.READ)
 	if err != nil {
-		return nil, fmt.Errorf("cannot list distros: failed to open lxss registry: %v", err)
+		return nil, fmt.Errorf("cannot list instances: failed to open lxss registry: %v", err)
 	}
 	defer lxssKey.Close()
 
@@ -52,13 +52,13 @@ func registeredDistros() ([]Distro, error) {
 		panic(err)
 	}
 
-	distroCh := make(chan Distro)
+	instCh := make(chan Instance)
 	errorCh := make(chan error)
 
 	wg := sync.WaitGroup{}
 	for _, skName := range subkeys {
 		if skName == "AppxInstallerCache" {
-			continue // Not a distro
+			continue // Not a WSL instance
 		}
 
 		skName := skName
@@ -68,34 +68,34 @@ func registeredDistros() ([]Distro, error) {
 			d, e := readRegistryDistributionName(skName)
 			errorCh <- e
 			if e != nil {
-				distroCh <- Distro{Name: "MALFORMED_DISTRO"}
+				instCh <- Instance{Name: "MALFORMED_WSL_INSTANCE"}
 				return
 			}
-			distroCh <- Distro{Name: d}
+			instCh <- Instance{Name: d}
 		}()
 	}
 
 	go func() {
-		defer close(distroCh)
+		defer close(instCh)
 		defer close(errorCh)
 		wg.Wait()
 	}()
 
 	// Collecting results
-	distros := []Distro{}
+	instances := []Instance{}
 	e, oke := <-errorCh
-	d, okd := <-distroCh
+	d, okd := <-instCh
 
 	for okd && oke {
 		if e != nil {
-			return []Distro{}, e
+			return []Instance{}, e
 		}
-		distros = append(distros, d)
+		instances = append(instances, d)
 		e, oke = <-errorCh
-		d, okd = <-distroCh
+		d, okd = <-instCh
 	}
 
-	return distros, nil
+	return instances, nil
 }
 
 // readRegistryDistributionName returs the value of DistributionName from a registry path.

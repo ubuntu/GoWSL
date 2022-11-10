@@ -15,8 +15,8 @@ type WslProcess struct {
 	UseCWD bool
 
 	// Immutable parameters
-	distroName string
-	command    string
+	instance *Instance
+	command  string
 
 	// Book-keeping
 	handle syscall.Handle
@@ -30,24 +30,24 @@ func (m *ExitError) Error() string {
 	return fmt.Sprintf("exit error: %d", m.Code)
 }
 
-func (distro *Distro) NewWslProcess(command string) WslProcess {
+func (i *Instance) NewWslProcess(command string) WslProcess {
 	return WslProcess{
-		Stdin:      syscall.Stdin,
-		Stdout:     syscall.Stdout,
-		Stderr:     syscall.Stderr,
-		UseCWD:     false,
-		distroName: distro.Name,
-		handle:     0,
-		command:    command,
+		Stdin:    syscall.Stdin,
+		Stdout:   syscall.Stdout,
+		Stderr:   syscall.Stderr,
+		UseCWD:   false,
+		instance: i,
+		handle:   0,
+		command:  command,
 	}
 }
 
 // LaunchInteractive is a wrapper around Win32's WslLaunchInteractive.
 // This is a syncronous, blocking call.
-func (distro *Distro) LaunchInteractive(command string, useCWD bool) error {
-	distroNameUTF16, err := syscall.UTF16PtrFromString(distro.Name)
+func (i *Instance) LaunchInteractive(command string, useCWD bool) error {
+	instanceUTF16, err := syscall.UTF16PtrFromString(i.Name)
 	if err != nil {
-		return fmt.Errorf("failed to convert '%s' to UTF16", distro.Name)
+		return fmt.Errorf("failed to convert '%s' to UTF16", i.Name)
 	}
 
 	commandUTF16, err := syscall.UTF16PtrFromString(command)
@@ -63,7 +63,7 @@ func (distro *Distro) LaunchInteractive(command string, useCWD bool) error {
 	var exitCode ExitCode
 
 	r1, _, _ := wslLaunchInteractive.Call(
-		uintptr(unsafe.Pointer(distroNameUTF16)),
+		uintptr(unsafe.Pointer(instanceUTF16)),
 		uintptr(unsafe.Pointer(commandUTF16)),
 		uintptr(useCwd),
 		uintptr(unsafe.Pointer(&exitCode)))
@@ -86,8 +86,8 @@ func (distro *Distro) LaunchInteractive(command string, useCWD bool) error {
 // LaunchInteractive is a wrapper around Win32's WslLaunchInteractive.
 // It launches a process asyncronously and returns a handle to it.
 // Note that the returned process is the Windows process, and closing it will not close the Linux process it invoked.
-func (distro *Distro) Launch(command string, useCWD bool, stdIn syscall.Handle, stdOut syscall.Handle, stdErr syscall.Handle) (WslProcess, error) {
-	process := distro.NewWslProcess(command)
+func (i *Instance) Launch(command string, useCWD bool, stdIn syscall.Handle, stdOut syscall.Handle, stdErr syscall.Handle) (WslProcess, error) {
+	process := i.NewWslProcess(command)
 	return process, process.Start()
 }
 
@@ -96,9 +96,9 @@ func (distro *Distro) Launch(command string, useCWD bool, stdIn syscall.Handle, 
 // The Wait method will return the exit code and release associated resources
 // once the command exits.
 func (p *WslProcess) Start() error {
-	distroNameUTF16, err := syscall.UTF16PtrFromString(p.distroName)
+	instanceUTF16, err := syscall.UTF16PtrFromString(p.instance.Name)
 	if err != nil {
-		return fmt.Errorf("failed to convert '%s' to UTF16", p.distroName)
+		return fmt.Errorf("failed to convert '%s' to UTF16", p.instance)
 	}
 
 	commandUTF16, err := syscall.UTF16PtrFromString(p.command)
@@ -112,7 +112,7 @@ func (p *WslProcess) Start() error {
 	}
 
 	r1, _, _ := wslLaunch.Call(
-		uintptr(unsafe.Pointer(distroNameUTF16)),
+		uintptr(unsafe.Pointer(instanceUTF16)),
 		uintptr(unsafe.Pointer(commandUTF16)),
 		uintptr(useCwd),
 		uintptr(p.Stdin),

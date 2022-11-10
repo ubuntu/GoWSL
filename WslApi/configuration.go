@@ -170,7 +170,7 @@ func processEnvVariables(cStringArray **char, len uint64) map[string]string {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			goStr := stringCtoGo(cStr)
+			goStr := stringCtoGo(cStr, 32768)
 			idx := strings.Index(goStr, "=")
 			keys <- goStr[:idx]
 			values <- goStr[idx+1:]
@@ -199,8 +199,9 @@ func processEnvVariables(cStringArray **char, len uint64) map[string]string {
 }
 
 // stringCtoGo converts a null-terminated *char into a string
-func stringCtoGo(cString *char) (goString string) {
-	size := strnlen(cString, 32768)
+// maxlen is the max distance that will searched. It is meant to mitigate buffer overflow.
+func stringCtoGo(cString *char, maxlen uint64) (goString string) {
+	size := strnlen(cString, maxlen)
 	return string(unsafe.Slice(cString, size))
 }
 

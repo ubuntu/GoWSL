@@ -3,6 +3,9 @@ package WslApi
 import (
 	"fmt"
 	"strings"
+	"sync"
+	"syscall"
+	"unsafe"
 )
 
 // Configuration is the configuration of the distro.
@@ -14,6 +17,70 @@ type Configuration struct {
 	DriveMountingEnabled        bool              // Whether drive mounting is enabled
 	undocumentedWSLVersion      uint8             // Undocumented variable. WSL1 vs. WSL2.
 	DefaultEnvironmentVariables map[string]string // Environment variables passed to the distro by default
+}
+
+// Configure is a wrapper around Win32's WslConfigureDistribution.
+// Note that only the following config is mutable:
+//  - DefaultUID
+//  - InteropEnabled
+//  - PathAppended
+//  - DriveMountingEnabled
+func (distro *Distro) Configure(config Configuration) error {
+
+	distroNameUTF16, err := syscall.UTF16PtrFromString(distro.Name)
+	if err != nil {
+		return fmt.Errorf("failed to convert '%s' to UTF16", distro.Name)
+	}
+
+	flags, err := config.packFlags()
+	if err != nil {
+		return err
+	}
+
+	r1, _, _ := wslConfigureDistribution.Call(
+		uintptr(unsafe.Pointer(distroNameUTF16)),
+		uintptr(config.DefaultUID),
+		uintptr(flags),
+	)
+
+	if r1 != 0 {
+		return fmt.Errorf("failed syscall to WslConfigureDistribution")
+	}
+
+	return nil
+}
+
+// GetConfiguration is a wrapper around Win32's WslGetDistributionConfiguration.
+func (distro Distro) GetConfiguration() (Configuration, error) {
+	var conf Configuration
+
+	distroNameUTF16, err := syscall.UTF16PtrFromString(distro.Name)
+	if err != nil {
+		return conf, fmt.Errorf("failed to convert '%s' to UTF16", distro.Name)
+	}
+
+	var (
+		flags        wslFlags
+		envVarsBegin = new(*char)
+		envVarsLen   uint64 // size_t
+	)
+
+	r1, _, _ := wslGetDistributionConfiguration.Call(
+		uintptr(unsafe.Pointer(distroNameUTF16)),
+		uintptr(unsafe.Pointer(&conf.Version)),
+		uintptr(unsafe.Pointer(&conf.DefaultUID)),
+		uintptr(unsafe.Pointer(&flags)),
+		uintptr(unsafe.Pointer(&envVarsBegin)),
+		uintptr(unsafe.Pointer(&envVarsLen)),
+	)
+
+	if r1 != 0 {
+		return conf, fmt.Errorf("failed syscall to WslGetDistributionConfiguration")
+	}
+
+	conf.unpackFlags(flags)
+	conf.DefaultEnvironmentVariables = processEnvVariables(envVarsBegin, envVarsLen)
+	return conf, nil
 }
 
 // String deserializes a Configuration object as a yaml string
@@ -87,4 +154,68 @@ func (conf Configuration) packFlags() (wslFlags, error) {
 	}
 
 	return flags, nil
+}
+
+// processEnvVariables takes the **char and length obtained from Win32's API and returs a
+// map[variableName]variableValue
+func processEnvVariables(cStringArray **char, len uint64) map[string]string {
+	stringPtrs := unsafe.Slice(cStringArray, len)
+
+	keys := make(chan string)
+	values := make(chan string)
+
+	wg := sync.WaitGroup{}
+	for _, cStr := range stringPtrs {
+		cStr := cStr
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			goStr := stringCtoGo(cStr)
+			idx := strings.Index(goStr, "=")
+			keys <- goStr[:idx]
+			values <- goStr[idx+1:]
+		}()
+	}
+
+	go func() {
+		defer close(keys)
+		defer close(values)
+		wg.Wait()
+	}()
+
+	// Collecting results
+	m := map[string]string{}
+
+	k, okk := <-keys
+	v, okv := <-values
+	for okk && okv {
+		m[k] = v
+
+		k, okk = <-keys
+		v, okv = <-values
+	}
+
+	return m
+}
+
+// stringCtoGo converts a null-terminated *char into a string
+func stringCtoGo(cString *char) (goString string) {
+	size := strnlen(cString, 32768)
+	return string(unsafe.Slice(cString, size))
+}
+
+// strnlen finds the null terminator to determine *char length.
+// The null terminator itself is not counted towards the length.
+// maxlen is the max distance that will searched. It is meant to mitigate buffer overflow.
+func strnlen(ptr *char, maxlen uint64) (length uint64) {
+	length = 0
+	for ; *ptr != 0 && length <= maxlen; ptr = charNext(ptr) {
+		length++
+	}
+	return length
+}
+
+// charNext advances *char by one position
+func charNext(ptr *char) *char {
+	return (*char)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr)) + unsafe.Sizeof(char(0))))
 }

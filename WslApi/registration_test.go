@@ -1,6 +1,7 @@
 package WslApi_test
 
 import (
+	"WslApi"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -21,10 +22,27 @@ func TestRegister(tst *testing.T) {
 	err = distro1.Register(jammyRootFs)
 	require.Error(t, err) // Double registration disallowed
 
-	testDistros, err := findTestDistros()
+	testDistros, err := RegisteredTestDistros()
 	require.NoError(t, err)
 	require.Contains(t, testDistros, distro1)
 	require.NotContains(t, testDistros, distro2)
+}
+
+func TestRegisteredDistros(tst *testing.T) {
+	t := NewTester(tst)
+	d1 := t.NewDistro("Ubuntu")
+	d2 := t.NewDistro("Ubuntu.Again")
+	d3 := t.NewDistro("NotRegistered")
+
+	registerViaCommandline(t, d1)
+	registerViaCommandline(t, d2)
+
+	list, err := WslApi.RegisteredDistros()
+	require.NoError(t, err)
+
+	require.Contains(t, list, d1)
+	require.Contains(t, list, d2)
+	require.NotContains(t, list, d3)
 }
 
 func TestIsRegistered(tst *testing.T) {
@@ -35,37 +53,35 @@ func TestIsRegistered(tst *testing.T) {
 		wantRegistered bool
 	}{
 		"nominal":    {distroName: "UbuntuNominal", register: true, wantError: false, wantRegistered: true},
-		"inexistent": {distroName: "Ubuntu.inexistent", register: false, wantError: false, wantRegistered: false},
-		"invalid":    {distroName: "Ubuntu . invalid", register: false, wantError: false, wantRegistered: false},
+		"inexistent": {distroName: "UbuntuInexistent", register: false, wantError: false, wantRegistered: false},
+		"wrong_name": {distroName: "Ubuntu Wrong Name", register: false, wantError: false, wantRegistered: false},
 	}
 
 	for name, config := range tests {
 		name := name
 		config := config
 
-		func(tst *testing.T) {
+		tst.Run(name, func(tst *testing.T) {
 			t := NewTester(tst)
 			distro := t.NewDistro(config.distroName)
 
 			if config.register {
-				err := distro.Register(jammyRootFs)
-				require.NoError(t, err, "Failure for subtest %s", name)
-				defer distro.Unregister()
+				registerViaCommandline(t, distro)
 			}
 
 			reg, err := distro.IsRegistered()
 			if config.wantError {
-				require.Error(t, err, "Failure for subtest %s", name)
+				require.Error(t, err)
 			} else {
-				require.NoError(t, err, "Failure for subtest %s", name)
+				require.NoError(t, err)
 			}
 
 			if config.wantRegistered {
-				require.True(t, reg, "Failure for subtest %s", name)
+				require.True(t, reg)
 			} else {
-				require.False(t, reg, "Failure for subtest %s", name)
+				require.False(t, reg)
 			}
-		}(tst)
+		})
 	}
 }
 
@@ -76,11 +92,9 @@ func TestUnRegister(tst *testing.T) {
 	distro2 := t.NewDistro("ThisDistroDoesNotExist")
 	distro3 := t.NewDistro("This Distro Is Not Valid")
 
-	t.Logf(distro1.Name)
-	err := distro1.Register(jammyRootFs)
-	require.NoError(t, err)
+	registerViaCommandline(t, distro1)
 
-	testDistros, err := findTestDistros()
+	testDistros, err := RegisteredTestDistros()
 	require.NoError(t, err)
 	require.Contains(t, testDistros, distro1)
 	require.NotContains(t, testDistros, distro2)
@@ -95,7 +109,7 @@ func TestUnRegister(tst *testing.T) {
 	err = distro3.Unregister()
 	require.Error(t, err)
 
-	testDistros, err = findTestDistros()
+	testDistros, err = RegisteredTestDistros()
 	require.NoError(t, err)
 	require.NotContains(t, testDistros, distro1)
 	require.NotContains(t, testDistros, distro2)

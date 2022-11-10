@@ -2,9 +2,9 @@ package main
 
 import (
 	"WslApi"
+	"errors"
 	"fmt"
 	"syscall"
-	"time"
 )
 
 func main() {
@@ -34,20 +34,29 @@ func main() {
 	config.PathAppended = false
 	distro.Configure(config)
 
-	// Launching async command
+	// Launching async command (Win32 style)
 	process, err := distro.Launch(`sleep 3 && echo "Good morning!"`, false, 0, syscall.Stdout, syscall.Stdout)
 	if err != nil {
 		panic(err)
 	}
 	defer process.Close()
-	pStatus, pError := process.AsyncWait(time.Minute)
 
 	// Launching a regular command (should fail as per config change)
-	distro.LaunchInteractive("notepad.exe", false)
+	err = distro.LaunchInteractive("notepad.exe", false)
+	if err != nil {
+		fmt.Printf("Sync command unsuccesful: %v\n", err)
+	}
+	fmt.Printf("Sync command succesful\n")
 
 	// Managing the result of the async command
-	if err = <-pError; err != nil {
+	err = process.Wait()
+	if err != nil && !errors.Is(err, &WslApi.ExitError{}) {
 		panic(err)
 	}
-	fmt.Printf("Exit status: %d", <-pStatus)
+
+	if err != nil {
+		fmt.Printf("Unsuccesful async command: %v\n", err)
+		return
+	}
+	fmt.Printf("Succesful async command!\n")
 }

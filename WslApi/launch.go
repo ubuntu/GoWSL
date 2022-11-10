@@ -2,28 +2,57 @@ package WslApi
 
 import (
 	"fmt"
-	"math"
 	"syscall"
-	"time"
 	"unsafe"
 )
 
 // WslProcess is a wrapper around the Windows process spawned by WslLaunch
 type WslProcess struct {
-	syscall.Handle
+	// Public parameters
+	Stdout syscall.Handle
+	Stdin  syscall.Handle
+	Stderr syscall.Handle
+	UseCWD bool
+
+	// Immutable parameters
+	distroName string
+	command    string
+
+	// Book-keeping
+	handle syscall.Handle
+}
+
+type ExitError struct {
+	Code ExitCode
+}
+
+func (m *ExitError) Error() string {
+	return fmt.Sprintf("exit error: %d", m.Code)
+}
+
+func (distro *Distro) NewWslProcess(command string) WslProcess {
+	return WslProcess{
+		Stdin:      syscall.Stdin,
+		Stdout:     syscall.Stdout,
+		Stderr:     syscall.Stderr,
+		UseCWD:     false,
+		distroName: distro.Name,
+		handle:     0,
+		command:    command,
+	}
 }
 
 // LaunchInteractive is a wrapper around Win32's WslLaunchInteractive.
 // This is a syncronous, blocking call.
-func (distro *Distro) LaunchInteractive(command string, useCWD bool) (ExitCode, error) {
+func (distro *Distro) LaunchInteractive(command string, useCWD bool) error {
 	distroNameUTF16, err := syscall.UTF16PtrFromString(distro.Name)
 	if err != nil {
-		return 0, fmt.Errorf("failed to convert '%s' to UTF16", distro.Name)
+		return fmt.Errorf("failed to convert '%s' to UTF16", distro.Name)
 	}
 
 	commandUTF16, err := syscall.UTF16PtrFromString(command)
 	if err != nil {
-		return 0, fmt.Errorf("failed to convert '%s' to UTF16", command)
+		return fmt.Errorf("failed to convert '%s' to UTF16", command)
 	}
 
 	var useCwd wBOOL = 0
@@ -40,113 +69,109 @@ func (distro *Distro) LaunchInteractive(command string, useCWD bool) (ExitCode, 
 		uintptr(unsafe.Pointer(&exitCode)))
 
 	if r1 != 0 {
-		return exitCode, fmt.Errorf("failed syscall to WslLaunchInteractive")
+		return fmt.Errorf("failed syscall to WslLaunchInteractive")
 	}
 
 	if exitCode == WindowsError {
-		return exitCode, fmt.Errorf("nonzero return value from WslLaunchInteractive (error code %d)", exitCode)
+		return fmt.Errorf("error on windows' side on WslLaunchInteractive")
 	}
 
-	return exitCode, nil
+	if exitCode != 0 {
+		return &ExitError{Code: exitCode}
+	}
+
+	return nil
 }
 
 // LaunchInteractive is a wrapper around Win32's WslLaunchInteractive.
 // It launches a process asyncronously and returns a handle to it.
 // Note that the returned process is the Windows process, and closing it will not close the Linux process it invoked.
 func (distro *Distro) Launch(command string, useCWD bool, stdIn syscall.Handle, stdOut syscall.Handle, stdErr syscall.Handle) (WslProcess, error) {
-	distroNameUTF16, err := syscall.UTF16PtrFromString(distro.Name)
+	process := distro.NewWslProcess(command)
+	process.Start()
+	return process, nil
+}
+
+// Start starts the specified command but does not wait for it to complete.
+//
+// The Wait method will return the exit code and release associated resources
+// once the command exits.
+func (p *WslProcess) Start() error {
+	distroNameUTF16, err := syscall.UTF16PtrFromString(p.distroName)
 	if err != nil {
-		return WslProcess{0}, fmt.Errorf("failed to convert '%s' to UTF16", distro.Name)
+		return fmt.Errorf("failed to convert '%s' to UTF16", p.distroName)
 	}
 
-	commandUTF16, err := syscall.UTF16PtrFromString(command)
+	commandUTF16, err := syscall.UTF16PtrFromString(p.command)
 	if err != nil {
-		return WslProcess{0}, fmt.Errorf("failed to convert '%s' to UTF16", command)
+		return fmt.Errorf("failed to convert '%s' to UTF16", p.command)
 	}
 
 	var useCwd wBOOL = 0
-	if useCWD {
+	if p.UseCWD {
 		useCwd = 1
 	}
-
-	var process syscall.Handle = 0
 
 	r1, _, _ := wslLaunch.Call(
 		uintptr(unsafe.Pointer(distroNameUTF16)),
 		uintptr(unsafe.Pointer(commandUTF16)),
 		uintptr(useCwd),
-		uintptr(stdIn),
-		uintptr(stdOut),
-		uintptr(stdErr),
-		uintptr(unsafe.Pointer(&process)))
+		uintptr(p.Stdin),
+		uintptr(p.Stdout),
+		uintptr(p.Stderr),
+		uintptr(unsafe.Pointer(&p.handle)))
 
 	if r1 != 0 {
-		return WslProcess{0}, fmt.Errorf("failed syscall to WslLaunch")
+		return fmt.Errorf("failed syscall to WslLaunch")
 	}
-
-	return WslProcess{Handle: process}, nil
+	return nil
 }
 
 // Wait blocks execution until the process finishes and returns the process exit status.
-func (process WslProcess) Wait(timeout time.Duration) (ExitCode, error) {
-	if process.Handle == 0 {
-		return 0, fmt.Errorf("cannot wait on a null process")
-	}
-
-	t, err := toWin32Miliseconds(timeout)
-	if err != nil {
-		return 0, err
-	}
-
-	r1, _ := syscall.WaitForSingleObject(process.Handle, t)
+//
+// The returned error is nil if the command runs and exits with a zero exit status.
+//
+// If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
+func (p WslProcess) Wait() error {
+	defer p.Close()
+	r1, error := syscall.WaitForSingleObject(p.handle, syscall.INFINITE)
 	if r1 != 0 {
-		return 0, fmt.Errorf("failed syscall to WaitForSingleObject")
+		return fmt.Errorf("failed syscall to WaitForSingleObject: %v", error)
 	}
 
-	return process.GetStatus()
+	return p.queryStatus()
 }
 
-// AsyncWait creates two channels to asyncrounously get the result of a WslProcess.
-func (process WslProcess) AsyncWait(timeout time.Duration) (chan ExitCode, chan error) {
-	exitStatus := make(chan ExitCode)
-	err := make(chan error)
+// Run starts the specified command and waits for it to complete.
+//
+// The returned error is nil if the command runs and exits with a zero exit status.
+//
+// If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
+func (p *WslProcess) Run() error {
+	if err := p.Start(); err != nil {
+		return err
+	}
+	return p.Wait()
+}
 
-	go func() {
-		code, e := process.Wait(timeout)
-		err <- e
-		exitStatus <- code
+// Close closes a WslProcess. If it was still running, it is terminated,
+// although its Linux counterpart may not.
+func (p *WslProcess) Close() error {
+	defer func() {
+		p.handle = 0
 	}()
-
-	return exitStatus, err
+	return syscall.CloseHandle(p.handle)
 }
 
-// Close closes a WslProcess and returns its exit status.
-func (process *WslProcess) Close() (exitStatus ExitCode, err error) {
-	if process.Handle == 0 {
-		return 0, fmt.Errorf("cannot close a null process")
+// queryStatus querries Windows for the process' status.
+func (p *WslProcess) queryStatus() error {
+	exit := ExitCode(0)
+	err := syscall.GetExitCodeProcess(p.handle, &exit)
+	if err != nil {
+		return err
 	}
-
-	if exitStatus, err = process.GetStatus(); err != nil {
-		return exitStatus, err
+	if exit != 0 {
+		return &ExitError{Code: exit}
 	}
-
-	err = syscall.CloseHandle(process.Handle)
-	process.Handle = 0
-
-	return exitStatus, err
-}
-
-// GetStatus querries a process to get its status.
-func (process WslProcess) GetStatus() (exitStatus ExitCode, err error) {
-	err = syscall.GetExitCodeProcess(process.Handle, &exitStatus)
-	return exitStatus, err
-}
-
-// toWin32Miliseconds converts time.Duration into a uint32 and performs bounds checking
-func toWin32Miliseconds(time time.Duration) (uint32, error) {
-	t := time.Milliseconds()
-	if t < 0 || t > math.MaxUint32 {
-		return uint32(t), fmt.Errorf("out-of-bounds narrowing conversion: Win32 API time must fit in a uint32")
-	}
-	return uint32(t), nil
+	return nil
 }

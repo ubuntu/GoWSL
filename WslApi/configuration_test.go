@@ -10,8 +10,6 @@ import (
 )
 
 func TestUnpackFlags(t *testing.T) {
-	t.Parallel()
-
 	tests := map[WslApi.Flags]WslApi.Configuration{
 		0x0: {InteropEnabled: false, PathAppended: false, DriveMountingEnabled: false},
 		0x1: {InteropEnabled: true, PathAppended: false, DriveMountingEnabled: false},
@@ -46,8 +44,6 @@ func TestUnpackFlags(t *testing.T) {
 }
 
 func TestPackFlags(t *testing.T) {
-	t.Parallel()
-
 	tests := map[WslApi.Flags]WslApi.Configuration{
 		0x0: {InteropEnabled: false, PathAppended: false, DriveMountingEnabled: false},
 		0x1: {InteropEnabled: true, PathAppended: false, DriveMountingEnabled: false},
@@ -98,7 +94,7 @@ func TestConfigure(tst *testing.T) {
 		time.Sleep(15 * time.Second)
 		t.Logf("Running test case %s\n", name)
 
-		distro := setUpDistro(&t, name)
+		distro := setUpDistro(t, name)
 		conf, err := distro.GetConfiguration()
 		require.NoError(t, err)
 
@@ -127,8 +123,7 @@ func TestConfigure(tst *testing.T) {
 // setUpDistros registers and creates a user
 func setUpDistro(t *Tester, name string) WslApi.Distro {
 	distro := t.NewDistro(name)
-	err := distro.Register(jammyRootFs)
-	require.NoError(t, err)
+	registerViaCommandline(t, distro)
 
 	reg, err := distro.IsRegistered()
 	require.NoError(t, err)

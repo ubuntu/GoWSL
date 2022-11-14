@@ -14,8 +14,8 @@ const (
 	ActiveProcess ExitCode = 259
 )
 
-// WslProcess is a wrapper around the Windows process spawned by WslLaunch
-type WslProcess struct {
+// Cmd is a wrapper around the Windows process spawned by WslLaunch
+type Cmd struct {
 	// Public parameters
 	Stdout syscall.Handle
 	Stdin  syscall.Handle
@@ -38,8 +38,12 @@ func (m *ExitError) Error() string {
 	return fmt.Sprintf("exit error: %d", m.Code)
 }
 
-func (i *Distro) Command(command string) WslProcess {
-	return WslProcess{
+// Command returns the Cmd struct to execute the named program with
+// the given arguments in the same string.
+//
+// It sets only the command and stdin/stdout/stderr in the returned structure.
+func (i *Distro) Command(command string) Cmd {
+	return Cmd{
 		Stdin:    syscall.Stdin,
 		Stdout:   syscall.Stdout,
 		Stderr:   syscall.Stderr,
@@ -54,7 +58,7 @@ func (i *Distro) Command(command string) WslProcess {
 //
 // The Wait method will return the exit code and release associated resources
 // once the command exits.
-func (p *WslProcess) Start() error {
+func (p *Cmd) Start() error {
 	instanceUTF16, err := syscall.UTF16PtrFromString(p.instance.Name)
 	if err != nil {
 		return fmt.Errorf("failed to convert '%s' to UTF16", p.instance)
@@ -90,7 +94,7 @@ func (p *WslProcess) Start() error {
 // The returned error is nil if the command runs and exits with a zero exit status.
 //
 // If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
-func (p WslProcess) Wait() error {
+func (p Cmd) Wait() error {
 	defer p.Close()
 	r1, error := syscall.WaitForSingleObject(p.handle, syscall.INFINITE)
 	if r1 != 0 {
@@ -105,7 +109,7 @@ func (p WslProcess) Wait() error {
 // The returned error is nil if the command runs and exits with a zero exit status.
 //
 // If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
-func (p *WslProcess) Run() error {
+func (p *Cmd) Run() error {
 	if err := p.Start(); err != nil {
 		return err
 	}
@@ -114,7 +118,7 @@ func (p *WslProcess) Run() error {
 
 // Close closes a WslProcess. If it was still running, it is terminated,
 // although its Linux counterpart may not.
-func (p *WslProcess) Close() error {
+func (p *Cmd) Close() error {
 	defer func() {
 		p.handle = 0
 	}()
@@ -122,7 +126,7 @@ func (p *WslProcess) Close() error {
 }
 
 // queryStatus querries Windows for the process' status.
-func (p *WslProcess) queryStatus() error {
+func (p *Cmd) queryStatus() error {
 	exit := ExitCode(0)
 	err := syscall.GetExitCodeProcess(p.handle, &exit)
 	if err != nil {

@@ -1,5 +1,7 @@
 package wsl
 
+// This file contains utilities to interact with a Distro and its configuration
+
 import (
 	"fmt"
 	"strings"

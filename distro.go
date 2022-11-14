@@ -18,15 +18,15 @@ type Distro struct {
 type wslFlags int
 
 const (
-	fNONE                  wslFlags = 0x0
-	fENABLE_INTEROP        wslFlags = 0x1
-	fAPPEND_NT_PATH        wslFlags = 0x2
-	fENABLE_DRIVE_MOUNTING wslFlags = 0x4
+	flag_NONE                  wslFlags = 0x0
+	flag_ENABLE_INTEROP        wslFlags = 0x1
+	flag_APPEND_NT_PATH        wslFlags = 0x2
+	flag_ENABLE_DRIVE_MOUNTING wslFlags = 0x4
 
 	// Per conversation at https://github.com/microsoft/WSL-DistroLauncher/issues/96
 	// the information about version 1 or 2 is on the 4th bit of the flags, which is not
 	// currently referenced by the API nor docs.
-	fUNDOCUMENTED_WSL_VERSION wslFlags = 0x8
+	flag_undocumented_WSL_VERSION wslFlags = 0x8
 )
 
 // Configuration is the configuration of the instance.
@@ -40,35 +40,44 @@ type Configuration struct {
 	DefaultEnvironmentVariables map[string]string // Environment variables passed to the instance by default
 }
 
-// Configure is a wrapper around Win32's WslConfigureDistribution.
-// Note that only the following config is mutable:
-//  - DefaultUID
-//  - InteropEnabled
-//  - PathAppended
-//  - DriveMountingEnabled
-func (i *Distro) Configure(config Configuration) error {
-
-	instanceUTF16, err := syscall.UTF16PtrFromString(i.Name)
-	if err != nil {
-		return fmt.Errorf("failed to convert '%s' to UTF16", i.Name)
-	}
-
-	flags, err := config.packFlags()
+// DefaultUID sets the user you log in as when you run a command
+func (d *Distro) DefaultUID(uid uint32) error {
+	conf, err := d.GetConfiguration()
 	if err != nil {
 		return err
 	}
+	conf.DefaultUID = uid
+	return d.configure(conf)
+}
 
-	r1, _, _ := wslConfigureDistribution.Call(
-		uintptr(unsafe.Pointer(instanceUTF16)),
-		uintptr(config.DefaultUID),
-		uintptr(flags),
-	)
-
-	if r1 != 0 {
-		return fmt.Errorf("failed syscall to WslConfigureDistribution")
+// InteropEnabled sets the ENABLE_INTEROP flag to the provided value
+func (d *Distro) InteropEnabled(value bool) error {
+	conf, err := d.GetConfiguration()
+	if err != nil {
+		return err
 	}
+	conf.InteropEnabled = value
+	return d.configure(conf)
+}
 
-	return nil
+// PathAppended sets the APPEND_NT_PATH flag to the provided value
+func (d *Distro) PathAppended(value bool) error {
+	conf, err := d.GetConfiguration()
+	if err != nil {
+		return err
+	}
+	conf.PathAppended = value
+	return d.configure(conf)
+}
+
+// DriveMountingEnabled sets the ENABLE_DRIVE_MOUNTING flag to the provided value
+func (d *Distro) DriveMountingEnabled(value bool) error {
+	conf, err := d.GetConfiguration()
+	if err != nil {
+		return err
+	}
+	conf.DriveMountingEnabled = value
+	return d.configure(conf)
 }
 
 // GetConfiguration is a wrapper around Win32's WslGetDistributionConfiguration.
@@ -127,49 +136,80 @@ func (conf Configuration) String() string {
 `, conf.Version, conf.DefaultUID, conf.InteropEnabled, conf.PathAppended, conf.DriveMountingEnabled, conf.undocumentedWSLVersion, envJSON)
 }
 
+// configure is a wrapper around Win32's WslConfigureDistribution.
+// Note that only the following config is mutable:
+//  - DefaultUID
+//  - InteropEnabled
+//  - PathAppended
+//  - DriveMountingEnabled
+func (i *Distro) configure(config Configuration) error {
+
+	instanceUTF16, err := syscall.UTF16PtrFromString(i.Name)
+	if err != nil {
+		return fmt.Errorf("failed to convert '%s' to UTF16", i.Name)
+	}
+
+	flags, err := config.packFlags()
+	if err != nil {
+		return err
+	}
+
+	r1, _, _ := wslConfigureDistribution.Call(
+		uintptr(unsafe.Pointer(instanceUTF16)),
+		uintptr(config.DefaultUID),
+		uintptr(flags),
+	)
+
+	if r1 != 0 {
+		return fmt.Errorf("failed syscall to WslConfigureDistribution")
+	}
+
+	return nil
+}
+
 // unpackFlags examines a winWslFlags object and stores its findings in the Configuration
 func (conf *Configuration) unpackFlags(flags wslFlags) {
 	conf.InteropEnabled = false
-	if flags&fENABLE_INTEROP != 0 {
+	if flags&flag_ENABLE_INTEROP != 0 {
 		conf.InteropEnabled = true
 	}
 
 	conf.PathAppended = false
-	if flags&fAPPEND_NT_PATH != 0 {
+	if flags&flag_APPEND_NT_PATH != 0 {
 		conf.PathAppended = true
 	}
 
 	conf.DriveMountingEnabled = false
-	if flags&fENABLE_DRIVE_MOUNTING != 0 {
+	if flags&flag_ENABLE_DRIVE_MOUNTING != 0 {
 		conf.DriveMountingEnabled = true
 	}
 
 	conf.undocumentedWSLVersion = 1
-	if flags&fUNDOCUMENTED_WSL_VERSION != 0 {
+	if flags&flag_undocumented_WSL_VERSION != 0 {
 		conf.undocumentedWSLVersion = 2
 	}
 }
 
 // packFlags generates a winWslFlags object from the Configuration
 func (conf Configuration) packFlags() (wslFlags, error) {
-	flags := fNONE
+	flags := flag_NONE
 
 	if conf.InteropEnabled {
-		flags = flags | fENABLE_INTEROP
+		flags = flags | flag_ENABLE_INTEROP
 	}
 
 	if conf.PathAppended {
-		flags = flags | fAPPEND_NT_PATH
+		flags = flags | flag_APPEND_NT_PATH
 	}
 
 	if conf.DriveMountingEnabled {
-		flags = flags | fENABLE_DRIVE_MOUNTING
+		flags = flags | flag_ENABLE_DRIVE_MOUNTING
 	}
 
 	switch conf.undocumentedWSLVersion {
 	case 1:
 	case 2:
-		flags = flags | fUNDOCUMENTED_WSL_VERSION
+		flags = flags | flag_undocumented_WSL_VERSION
 	default:
 		return flags, fmt.Errorf("unknown WSL version %d", conf.undocumentedWSLVersion)
 	}

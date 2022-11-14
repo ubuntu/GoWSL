@@ -7,16 +7,16 @@ import (
 )
 
 func main() {
-	distro := wsl.Distro{Name: "Ubuntu-22.04"}
+	distro := wsl.Distro{Name: "Ubuntu-22.04-test"}
 
 	// Registering a new instance
-	// fmt.Println("Registering a new WSL instance...")
-	// if err := distro.Register(`C:\Users\edu19\Work\images\jammy.tar.gz`); err != nil {
-	// 	panic(err)
-	// }
+	fmt.Println("Registering a new WSL instance...")
+	if err := distro.Register(`C:\Users\edu19\Work\images\jammy.tar.gz`); err != nil {
+		panic(err)
+	}
 
 	// Ensuring the instance is unregistered at the end
-	// defer distro.Unregister()
+	defer distro.Unregister()
 
 	// Getting config and printing it
 	config, err := distro.GetConfiguration()
@@ -26,8 +26,7 @@ func main() {
 	fmt.Printf("%v", config)
 
 	// Setting config
-	config.PathAppended = false
-	distro.Configure(config)
+	distro.PathAppended(false)
 
 	// Launching async command
 	process1 := distro.Command(`sleep 3 && cat goodmorning.txt`)

@@ -19,7 +19,7 @@ func shutdown() error {
 	return exec.Command("wsl.exe", "--shutdown").Run()
 }
 
-// terminate shuts down a particular instance
+// terminate shuts down a particular distro
 //
 // It is analogous to
 //  `wsl.exe --terminate <distroName>`
@@ -27,14 +27,14 @@ func terminate(distroName string) error {
 	return exec.Command("wsl.exe", "--terminate", distroName).Run()
 }
 
-// registeredInstances returns a slice of the registered instances.
+// registeredInstances returns a slice of the registered distros.
 //
 // It is analogous to
 //  `wsl.exe --list --verbose`
 func registeredInstances() ([]Distro, error) {
 	lxssKey, err := registry.OpenKey(lxssRegistry, lxssPath, registry.READ)
 	if err != nil {
-		return nil, fmt.Errorf("cannot list instances: failed to open lxss registry: %v", err)
+		return nil, fmt.Errorf("cannot list distros: failed to open lxss registry: %v", err)
 	}
 	defer lxssKey.Close()
 
@@ -48,13 +48,13 @@ func registeredInstances() ([]Distro, error) {
 		panic(err)
 	}
 
-	instCh := make(chan Distro)
+	distroCh := make(chan Distro)
 	errorCh := make(chan error)
 
 	wg := sync.WaitGroup{}
 	for _, skName := range subkeys {
 		if skName == "AppxInstallerCache" {
-			continue // Not a WSL instance
+			continue // Not a WSL distro
 		}
 
 		skName := skName
@@ -64,34 +64,34 @@ func registeredInstances() ([]Distro, error) {
 			d, e := readRegistryDistributionName(skName)
 			errorCh <- e
 			if e != nil {
-				instCh <- Distro{Name: "MALFORMED_WSL_INSTANCE"}
+				distroCh <- Distro{Name: "MALFORMED_WSL_INSTANCE"}
 				return
 			}
-			instCh <- Distro{Name: d}
+			distroCh <- Distro{Name: d}
 		}()
 	}
 
 	go func() {
-		defer close(instCh)
+		defer close(distroCh)
 		defer close(errorCh)
 		wg.Wait()
 	}()
 
 	// Collecting results
-	instances := []Distro{}
+	distros := []Distro{}
 	e, oke := <-errorCh
-	d, okd := <-instCh
+	d, okd := <-distroCh
 
 	for okd && oke {
 		if e != nil {
 			return []Distro{}, e
 		}
-		instances = append(instances, d)
+		distros = append(distros, d)
 		e, oke = <-errorCh
-		d, okd = <-instCh
+		d, okd = <-distroCh
 	}
 
-	return instances, nil
+	return distros, nil
 }
 
 // readRegistryDistributionName returs the value of DistributionName from a registry path.

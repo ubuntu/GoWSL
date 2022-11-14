@@ -10,14 +10,14 @@ import (
 func TestConfiguration(tst *testing.T) {
 	t := NewTester(tst)
 
-	inst := t.NewWslInstance("jammy")
-	t.RegisterFromPowershell(inst, jammyRootFs)
+	distro := t.NewWslDistro("jammy")
+	t.RegisterFromPowershell(distro, jammyRootFs)
 
-	cmd := inst.Command("useradd testuser")
+	cmd := distro.Command("useradd testuser")
 	err := cmd.Run()
 	require.NoError(t, err)
 
-	default_config, err := inst.GetConfiguration()
+	default_config, err := distro.GetConfiguration()
 	require.NoError(t, err)
 
 	tests := map[string]wsl.Configuration{
@@ -42,27 +42,27 @@ func TestConfiguration(tst *testing.T) {
 	for name, wants := range tests {
 		tst.Run(name, func(tst *testing.T) {
 			defer func() { // Reseting to default state
-				inst.DefaultUID(default_config.DefaultUID)
-				inst.InteropEnabled(default_config.InteropEnabled)
-				inst.PathAppended(default_config.PathAppended)
-				inst.DriveMountingEnabled(default_config.DriveMountingEnabled)
+				distro.DefaultUID(default_config.DefaultUID)
+				distro.InteropEnabled(default_config.InteropEnabled)
+				distro.PathAppended(default_config.PathAppended)
+				distro.DriveMountingEnabled(default_config.DriveMountingEnabled)
 			}()
 
 			t := NewTester(tst)
 
-			inst.DefaultUID(wants.DefaultUID)
+			distro.DefaultUID(wants.DefaultUID)
 			require.NoError(t, err)
 
-			inst.InteropEnabled(wants.InteropEnabled)
+			distro.InteropEnabled(wants.InteropEnabled)
 			require.NoError(t, err)
 
-			inst.PathAppended(wants.PathAppended)
+			distro.PathAppended(wants.PathAppended)
 			require.NoError(t, err)
 
-			inst.DriveMountingEnabled(wants.DriveMountingEnabled)
+			distro.DriveMountingEnabled(wants.DriveMountingEnabled)
 			require.NoError(t, err)
 
-			got, err := inst.GetConfiguration()
+			got, err := distro.GetConfiguration()
 			require.NoError(t, err)
 
 			// Config test

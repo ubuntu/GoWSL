@@ -1,6 +1,6 @@
 package wsl
 
-// This file contains utilities to launch commands into WSL instances.
+// This file contains utilities to launch commands into WSL distros.
 
 import (
 	"fmt"
@@ -23,8 +23,8 @@ type Cmd struct {
 	UseCWD bool
 
 	// Immutable parameters
-	instance *Distro
-	command  string
+	distro  *Distro
+	command string
 
 	// Book-keeping
 	handle syscall.Handle
@@ -44,13 +44,13 @@ func (m *ExitError) Error() string {
 // It sets only the command and stdin/stdout/stderr in the returned structure.
 func (i *Distro) Command(command string) Cmd {
 	return Cmd{
-		Stdin:    syscall.Stdin,
-		Stdout:   syscall.Stdout,
-		Stderr:   syscall.Stderr,
-		UseCWD:   false,
-		instance: i,
-		handle:   0,
-		command:  command,
+		Stdin:   syscall.Stdin,
+		Stdout:  syscall.Stdout,
+		Stderr:  syscall.Stderr,
+		UseCWD:  false,
+		distro:  i,
+		handle:  0,
+		command: command,
 	}
 }
 
@@ -59,9 +59,9 @@ func (i *Distro) Command(command string) Cmd {
 // The Wait method will return the exit code and release associated resources
 // once the command exits.
 func (p *Cmd) Start() error {
-	instanceUTF16, err := syscall.UTF16PtrFromString(p.instance.Name)
+	distroUTF16, err := syscall.UTF16PtrFromString(p.distro.Name)
 	if err != nil {
-		return fmt.Errorf("failed to convert '%s' to UTF16", p.instance)
+		return fmt.Errorf("failed to convert '%s' to UTF16", p.distro)
 	}
 
 	commandUTF16, err := syscall.UTF16PtrFromString(p.command)
@@ -75,7 +75,7 @@ func (p *Cmd) Start() error {
 	}
 
 	r1, _, _ := wslLaunch.Call(
-		uintptr(unsafe.Pointer(instanceUTF16)),
+		uintptr(unsafe.Pointer(distroUTF16)),
 		uintptr(unsafe.Pointer(commandUTF16)),
 		uintptr(useCwd),
 		uintptr(p.Stdin),

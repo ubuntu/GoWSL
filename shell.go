@@ -35,7 +35,7 @@ func (i *Distro) Shell(opts ...func(*shellOptions)) error {
 		o(&options)
 	}
 
-	instanceUTF16, err := syscall.UTF16PtrFromString(i.Name)
+	distroUTF16, err := syscall.UTF16PtrFromString(i.Name)
 	if err != nil {
 		return fmt.Errorf("failed to convert %q to UTF16", i.Name)
 	}
@@ -53,7 +53,7 @@ func (i *Distro) Shell(opts ...func(*shellOptions)) error {
 	var exitCode ExitCode
 
 	r1, _, _ := wslLaunchInteractive.Call(
-		uintptr(unsafe.Pointer(instanceUTF16)),
+		uintptr(unsafe.Pointer(distroUTF16)),
 		uintptr(unsafe.Pointer(commandUTF16)),
 		uintptr(useCwd),
 		uintptr(unsafe.Pointer(&exitCode)))

@@ -8,7 +8,7 @@ import (
 	"unsafe"
 )
 
-// Distro is an abstraction around a WSL instance.
+// Distro is an abstraction around a WSL distro.
 type Distro struct {
 	Name string
 }
@@ -29,7 +29,7 @@ const (
 	flag_undocumented_WSL_VERSION wslFlags = 0x8
 )
 
-// Configuration is the configuration of the instance.
+// Configuration is the configuration of the distro.
 type Configuration struct {
 	Version                     uint8             // Type of filesystem used (lxfs vs. wslfs, relevnt only to WSL1)
 	DefaultUID                  uint32            // User ID of default user
@@ -37,7 +37,7 @@ type Configuration struct {
 	PathAppended                bool              // Whether Windows paths are appended
 	DriveMountingEnabled        bool              // Whether drive mounting is enabled
 	undocumentedWSLVersion      uint8             // Undocumented variable. WSL1 vs. WSL2.
-	DefaultEnvironmentVariables map[string]string // Environment variables passed to the instance by default
+	DefaultEnvironmentVariables map[string]string // Environment variables passed to the distro by default
 }
 
 // DefaultUID sets the user you log in as when you run a command
@@ -84,7 +84,7 @@ func (d *Distro) DriveMountingEnabled(value bool) error {
 func (i Distro) GetConfiguration() (Configuration, error) {
 	var conf Configuration
 
-	instanceUTF16, err := syscall.UTF16PtrFromString(i.Name)
+	distroUTF16, err := syscall.UTF16PtrFromString(i.Name)
 	if err != nil {
 		return conf, fmt.Errorf("failed to convert '%s' to UTF16", i.Name)
 	}
@@ -96,7 +96,7 @@ func (i Distro) GetConfiguration() (Configuration, error) {
 	)
 
 	r1, _, _ := wslGetDistributionConfiguration.Call(
-		uintptr(unsafe.Pointer(instanceUTF16)),
+		uintptr(unsafe.Pointer(distroUTF16)),
 		uintptr(unsafe.Pointer(&conf.Version)),
 		uintptr(unsafe.Pointer(&conf.DefaultUID)),
 		uintptr(unsafe.Pointer(&flags)),
@@ -144,7 +144,7 @@ func (conf Configuration) String() string {
 //  - DriveMountingEnabled
 func (i *Distro) configure(config Configuration) error {
 
-	instanceUTF16, err := syscall.UTF16PtrFromString(i.Name)
+	distroUTF16, err := syscall.UTF16PtrFromString(i.Name)
 	if err != nil {
 		return fmt.Errorf("failed to convert '%s' to UTF16", i.Name)
 	}
@@ -155,7 +155,7 @@ func (i *Distro) configure(config Configuration) error {
 	}
 
 	r1, _, _ := wslConfigureDistribution.Call(
-		uintptr(unsafe.Pointer(instanceUTF16)),
+		uintptr(unsafe.Pointer(distroUTF16)),
 		uintptr(config.DefaultUID),
 		uintptr(flags),
 	)

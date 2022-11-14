@@ -9,13 +9,13 @@ import (
 func main() {
 	distro := wsl.Distro{Name: "Ubuntu-22.04-test"}
 
-	// Registering a new instance
-	fmt.Println("Registering a new WSL instance...")
+	// Registering a new distro
+	fmt.Println("Registering a new WSL distro...")
 	if err := distro.Register(`C:\Users\edu19\Work\images\jammy.tar.gz`); err != nil {
 		panic(err)
 	}
 
-	// Ensuring the instance is unregistered at the end
+	// Ensuring the distro is unregistered at the end
 	defer distro.Unregister()
 
 	// Getting config and printing it

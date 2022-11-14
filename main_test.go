@@ -24,8 +24,8 @@ const (
 
 type Tester struct {
 	*testing.T
-	instances []wsl.Distro
-	tmpdirs   []string
+	distros []wsl.Distro
+	tmpdirs []string
 }
 
 func TestMain(m *testing.M) {
@@ -51,11 +51,11 @@ func NewTester(tst *testing.T) *Tester {
 	return &t
 }
 
-// NewWslInstance creates a new instance with a mangled name and adds it to list of instances to remove.
-// Note that the instance is not registered.
-func (t *Tester) NewWslInstance(name string) wsl.Distro {
+// NewWslDistro creates a new distro with a mangled name and adds it to list of distros to remove.
+// Note that the distro is not registered.
+func (t *Tester) NewWslDistro(name string) wsl.Distro {
 	d := wsl.Distro{Name: t.mangleName(name)}
-	t.instances = append(t.instances, d)
+	t.distros = append(t.distros, d)
 	return d
 }
 
@@ -72,7 +72,7 @@ func (t *Tester) NewTestDir(prefix string) (string, error) {
 }
 
 func (t *Tester) cleanUpWslInstances() {
-	cleanUpWslInstancess(t.instances)
+	cleanUpWslInstancess(t.distros)
 }
 
 func (t *Tester) cleanUpTempDirectories() {
@@ -85,20 +85,20 @@ func (t *Tester) cleanUpTempDirectories() {
 	}
 }
 
-// cleanUpTestWslInstances finds all instances with a mangled name and unregisters them
+// cleanUpTestWslInstances finds all distros with a mangled name and unregisters them
 func cleanUpTestWslInstances() {
 	testInstances, err := RegisteredTestWslInstances()
 	if err != nil {
 		return
 	}
 	if len(testInstances) != 0 {
-		fmt.Printf("The following WSL instances were not properly cleaned up: %v\n", testInstances)
+		fmt.Printf("The following WSL distros were not properly cleaned up: %v\n", testInstances)
 	}
 	cleanUpWslInstancess(testInstances)
 }
 
-func cleanUpWslInstancess(instances []wsl.Distro) {
-	for _, i := range instances {
+func cleanUpWslInstancess(distros []wsl.Distro) {
+	for _, i := range distros {
 
 		if r, err := i.IsRegistered(); err == nil && !r {
 			return
@@ -106,32 +106,32 @@ func cleanUpWslInstancess(instances []wsl.Distro) {
 		err := i.Unregister()
 		if err != nil {
 			name, test := unmangleName(i.Name)
-			fmt.Printf("Failed to clean up test WSL instance (name=%s, test=%s)\n", name, test)
+			fmt.Printf("Failed to clean up test WSL distro (name=%s, test=%s)\n", name, test)
 		}
 
 	}
 }
 
-// RegisteredTestWslInstances finds all instances with a mangled name
+// RegisteredTestWslInstances finds all distros with a mangled name
 func RegisteredTestWslInstances() ([]wsl.Distro, error) {
-	instances := []wsl.Distro{}
+	distros := []wsl.Distro{}
 
 	outp, err := exec.Command("powershell.exe", "-command", "$env:WSL_UTF8=1 ; wsl.exe --list --quiet").CombinedOutput()
 	if err != nil {
-		return instances, err
+		return distros, err
 	}
 
 	for _, line := range strings.Fields(string(outp)) {
 		if !strings.HasSuffix(line, nameSuffix) {
 			continue
 		}
-		instances = append(instances, wsl.Distro{Name: line})
+		distros = append(distros, wsl.Distro{Name: line})
 	}
 
-	return instances, nil
+	return distros, nil
 }
 
-// mangleName avoids name collisions with existing instances by adding a suffix
+// mangleName avoids name collisions with existing distros by adding a suffix
 func (t Tester) mangleName(name string) string {
 	return fmt.Sprintf("%s_%s_%s", name, strings.ReplaceAll(t.Name(), "/", "--"), nameSuffix)
 }
@@ -145,7 +145,7 @@ func unmangleName(mangledName string) (name string, test string) {
 	return name, test
 }
 
-// registerFromPowershell registers a WSL instance bypassing the wsl.module, for better test segmentation
+// registerFromPowershell registers a WSL distro bypassing the wsl.module, for better test segmentation
 func (t *Tester) RegisterFromPowershell(i wsl.Distro, image string) {
 	tmpdir, err := t.NewTestDir(i.Name)
 	require.NoError(t, err)

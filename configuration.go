@@ -25,7 +25,7 @@ type Configuration struct {
 //  - InteropEnabled
 //  - PathAppended
 //  - DriveMountingEnabled
-func (i *Instance) Configure(config Configuration) error {
+func (i *Distro) Configure(config Configuration) error {
 
 	instanceUTF16, err := syscall.UTF16PtrFromString(i.Name)
 	if err != nil {
@@ -51,7 +51,7 @@ func (i *Instance) Configure(config Configuration) error {
 }
 
 // GetConfiguration is a wrapper around Win32's WslGetDistributionConfiguration.
-func (i Instance) GetConfiguration() (Configuration, error) {
+func (i Distro) GetConfiguration() (Configuration, error) {
 	var conf Configuration
 
 	instanceUTF16, err := syscall.UTF16PtrFromString(i.Name)

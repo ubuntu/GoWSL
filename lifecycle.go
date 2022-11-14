@@ -13,12 +13,12 @@ func Shutdown() error {
 	return shutdown()
 }
 
-func (i Instance) Terminate() error {
+func (i Distro) Terminate() error {
 	return terminate(i.Name)
 }
 
 // Register is a wrapper around Win32's WslRegisterDistribution
-func (instance Instance) Register(rootFsPath string) error {
+func (instance Distro) Register(rootFsPath string) error {
 
 	r, err := instance.IsRegistered()
 	if err != nil {
@@ -58,12 +58,12 @@ func (instance Instance) Register(rootFsPath string) error {
 }
 
 // RegisteredIntances returns a slice of the registered instances
-func RegisteredIntances() ([]Instance, error) {
+func RegisteredIntances() ([]Distro, error) {
 	return registeredInstances()
 }
 
 // IsRegistered returns whether an instance is registered in WSL or not.
-func (target Instance) IsRegistered() (bool, error) {
+func (target Distro) IsRegistered() (bool, error) {
 	instances, err := RegisteredIntances()
 	if err != nil {
 		return false, err
@@ -79,7 +79,7 @@ func (target Instance) IsRegistered() (bool, error) {
 }
 
 // Register is a wrapper around Win32's WslUnregisterDistribution.
-func (instance *Instance) Unregister() error {
+func (instance *Distro) Unregister() error {
 	r, err := instance.IsRegistered()
 	if err != nil {
 		return fmt.Errorf("failed to detect if '%s' is installed already", instance.Name)

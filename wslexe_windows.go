@@ -31,7 +31,7 @@ func terminate(distroName string) error {
 //
 // It is analogous to
 //  `wsl.exe --list --verbose`
-func registeredInstances() ([]Instance, error) {
+func registeredInstances() ([]Distro, error) {
 	lxssKey, err := registry.OpenKey(lxssRegistry, lxssPath, registry.READ)
 	if err != nil {
 		return nil, fmt.Errorf("cannot list instances: failed to open lxss registry: %v", err)
@@ -48,7 +48,7 @@ func registeredInstances() ([]Instance, error) {
 		panic(err)
 	}
 
-	instCh := make(chan Instance)
+	instCh := make(chan Distro)
 	errorCh := make(chan error)
 
 	wg := sync.WaitGroup{}
@@ -64,10 +64,10 @@ func registeredInstances() ([]Instance, error) {
 			d, e := readRegistryDistributionName(skName)
 			errorCh <- e
 			if e != nil {
-				instCh <- Instance{Name: "MALFORMED_WSL_INSTANCE"}
+				instCh <- Distro{Name: "MALFORMED_WSL_INSTANCE"}
 				return
 			}
-			instCh <- Instance{Name: d}
+			instCh <- Distro{Name: d}
 		}()
 	}
 
@@ -78,13 +78,13 @@ func registeredInstances() ([]Instance, error) {
 	}()
 
 	// Collecting results
-	instances := []Instance{}
+	instances := []Distro{}
 	e, oke := <-errorCh
 	d, okd := <-instCh
 
 	for okd && oke {
 		if e != nil {
-			return []Instance{}, e
+			return []Distro{}, e
 		}
 		instances = append(instances, d)
 		e, oke = <-errorCh

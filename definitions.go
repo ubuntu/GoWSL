@@ -2,8 +2,8 @@ package wsl
 
 // This file has various constant and type definitions.
 
-// Instance is an abstraction around a WSL instance.
-type Instance struct {
+// Distro is an abstraction around a WSL instance.
+type Distro struct {
 	Name string
 }
 

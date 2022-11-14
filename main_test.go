@@ -24,7 +24,7 @@ const (
 
 type Tester struct {
 	*testing.T
-	instances []wsl.Instance
+	instances []wsl.Distro
 	tmpdirs   []string
 }
 
@@ -53,8 +53,8 @@ func NewTester(tst *testing.T) *Tester {
 
 // NewWslInstance creates a new instance with a mangled name and adds it to list of instances to remove.
 // Note that the instance is not registered.
-func (t *Tester) NewWslInstance(name string) wsl.Instance {
-	d := wsl.Instance{Name: t.mangleName(name)}
+func (t *Tester) NewWslInstance(name string) wsl.Distro {
+	d := wsl.Distro{Name: t.mangleName(name)}
 	t.instances = append(t.instances, d)
 	return d
 }
@@ -97,7 +97,7 @@ func cleanUpTestWslInstances() {
 	cleanUpWslInstancess(testInstances)
 }
 
-func cleanUpWslInstancess(instances []wsl.Instance) {
+func cleanUpWslInstancess(instances []wsl.Distro) {
 	for _, i := range instances {
 
 		if r, err := i.IsRegistered(); err == nil && !r {
@@ -113,8 +113,8 @@ func cleanUpWslInstancess(instances []wsl.Instance) {
 }
 
 // RegisteredTestWslInstances finds all instances with a mangled name
-func RegisteredTestWslInstances() ([]wsl.Instance, error) {
-	instances := []wsl.Instance{}
+func RegisteredTestWslInstances() ([]wsl.Distro, error) {
+	instances := []wsl.Distro{}
 
 	outp, err := exec.Command("powershell.exe", "-command", "$env:WSL_UTF8=1 ; wsl.exe --list --quiet").CombinedOutput()
 	if err != nil {
@@ -125,7 +125,7 @@ func RegisteredTestWslInstances() ([]wsl.Instance, error) {
 		if !strings.HasSuffix(line, nameSuffix) {
 			continue
 		}
-		instances = append(instances, wsl.Instance{Name: line})
+		instances = append(instances, wsl.Distro{Name: line})
 	}
 
 	return instances, nil
@@ -146,7 +146,7 @@ func unmangleName(mangledName string) (name string, test string) {
 }
 
 // registerFromPowershell registers a WSL instance bypassing the wsl.module, for better test segmentation
-func (t *Tester) RegisterFromPowershell(i wsl.Instance, image string) {
+func (t *Tester) RegisterFromPowershell(i wsl.Distro, image string) {
 	tmpdir, err := t.NewTestDir(i.Name)
 	require.NoError(t, err)
 

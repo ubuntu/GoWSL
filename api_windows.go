@@ -1,5 +1,6 @@
-// This file contains windows-only API definitions and imports
 package wsl
+
+// This file contains windows-only API definitions and imports
 
 import (
 	"syscall"

@@ -17,7 +17,7 @@ type WslProcess struct {
 	UseCWD bool
 
 	// Immutable parameters
-	instance *Instance
+	instance *Distro
 	command  string
 
 	// Book-keeping
@@ -32,7 +32,7 @@ func (m *ExitError) Error() string {
 	return fmt.Sprintf("exit error: %d", m.Code)
 }
 
-func (i *Instance) NewWslProcess(command string) WslProcess {
+func (i *Distro) NewWslProcess(command string) WslProcess {
 	return WslProcess{
 		Stdin:    syscall.Stdin,
 		Stdout:   syscall.Stdout,
@@ -46,7 +46,7 @@ func (i *Instance) NewWslProcess(command string) WslProcess {
 
 // LaunchInteractive is a wrapper around Win32's WslLaunchInteractive.
 // This is a syncronous, blocking call.
-func (i *Instance) LaunchInteractive(command string, useCWD bool) error {
+func (i *Distro) LaunchInteractive(command string, useCWD bool) error {
 	instanceUTF16, err := syscall.UTF16PtrFromString(i.Name)
 	if err != nil {
 		return fmt.Errorf("failed to convert '%s' to UTF16", i.Name)
@@ -88,8 +88,8 @@ func (i *Instance) LaunchInteractive(command string, useCWD bool) error {
 // LaunchInteractive is a wrapper around Win32's WslLaunchInteractive.
 // It launches a process asyncronously and returns a handle to it.
 // Note that the returned process is the Windows process, and closing it will not close the Linux process it invoked.
-func (i *Instance) Launch(command string, useCWD bool, stdIn syscall.Handle, stdOut syscall.Handle, stdErr syscall.Handle) (WslProcess, error) {
-	process := i.NewWslProcess(command)
+func (d *Distro) Launch(command string, useCWD bool, stdIn syscall.Handle, stdOut syscall.Handle, stdErr syscall.Handle) (WslProcess, error) {
+	process := d.NewWslProcess(command)
 	return process, process.Start()
 }
 

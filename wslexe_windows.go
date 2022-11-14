@@ -1,7 +1,7 @@
 package wsl
 
 // This file contains utilities to access functionality often accessed via wsl.exe,
-// with the advantage of not needing to start a subprocess.
+// with the advantage (sometimes) of not needing to start a subprocess.
 
 import (
 	"fmt"

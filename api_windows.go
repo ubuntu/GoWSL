@@ -23,3 +23,9 @@ const (
 	lxssRegistry = registry.CURRENT_USER
 	lxssPath     = `Software\Microsoft\Windows\CurrentVersion\Lxss\`
 )
+
+// Windows' typedefs
+type wBOOL = int       // Windows' BOOL
+type wULONG = uint32   // Windows' ULONG
+type ExitCode = uint32 // Windows' DWORD
+type char = byte       // Windows' CHAR (which is the same as C's char)

@@ -82,7 +82,8 @@ func TestConfigure(tst *testing.T) {
 	inst := t.NewWslInstance("jammy")
 	t.RegisterFromPowershell(inst, jammyRootFs)
 
-	err := inst.LaunchInteractive("useradd testuser", false)
+	cmd := inst.Command("useradd testuser")
+	err := cmd.Run()
 	require.NoError(t, err)
 
 	default_config, err := inst.GetConfiguration()

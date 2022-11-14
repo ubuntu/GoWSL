@@ -8,6 +8,27 @@ import (
 	"unsafe"
 )
 
+// Distro is an abstraction around a WSL instance.
+type Distro struct {
+	Name string
+}
+
+// Windows' WSL_DISTRIBUTION_FLAGS
+// https://learn.microsoft.com/en-us/windows/win32/api/wslapi/ne-wslapi-wsl_distribution_flags
+type wslFlags int
+
+const (
+	fNONE                  wslFlags = 0x0
+	fENABLE_INTEROP        wslFlags = 0x1
+	fAPPEND_NT_PATH        wslFlags = 0x2
+	fENABLE_DRIVE_MOUNTING wslFlags = 0x4
+
+	// Per conversation at https://github.com/microsoft/WSL-DistroLauncher/issues/96
+	// the information about version 1 or 2 is on the 4th bit of the flags, which is not
+	// currently referenced by the API nor docs.
+	fUNDOCUMENTED_WSL_VERSION wslFlags = 0x8
+)
+
 // Configuration is the configuration of the instance.
 type Configuration struct {
 	Version                     uint8             // Type of filesystem used (lxfs vs. wslfs, relevnt only to WSL1)

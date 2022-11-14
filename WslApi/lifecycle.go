@@ -9,7 +9,7 @@ import (
 	"unsafe"
 )
 
-func (i Instance) Shutdown() error {
+func Shutdown() error {
 	return shutdown()
 }
 

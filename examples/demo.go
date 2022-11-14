@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"time"
 	"wsl"
 )
 
@@ -57,4 +59,16 @@ func main() {
 		return
 	}
 	fmt.Printf("Succesful async command!\n")
+
+	// Showing CommandContext
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	err = distro.CommandContext(ctx, "sleep 5 && echo 'Woke up!'").Run()
+	if err != nil {
+		fmt.Printf("Process with timeout failed: %v\n", err)
+	} else {
+		fmt.Println("Process with timeout succeeded!")
+	}
+
 }

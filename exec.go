@@ -3,6 +3,8 @@ package wsl
 // This file contains utilities to launch commands into WSL distros.
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"syscall"
 	"unsafe"
@@ -27,7 +29,10 @@ type Cmd struct {
 	command string
 
 	// Book-keeping
-	handle syscall.Handle
+	handle     syscall.Handle
+	ctx        context.Context
+	waitDone   chan struct{}
+	exitStatus error
 }
 
 type ExitError struct {
@@ -42,8 +47,8 @@ func (m *ExitError) Error() string {
 // the given arguments in the same string.
 //
 // It sets only the command and stdin/stdout/stderr in the returned structure.
-func (i *Distro) Command(command string) Cmd {
-	return Cmd{
+func (i *Distro) Command(command string) *Cmd {
+	return &Cmd{
 		Stdin:   syscall.Stdin,
 		Stdout:  syscall.Stdout,
 		Stderr:  syscall.Stderr,
@@ -83,6 +88,18 @@ func (p *Cmd) Start() error {
 		uintptr(p.Stderr),
 		uintptr(unsafe.Pointer(&p.handle)))
 
+	if p.ctx != nil {
+		p.waitDone = make(chan struct{})
+		// This gorouting monitors the status of the context to kill the process if needed
+		go func() {
+			select {
+			case <-p.ctx.Done():
+				p.kill()
+			case <-p.waitDone:
+			}
+		}()
+	}
+
 	if r1 != 0 {
 		return fmt.Errorf("failed syscall to WslLaunch")
 	}
@@ -94,12 +111,17 @@ func (p *Cmd) Start() error {
 // The returned error is nil if the command runs and exits with a zero exit status.
 //
 // If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
-func (p Cmd) Wait() error {
-	defer p.Close()
+func (p *Cmd) Wait() error {
+	defer p.close()
 	r1, error := syscall.WaitForSingleObject(p.handle, syscall.INFINITE)
 	if r1 != 0 {
 		return fmt.Errorf("failed syscall to WaitForSingleObject: %v", error)
 	}
+
+	if p.waitDone != nil {
+		close(p.waitDone)
+	}
+	p.waitDone = nil
 
 	return p.queryStatus()
 }
@@ -111,29 +133,73 @@ func (p Cmd) Wait() error {
 // If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
 func (p *Cmd) Run() error {
 	if err := p.Start(); err != nil {
-		return err
+		return fmt.Errorf("failed to start command: %v", err)
 	}
 	return p.Wait()
 }
 
-// Close closes a WslProcess. If it was still running, it is terminated,
+// close closes a WslProcess. If it was still running, it is terminated,
 // although its Linux counterpart may not.
-func (p *Cmd) Close() error {
+func (p *Cmd) close() error {
 	defer func() {
 		p.handle = 0
 	}()
+
 	return syscall.CloseHandle(p.handle)
+}
+
+// CommandContext is like Command but includes a context.
+//
+// The provided context is used to kill the process (by calling
+// CloseHandle) if the context becomes done before the command
+// completes on its own.
+func (d *Distro) CommandContext(ctx context.Context, cmdStr string) *Cmd {
+	if ctx == nil {
+		panic("nil Context")
+	}
+	cmd := d.Command(cmdStr)
+	cmd.ctx = ctx
+	return cmd
 }
 
 // queryStatus querries Windows for the process' status.
 func (p *Cmd) queryStatus() error {
+	if p.exitStatus != nil {
+		return p.exitStatus
+	}
+
 	exit := ExitCode(0)
 	err := syscall.GetExitCodeProcess(p.handle, &exit)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to retrieve exit status: %v", err)
 	}
 	if exit != 0 {
 		return &ExitError{Code: exit}
 	}
 	return nil
+}
+
+// kill gets the exit status before closing the process, without checking
+// if it has finsihed or not.
+func (p *Cmd) kill() error {
+
+	// If the exit code is ActiveProcess, we write a more useful error message
+	// indicating it was interrupted.
+	p.exitStatus = func() error {
+		e := p.queryStatus()
+
+		if e == nil {
+			return nil
+		}
+		var asExitError *ExitError
+		if !errors.As(e, &asExitError) {
+			return e
+		}
+		if asExitError.Code != ActiveProcess {
+			return e
+		}
+		return errors.New("process was closed before finshing")
+	}()
+
+	return p.close()
 }

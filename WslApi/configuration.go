@@ -61,7 +61,7 @@ func (i Instance) GetConfiguration() (Configuration, error) {
 
 	var (
 		flags        wslFlags
-		envVarsBegin = new(*char)
+		envVarsBegin **char
 		envVarsLen   uint64 // size_t
 	)
 

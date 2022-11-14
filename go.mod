@@ -1,4 +1,4 @@
-module WslApi
+module wsl
 
 go 1.18
 

@@ -1,4 +1,4 @@
-package WslApi
+package wsl
 
 // This file has various constant and type definitions.
 

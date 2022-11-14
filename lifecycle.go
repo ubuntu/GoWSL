@@ -1,4 +1,4 @@
-package WslApi
+package wsl
 
 // This file contains utilities to create, destroy, stop WSL instances,
 // as well as utilities to query this status.

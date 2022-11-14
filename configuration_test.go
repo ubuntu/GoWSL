@@ -1,15 +1,15 @@
-package WslApi_test
+package wsl_test
 
 import (
-	"WslApi"
 	"fmt"
 	"testing"
+	"wsl"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestUnpackFlags(t *testing.T) {
-	tests := map[WslApi.Flags]WslApi.Configuration{
+	tests := map[wsl.Flags]wsl.Configuration{
 		0x0: {InteropEnabled: false, PathAppended: false, DriveMountingEnabled: false},
 		0x1: {InteropEnabled: true, PathAppended: false, DriveMountingEnabled: false},
 		0x2: {InteropEnabled: false, PathAppended: true, DriveMountingEnabled: false},
@@ -33,7 +33,7 @@ func TestUnpackFlags(t *testing.T) {
 		flags := flags
 		wants := wants
 		t.Run(fmt.Sprintf("input_0x%x", int(flags)), func(t *testing.T) {
-			got := WslApi.Configuration{InteropEnabled: false, PathAppended: false, DriveMountingEnabled: false}
+			got := wsl.Configuration{InteropEnabled: false, PathAppended: false, DriveMountingEnabled: false}
 			got.UnpackFlags(flags)
 			require.Equal(t, wants.InteropEnabled, got.InteropEnabled)
 			require.Equal(t, wants.PathAppended, got.PathAppended)
@@ -43,7 +43,7 @@ func TestUnpackFlags(t *testing.T) {
 }
 
 func TestPackFlags(t *testing.T) {
-	tests := map[WslApi.Flags]WslApi.Configuration{
+	tests := map[wsl.Flags]wsl.Configuration{
 		0x0: {InteropEnabled: false, PathAppended: false, DriveMountingEnabled: false},
 		0x1: {InteropEnabled: true, PathAppended: false, DriveMountingEnabled: false},
 		0x2: {InteropEnabled: false, PathAppended: true, DriveMountingEnabled: false},
@@ -67,8 +67,8 @@ func TestPackFlags(t *testing.T) {
 }
 
 // Overrides the values in baseline with the ones passed as arguments
-// The arguments are the mutable values in WslApi.Instance.Configure
-func overrideMutableConfig(baseline WslApi.Configuration, DefaultUID uint32, InteropEnabled bool, PathAppended bool, DriveMountingEnabled bool) WslApi.Configuration {
+// The arguments are the mutable values in wsl.Instance.Configure
+func overrideMutableConfig(baseline wsl.Configuration, DefaultUID uint32, InteropEnabled bool, PathAppended bool, DriveMountingEnabled bool) wsl.Configuration {
 	baseline.DefaultUID = DefaultUID
 	baseline.InteropEnabled = InteropEnabled
 	baseline.PathAppended = PathAppended
@@ -88,7 +88,7 @@ func TestConfigure(tst *testing.T) {
 	default_config, err := inst.GetConfiguration()
 	require.NoError(t, err)
 
-	tests := map[string]WslApi.Configuration{
+	tests := map[string]wsl.Configuration{
 		"root000": overrideMutableConfig(default_config, 0, false, false, false),
 		"root001": overrideMutableConfig(default_config, 0, false, false, true),
 		"root010": overrideMutableConfig(default_config, 0, false, true, false),

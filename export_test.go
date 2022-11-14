@@ -1,4 +1,4 @@
-package WslApi
+package wsl
 
 // This file exports private functions used for unit testing
 

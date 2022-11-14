@@ -1,8 +1,8 @@
-package WslApi_test
+package wsl_test
 
 import (
-	"WslApi"
 	"testing"
+	"wsl"
 
 	"github.com/stretchr/testify/require"
 )
@@ -37,7 +37,7 @@ func TestRegisteredIntances(tst *testing.T) {
 	t.RegisterFromPowershell(d1, emptyRootFs)
 	t.RegisterFromPowershell(d2, emptyRootFs)
 
-	list, err := WslApi.RegisteredIntances()
+	list, err := wsl.RegisteredIntances()
 	require.NoError(t, err)
 
 	require.Contains(t, list, d1)

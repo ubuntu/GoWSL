@@ -1,14 +1,14 @@
 package main
 
 import (
-	"WslApi"
 	"errors"
 	"fmt"
 	"syscall"
+	"wsl"
 )
 
 func main() {
-	instance := WslApi.Instance{Name: "Ubuntu-24.04"}
+	instance := wsl.Instance{Name: "Ubuntu-24.04"}
 
 	// Registering a new instance
 	fmt.Println("Registering a new WSL instance...")
@@ -57,7 +57,7 @@ func main() {
 	}
 
 	err = process1.Wait()
-	if err != nil && !errors.Is(err, &WslApi.ExitError{}) {
+	if err != nil && !errors.Is(err, &wsl.ExitError{}) {
 		panic(err)
 	}
 

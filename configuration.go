@@ -1,4 +1,4 @@
-package WslApi
+package wsl
 
 import (
 	"fmt"

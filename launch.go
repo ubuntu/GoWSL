@@ -1,4 +1,4 @@
-package WslApi
+package wsl
 
 // This file contains utilities to launch commands into WSL instances.
 

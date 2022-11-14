@@ -1,9 +1,8 @@
-package WslApi_test
+package wsl_test
 
 // This file conatains testing functionality
 
 import (
-	"WslApi"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"wsl"
 
 	"github.com/stretchr/testify/require"
 )
@@ -24,13 +24,13 @@ const (
 
 type Tester struct {
 	*testing.T
-	instances []WslApi.Instance
+	instances []wsl.Instance
 	tmpdirs   []string
 }
 
 func TestMain(m *testing.M) {
 	fullCleanup := func() {
-		WslApi.Shutdown()
+		wsl.Shutdown()
 		cleanUpTestWslInstances()
 	}
 
@@ -53,8 +53,8 @@ func NewTester(tst *testing.T) *Tester {
 
 // NewWslInstance creates a new instance with a mangled name and adds it to list of instances to remove.
 // Note that the instance is not registered.
-func (t *Tester) NewWslInstance(name string) WslApi.Instance {
-	d := WslApi.Instance{Name: t.mangleName(name)}
+func (t *Tester) NewWslInstance(name string) wsl.Instance {
+	d := wsl.Instance{Name: t.mangleName(name)}
 	t.instances = append(t.instances, d)
 	return d
 }
@@ -97,7 +97,7 @@ func cleanUpTestWslInstances() {
 	cleanUpWslInstancess(testInstances)
 }
 
-func cleanUpWslInstancess(instances []WslApi.Instance) {
+func cleanUpWslInstancess(instances []wsl.Instance) {
 	for _, i := range instances {
 
 		if r, err := i.IsRegistered(); err == nil && !r {
@@ -113,8 +113,8 @@ func cleanUpWslInstancess(instances []WslApi.Instance) {
 }
 
 // RegisteredTestWslInstances finds all instances with a mangled name
-func RegisteredTestWslInstances() ([]WslApi.Instance, error) {
-	instances := []WslApi.Instance{}
+func RegisteredTestWslInstances() ([]wsl.Instance, error) {
+	instances := []wsl.Instance{}
 
 	outp, err := exec.Command("powershell.exe", "-command", "$env:WSL_UTF8=1 ; wsl.exe --list --quiet").CombinedOutput()
 	if err != nil {
@@ -125,7 +125,7 @@ func RegisteredTestWslInstances() ([]WslApi.Instance, error) {
 		if !strings.HasSuffix(line, nameSuffix) {
 			continue
 		}
-		instances = append(instances, WslApi.Instance{Name: line})
+		instances = append(instances, wsl.Instance{Name: line})
 	}
 
 	return instances, nil
@@ -145,8 +145,8 @@ func unmangleName(mangledName string) (name string, test string) {
 	return name, test
 }
 
-// registerFromPowershell registers a WSL instance bypassing the WslApi module, for better test segmentation
-func (t *Tester) RegisterFromPowershell(i WslApi.Instance, image string) {
+// registerFromPowershell registers a WSL instance bypassing the wsl.module, for better test segmentation
+func (t *Tester) RegisterFromPowershell(i wsl.Instance, image string) {
 	tmpdir, err := t.NewTestDir(i.Name)
 	require.NoError(t, err)
 

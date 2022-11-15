@@ -102,7 +102,7 @@ func TestCommandTimeoutEarlyFailure(tst *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 	defer cancel()
 
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	cmd := d.CommandContext(ctx, "exit 0")
 	cmd.Stdout = 0
@@ -129,8 +129,8 @@ func TestCommandTimeoutLateFailure(tst *testing.T) {
 	defer cancel()
 
 	cmd = d.CommandContext(ctx, "sleep 5 && exit 0")
-	cmd.Stderr = 0
 	cmd.Stdout = 0
+	cmd.Stderr = 0
 	err = cmd.Run()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "process was closed before finshing")

@@ -90,13 +90,16 @@ func (p *Cmd) Start() error {
 
 	if p.ctx != nil {
 		p.waitDone = make(chan struct{})
-		// This gorouting monitors the status of the context to kill the process if needed
+		// This goroutine monitors the status of the context to kill the process if needed
 		go func() {
 			select {
 			case <-p.ctx.Done():
 				p.kill()
 			case <-p.waitDone:
 			}
+
+			close(p.waitDone)
+			p.waitDone = nil
 		}()
 	}
 

@@ -15,13 +15,13 @@ func TestRegister(tst *testing.T) {
 	distro1 := t.NewWslDistro("Ubuntu")
 	distro2 := t.NewWslDistro("Señor Ubuntu")
 
-	err := distro1.Register(jammyRootFs)
+	err := distro1.Register(t.JammyRootFs())
 	require.NoError(t, err)
 
-	err = distro2.Register(jammyRootFs)
+	err = distro2.Register(t.JammyRootFs())
 	require.Error(t, err) // Space not allowed in name
 
-	err = distro1.Register(jammyRootFs)
+	err = distro1.Register(t.JammyRootFs())
 	require.Error(t, err) // Double registration disallowed
 
 	testInstances, err := RegisteredTestWslInstances()
@@ -36,8 +36,8 @@ func TestRegisteredDistros(tst *testing.T) {
 	d2 := t.NewWslDistro("Ubuntu.Again")
 	d3 := t.NewWslDistro("NotRegistered")
 
-	t.RegisterFromPowershell(d1, emptyRootFs)
-	t.RegisterFromPowershell(d2, emptyRootFs)
+	t.RegisterFromPowershell(d1, t.EmptyRootfs())
+	t.RegisterFromPowershell(d2, t.EmptyRootfs())
 
 	list, err := wsl.RegisteredDistros()
 	require.NoError(t, err)
@@ -68,7 +68,7 @@ func TestIsRegistered(tst *testing.T) {
 			distro := t.NewWslDistro(config.distroName)
 
 			if config.register {
-				t.RegisterFromPowershell(distro, emptyRootFs)
+				t.RegisterFromPowershell(distro, t.EmptyRootfs())
 			}
 
 			reg, err := distro.IsRegistered()
@@ -94,7 +94,7 @@ func TestUnRegister(tst *testing.T) {
 	distro2 := t.NewWslDistro("ThisDistroDoesNotExist")
 	distro3 := t.NewWslDistro("This Distro Is Not Valid")
 
-	t.RegisterFromPowershell(distro1, emptyRootFs)
+	t.RegisterFromPowershell(distro1, t.EmptyRootfs())
 
 	testInstances, err := RegisteredTestWslInstances()
 	require.NoError(t, err)

@@ -11,7 +11,7 @@ func TestConfiguration(tst *testing.T) {
 	t := NewTester(tst)
 
 	distro := t.NewWslDistro("jammy")
-	t.RegisterFromPowershell(distro, jammyRootFs)
+	t.RegisterFromPowershell(distro, t.JammyRootFs())
 
 	cmd := distro.Command("useradd testuser")
 	err := cmd.Run()

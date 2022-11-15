@@ -4,22 +4,23 @@ package wsl_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 	"testing"
 	"time"
 	"wsl"
+	"wsl/rootfs"
 
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	nameSuffix  string = "wsltesting"
-	emptyRootFs string = `.\images\empty.tar.gz` // Empty non-functional image. It registers instantly.
-	jammyRootFs string = `.\images\jammy.tar.gz` // Fully functional rootfs
+	nameSuffix string = "wsltesting"
 )
 
 type Tester struct {
@@ -51,7 +52,7 @@ func fullCleanup() {
 func NewTester(tst *testing.T) *Tester {
 	t := Tester{T: tst}
 	t.Cleanup(func() {
-		t.cleanUpWslInstances()
+		t.cleanUpDistros()
 		t.cleanUpTempDirectories()
 	})
 	return &t
@@ -72,26 +73,26 @@ var cachedDistro *wsl.Distro = nil
 func (t *Tester) CachedDistro() wsl.Distro {
 	if cachedDistro == nil {
 		cachedDistro = &wsl.Distro{Name: fmt.Sprintf("reusableDistro_TestMain_%s", nameSuffix)}
-		err := cachedDistro.Register(jammyRootFs)
+		err := cachedDistro.Register(t.JammyRootFs())
 		require.NoError(t, err)
 	}
 	return *cachedDistro
 }
 
-// NewTestDir creates a unique directory and adds it to the list of dirs to remove
-func (t *Tester) NewTestDir(prefix string) (string, error) {
+// NewTmpDir creates a unique directory and adds it to the list of dirs to remove
+// Contary to testing.T.TmpDir, this is removed AFTER cleanup
+func (t *Tester) NewTmpDir(prefix string) string {
 	clean_prefix := strings.Replace(t.Name()+prefix, "/", "_", -1)
 	tmpdir, err := ioutil.TempDir(os.TempDir(), clean_prefix)
-	if err != nil {
-		return "", err
-	}
+	require.NoError(t, err)
 
 	t.tmpdirs = append(t.tmpdirs, tmpdir)
-	return tmpdir, nil
+	return tmpdir
 }
 
-func (t *Tester) cleanUpWslInstances() {
+func (t *Tester) cleanUpDistros() {
 	cleanUpWslInstancess(t.distros)
+	t.distros = []wsl.Distro{}
 }
 
 func (t *Tester) cleanUpTempDirectories() {
@@ -166,14 +167,51 @@ func unmangleName(mangledName string) (name string, test string) {
 
 // registerFromPowershell registers a WSL distro bypassing the wsl.module, for better test segmentation
 func (t *Tester) RegisterFromPowershell(i wsl.Distro, image string) {
-	tmpdir, err := t.NewTestDir(i.Name)
-	require.NoError(t, err)
+	tmpdir := t.NewTmpDir(i.Name)
 
-	cmdString := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --import %s %s %s", i.Name, tmpdir, jammyRootFs)
+	cmdString := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --import %s %s %s", i.Name, tmpdir, t.JammyRootFs())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second) // WSL sometimes gets stuck installing
 	defer cancel()
 
 	output, err := exec.CommandContext(ctx, "powershell.exe", "-Command", cmdString).CombinedOutput()
 	require.NoError(t, err, string(output))
+}
+
+func (t *Tester) imagesDir() string {
+	repo, err := os.Getwd()
+	require.NoError(t, err)
+
+	imagesDir := path.Join(repo, "images")
+	err = os.MkdirAll(imagesDir, 075)
+	require.NoError(t, err)
+	return imagesDir
+}
+
+func (t *Tester) JammyRootFs() string {
+	path, err := rootfs.Get(rootfs.Jammy, t.imagesDir())
+	require.NoError(t, err)
+	return path
+}
+
+func (t *Tester) KineticRootFs() string {
+	path, err := rootfs.Get(rootfs.Kinetic, t.imagesDir())
+	require.NoError(t, err)
+	return path
+}
+
+// Empty non-functional image. It registers instantly.
+func (t *Tester) EmptyRootfs() string {
+	p := path.Join(t.NewTmpDir("emptytargz"), `empty.tar.gz`)
+
+	_, err := os.Stat(p)
+	if errors.Is(err, os.ErrNotExist) {
+		return p
+	}
+	require.NoError(t, err)
+
+	err = ioutil.WriteFile(p, []byte{}, 0755)
+	require.NoError(t, err)
+
+	return p
 }

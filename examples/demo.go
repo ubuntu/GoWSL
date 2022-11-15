@@ -6,14 +6,21 @@ import (
 	"fmt"
 	"time"
 	"wsl"
+	"wsl/rootfs"
 )
 
 func main() {
 	distro := wsl.Distro{Name: "Ubuntu-22.04-test"}
 
 	// Registering a new distro
+	fmt.Println("Obtaining rootfs...")
+	tarball, err := rootfs.Get(rootfs.Jammy, "images")
+	if err != nil {
+		panic(err)
+	}
+
 	fmt.Println("Registering a new WSL distro...")
-	if err := distro.Register(`.\images\jammy.tar.gz`); err != nil {
+	if err := distro.Register(tarball); err != nil {
 		panic(err)
 	}
 

@@ -2,7 +2,11 @@ module wsl
 
 go 1.18
 
-require golang.org/x/sys v0.1.0
+require (
+	github.com/0xrawsec/golang-utils v1.3.2
+	github.com/cavaliercoder/grab v1.0.0
+	golang.org/x/sys v0.1.0
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

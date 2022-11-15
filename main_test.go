@@ -29,16 +29,22 @@ type Tester struct {
 }
 
 func TestMain(m *testing.M) {
-	fullCleanup := func() {
-		wsl.Shutdown()
-		cleanUpTestWslInstances()
-	}
 
 	fullCleanup()
-	defer fullCleanup()
-
 	exitVal := m.Run()
+	fullCleanup()
+
 	os.Exit(exitVal)
+}
+
+func fullCleanup() {
+	wsl.Shutdown()
+	// Cleanup without nagging
+	if cachedDistro != nil {
+		cleanUpWslInstancess([]wsl.Distro{*cachedDistro})
+	}
+	// Cleanup with nagging
+	cleanUpTestWslInstances()
 }
 
 // NewTester extends Tester with some WSL-specific functionality and cleanup
@@ -57,6 +63,19 @@ func (t *Tester) NewWslDistro(name string) wsl.Distro {
 	d := wsl.Distro{Name: t.mangleName(name)}
 	t.distros = append(t.distros, d)
 	return d
+}
+
+var cachedDistro *wsl.Distro = nil
+
+// CachedDistro provides a distro for non-destructive and generally immutable commands
+// without having to create and destroy a new distro for it.
+func (t *Tester) CachedDistro() wsl.Distro {
+	if cachedDistro == nil {
+		cachedDistro = &wsl.Distro{Name: fmt.Sprintf("reusableDistro_TestMain_%s", nameSuffix)}
+		err := cachedDistro.Register(jammyRootFs)
+		require.NoError(t, err)
+	}
+	return *cachedDistro
 }
 
 // NewTestDir creates a unique directory and adds it to the list of dirs to remove

@@ -79,6 +79,14 @@ func (p *Cmd) Start() error {
 		useCwd = 1
 	}
 
+	if p.ctx != nil {
+		select {
+		case <-p.ctx.Done():
+			return p.ctx.Err()
+		default:
+		}
+	}
+
 	r1, _, _ := wslLaunch.Call(
 		uintptr(unsafe.Pointer(distroUTF16)),
 		uintptr(unsafe.Pointer(commandUTF16)),
@@ -87,6 +95,10 @@ func (p *Cmd) Start() error {
 		uintptr(p.Stdout),
 		uintptr(p.Stderr),
 		uintptr(unsafe.Pointer(&p.handle)))
+
+	if r1 != 0 {
+		return fmt.Errorf("failed syscall to WslLaunch")
+	}
 
 	if p.ctx != nil {
 		p.waitDone = make(chan struct{})
@@ -97,15 +109,9 @@ func (p *Cmd) Start() error {
 				p.kill()
 			case <-p.waitDone:
 			}
-
-			close(p.waitDone)
-			p.waitDone = nil
 		}()
 	}
 
-	if r1 != 0 {
-		return fmt.Errorf("failed syscall to WslLaunch")
-	}
 	return nil
 }
 
@@ -117,6 +123,7 @@ func (p *Cmd) Start() error {
 func (p *Cmd) Wait() error {
 	defer p.close()
 	r1, error := syscall.WaitForSingleObject(p.handle, syscall.INFINITE)
+
 	if r1 != 0 {
 		return fmt.Errorf("failed syscall to WaitForSingleObject: %v", error)
 	}
@@ -124,7 +131,6 @@ func (p *Cmd) Wait() error {
 	if p.waitDone != nil {
 		close(p.waitDone)
 	}
-	p.waitDone = nil
 
 	return p.queryStatus()
 }
@@ -176,6 +182,9 @@ func (p *Cmd) queryStatus() error {
 	if err != nil {
 		return fmt.Errorf("failed to retrieve exit status: %v", err)
 	}
+	if exit == WindowsError {
+		return errors.New("something went wrong Windows-side")
+	}
 	if exit != 0 {
 		return &ExitError{Code: exit}
 	}
@@ -204,5 +213,5 @@ func (p *Cmd) kill() error {
 		return errors.New("process was closed before finshing")
 	}()
 
-	return p.close()
+	return syscall.TerminateProcess(p.handle, ActiveProcess)
 }

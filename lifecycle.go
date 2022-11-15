@@ -4,7 +4,11 @@ package wsl
 // as well as utilities to query this status.
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path"
+	"strings"
 	"syscall"
 	"unsafe"
 )
@@ -19,6 +23,10 @@ func (d Distro) Terminate() error {
 
 // Register is a wrapper around Win32's WslRegisterDistribution
 func (d *Distro) Register(rootFsPath string) error {
+	rootFsPath, err := fixPath(rootFsPath)
+	if err != nil {
+		return err
+	}
 
 	r, err := d.IsRegistered()
 	if err != nil {
@@ -99,4 +107,22 @@ func (distro *Distro) Unregister() error {
 		return fmt.Errorf("failed syscall to WslLaunchInteractive")
 	}
 	return nil
+}
+
+// WslRegisterDistribuion is a bit picky with the format.
+func fixPath(relative string) (string, error) {
+	if pathIsAbs(relative) {
+		return strings.ReplaceAll(relative, `/`, string(os.PathSeparator)), nil
+	}
+
+	base, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get CWD")
+	}
+	abs := path.Join(base, relative)
+	abs = strings.ReplaceAll(abs, `/`, string(os.PathSeparator))
+	if _, err := os.Stat(abs); errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("file %q does not exist", abs)
+	}
+	return abs, nil
 }

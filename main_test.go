@@ -50,8 +50,8 @@ func sanitizeDistroName(candidateName string) string {
 	return r.Replace(candidateName)
 }
 
-// newDistro creates and registers a new distro with a mangled name and adds it to list of distros to remove.
-func newDistro(t *testing.T, rootfs string) wsl.Distro {
+// newTestDistro creates and registers a new distro with a mangled name and adds it to list of distros to remove.
+func newTestDistro(t *testing.T, rootfs string) wsl.Distro {
 	d := wsl.Distro{Name: sanitizeDistroName(fmt.Sprintf("%s_%s_%s", namePrefix, t.Name(), uniqueId()))}
 
 	temp := t.TempDir()

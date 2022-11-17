@@ -33,8 +33,8 @@ func TestRegister(t *testing.T) {
 }
 
 func TestRegisteredDistros(t *testing.T) {
-	d1 := newDistro(t, emptyRootFs)
-	d2 := newDistro(t, emptyRootFs)
+	d1 := newTestDistro(t, emptyRootFs)
+	d2 := newTestDistro(t, emptyRootFs)
 	d3 := wsl.Distro{Name: "NotRegistered"}
 
 	list, err := wsl.RegisteredDistros()
@@ -64,7 +64,7 @@ func TestIsRegistered(t *testing.T) {
 
 			var distro wsl.Distro
 			if config.register {
-				distro = newDistro(t, emptyRootFs)
+				distro = newTestDistro(t, emptyRootFs)
 			} else {
 				distro = wsl.Distro{Name: "IAmNotRegistered"}
 			}
@@ -86,7 +86,7 @@ func TestIsRegistered(t *testing.T) {
 }
 
 func TestUnRegister(t *testing.T) {
-	distro1 := newDistro(t, emptyRootFs)
+	distro1 := newTestDistro(t, emptyRootFs)
 	distro2 := wsl.Distro{Name: "ThisDistroDoesNotExist"}
 	distro3 := wsl.Distro{Name: "This Distro Is Not Valid"}
 

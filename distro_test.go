@@ -10,8 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// all in one test: 3 cases:
+// with env
+// with no env
+// error
 func TestDistroString(t *testing.T) {
-	d := newDistro(t, jammyRootFs)
+	d := newTestDistro(t, jammyRootFs)
 	wants := fmt.Sprintf(`distro: %s
 configuration:
   - Version: 2
@@ -43,7 +47,7 @@ configuration: failed to get configuration, failed syscall to WslGetDistribution
 
 func TestConfiguration(t *testing.T) {
 
-	distro := newDistro(t, jammyRootFs)
+	distro := newTestDistro(t, jammyRootFs)
 
 	cmd := distro.Command(context.Background(), "useradd testuser")
 	err := cmd.Run()

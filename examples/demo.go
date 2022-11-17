@@ -31,12 +31,12 @@ func main() {
 	distro.PathAppended(false)
 
 	// Launching async command
-	process1 := distro.Command(`sleep 3 && cat goodmorning.txt`)
+	process1 := distro.Command(context.Background(), `sleep 3 && cat goodmorning.txt`)
 	process1.Stdin = 0 // (nullptr) TODO: Make this more Go-like with readers and writers
 	process1.Start()
 
 	// Launching async command
-	process2 := distro.Command(`echo "Hello, world from WSL!" > "goodmorning.txt"`)
+	process2 := distro.Command(context.Background(), `echo "Hello, world from WSL!" > "goodmorning.txt"`)
 	process2.Stdin = 0 // (nullptr) TODO: Make this more Go-like with readers and writers
 	process2.Run()
 
@@ -64,7 +64,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	err = distro.CommandContext(ctx, "sleep 5 && echo 'Woke up!'").Run()
+	err = distro.Command(ctx, "sleep 5 && echo 'Woke up!'").Run()
 	if err != nil {
 		fmt.Printf("Process with timeout failed: %v\n", err)
 	} else {

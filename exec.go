@@ -43,22 +43,6 @@ func (m *ExitError) Error() string {
 	return fmt.Sprintf("exit error: %d", m.Code)
 }
 
-// Command returns the Cmd struct to execute the named program with
-// the given arguments in the same string.
-//
-// It sets only the command and stdin/stdout/stderr in the returned structure.
-func (i *Distro) Command(command string) *Cmd {
-	return &Cmd{
-		Stdin:   syscall.Stdin,
-		Stdout:  syscall.Stdout,
-		Stderr:  syscall.Stderr,
-		UseCWD:  false,
-		distro:  i,
-		handle:  0,
-		command: command,
-	}
-}
-
 // Start starts the specified WslProcess but does not wait for it to complete.
 //
 // The Wait method will return the exit code and release associated resources
@@ -157,18 +141,28 @@ func (p *Cmd) close() error {
 	return syscall.CloseHandle(p.handle)
 }
 
-// CommandContext is like Command but includes a context.
+// Command returns the Cmd struct to execute the named program with
+// the given arguments in the same string.
+//
+// It sets only the command and stdin/stdout/stderr in the returned structure.
 //
 // The provided context is used to kill the process (by calling
 // CloseHandle) if the context becomes done before the command
 // completes on its own.
-func (d *Distro) CommandContext(ctx context.Context, cmdStr string) *Cmd {
+func (d *Distro) Command(ctx context.Context, cmd string) *Cmd {
 	if ctx == nil {
 		panic("nil Context")
 	}
-	cmd := d.Command(cmdStr)
-	cmd.ctx = ctx
-	return cmd
+	return &Cmd{
+		Stdin:   syscall.Stdin,
+		Stdout:  syscall.Stdout,
+		Stderr:  syscall.Stderr,
+		UseCWD:  false,
+		distro:  d,
+		handle:  0,
+		command: cmd,
+		ctx:     ctx,
+	}
 }
 
 // queryStatus querries Windows for the process' status.

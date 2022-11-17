@@ -14,7 +14,7 @@ func TestCommandExitStatusSuccess(tst *testing.T) {
 	d := t.CachedDistro()
 
 	// Test that exit values are returned correctly
-	cmd := d.Command("exit 0")
+	cmd := d.Command(context.Background(), "exit 0")
 	cmd.Stdout = 0
 	cmd.Stderr = 0
 	err := cmd.Run()
@@ -26,7 +26,7 @@ func TestCommandNoExistExecutable(tst *testing.T) {
 	d := t.CachedDistro()
 
 	// Can't run a non-existent executable
-	cmd := d.Command("/no-exist-executable")
+	cmd := d.Command(context.Background(), "/no-exist-executable")
 	cmd.Stderr = 0
 	cmd.Stdout = 0
 	err := cmd.Run()
@@ -42,7 +42,7 @@ func TestCommandExitStatusFailed(tst *testing.T) {
 	d := t.CachedDistro()
 
 	// Test that exit values are returned correctly
-	cmd := d.Command("exit 42")
+	cmd := d.Command(context.Background(), "exit 42")
 	cmd.Stdout = 0
 	cmd.Stderr = 0
 	err := cmd.Run()
@@ -59,7 +59,7 @@ func TestCommandFailureNoDistro(tst *testing.T) {
 	// We do not register it
 
 	// Test that exit values are returned correctly
-	cmd := d.Command("exit 0")
+	cmd := d.Command(context.Background(), "exit 0")
 	cmd.Stderr = 0
 	cmd.Stdout = 0
 
@@ -77,7 +77,7 @@ func TestCommandTimeoutSuccess(tst *testing.T) {
 	d := t.CachedDistro()
 
 	// Poking distro to wake it up
-	cmd := d.Command("exit 0")
+	cmd := d.Command(context.Background(), "exit 0")
 	cmd.Stdout = 0
 	cmd.Stderr = 0
 	err := cmd.Run()
@@ -87,7 +87,7 @@ func TestCommandTimeoutSuccess(tst *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	cmd = d.CommandContext(ctx, "exit 0")
+	cmd = d.Command(ctx, "exit 0")
 	cmd.Stderr = 0
 	cmd.Stdout = 0
 	err = cmd.Run()
@@ -104,7 +104,7 @@ func TestCommandTimeoutEarlyFailure(tst *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	cmd := d.CommandContext(ctx, "exit 0")
+	cmd := d.Command(ctx, "exit 0")
 	cmd.Stdout = 0
 	cmd.Stderr = 0
 	err := cmd.Run()
@@ -118,7 +118,7 @@ func TestCommandTimeoutLateFailure(tst *testing.T) {
 	d := t.CachedDistro()
 
 	// Poking distro to wake it up
-	cmd := d.Command("exit 0")
+	cmd := d.Command(context.Background(), "exit 0")
 	cmd.Stdout = 0
 	cmd.Stderr = 0
 	err := cmd.Run()
@@ -128,7 +128,7 @@ func TestCommandTimeoutLateFailure(tst *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	cmd = d.CommandContext(ctx, "sleep 5 && exit 0")
+	cmd = d.Command(ctx, "sleep 5 && exit 0")
 	cmd.Stdout = 0
 	cmd.Stderr = 0
 	err = cmd.Run()
@@ -144,7 +144,7 @@ func TestCommandCancelSuccess(tst *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cmd := d.CommandContext(ctx, "exit 0")
+	cmd := d.Command(ctx, "exit 0")
 	cmd.Stdout = 0
 	cmd.Stderr = 0
 	err := cmd.Run()
@@ -159,7 +159,7 @@ func TestCommandCancelEarlyFailure(tst *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	cmd := d.CommandContext(ctx, "exit 0")
+	cmd := d.Command(ctx, "exit 0")
 	cmd.Stdout = 0
 	cmd.Stderr = 0
 	err := cmd.Run()
@@ -174,7 +174,7 @@ func TestCommandCancelLateFailure(tst *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	cmd := d.CommandContext(ctx, "exit 0")
+	cmd := d.Command(ctx, "exit 0")
 	cmd.Stdout = 0
 	cmd.Stderr = 0
 	err := cmd.Start()

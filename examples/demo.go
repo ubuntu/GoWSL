@@ -21,11 +21,7 @@ func main() {
 	defer distro.Unregister()
 
 	// Getting config and printing it
-	config, err := distro.GetConfiguration()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%v", config)
+	fmt.Printf("%v", distro)
 
 	// Setting config
 	distro.PathAppended(false)
@@ -41,7 +37,7 @@ func main() {
 	process2.Run()
 
 	// Launching an interactive command (should fail as per config change)
-	err = distro.Shell(wsl.WithCommand("sh -c 'notepad.exe'"))
+	err := distro.Shell(wsl.WithCommand("sh -c 'notepad.exe'"))
 	if err != nil {
 		fmt.Printf("Sync command unsuccesful: %v\n", err)
 	} else {

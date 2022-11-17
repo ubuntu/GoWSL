@@ -2,9 +2,11 @@ package wsl_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"wsl"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,26 +24,29 @@ func TestConfiguration(tst *testing.T) {
 	require.NoError(t, err)
 
 	tests := map[string]wsl.Configuration{
-		"root000": {DefaultUID: 0, InteropEnabled: false, PathAppended: false, DriveMountingEnabled: false},
-		"root001": {DefaultUID: 0, InteropEnabled: false, PathAppended: false, DriveMountingEnabled: true},
-		"root010": {DefaultUID: 0, InteropEnabled: false, PathAppended: true, DriveMountingEnabled: false},
-		"root011": {DefaultUID: 0, InteropEnabled: false, PathAppended: true, DriveMountingEnabled: true},
-		"root100": {DefaultUID: 0, InteropEnabled: true, PathAppended: false, DriveMountingEnabled: false},
-		"root101": {DefaultUID: 0, InteropEnabled: true, PathAppended: false, DriveMountingEnabled: true},
-		"root110": {DefaultUID: 0, InteropEnabled: true, PathAppended: true, DriveMountingEnabled: false},
-		"root111": {DefaultUID: 0, InteropEnabled: true, PathAppended: true, DriveMountingEnabled: true},
-		"user000": {DefaultUID: 1000, InteropEnabled: false, PathAppended: false, DriveMountingEnabled: false},
-		"user001": {DefaultUID: 1000, InteropEnabled: false, PathAppended: false, DriveMountingEnabled: true},
-		"user010": {DefaultUID: 1000, InteropEnabled: false, PathAppended: true, DriveMountingEnabled: false},
-		"user011": {DefaultUID: 1000, InteropEnabled: false, PathAppended: true, DriveMountingEnabled: true},
-		"user100": {DefaultUID: 1000, InteropEnabled: true, PathAppended: false, DriveMountingEnabled: false},
-		"user101": {DefaultUID: 1000, InteropEnabled: true, PathAppended: false, DriveMountingEnabled: true},
-		"user110": {DefaultUID: 1000, InteropEnabled: true, PathAppended: true, DriveMountingEnabled: false},
-		"user111": {DefaultUID: 1000, InteropEnabled: true, PathAppended: true, DriveMountingEnabled: true},
+		// Root user cases
+		"Root":                                                  {DefaultUID: 0, InteropEnabled: false, PathAppended: false, DriveMountingEnabled: false},
+		"Root DriveMountingEnabled":                             {DefaultUID: 0, InteropEnabled: false, PathAppended: false, DriveMountingEnabled: true},
+		"Root PathAppended":                                     {DefaultUID: 0, InteropEnabled: false, PathAppended: true, DriveMountingEnabled: false},
+		"Root PathAppended DriveMountingEnabled":                {DefaultUID: 0, InteropEnabled: false, PathAppended: true, DriveMountingEnabled: true},
+		"Root InteropEnabled":                                   {DefaultUID: 0, InteropEnabled: true, PathAppended: false, DriveMountingEnabled: false},
+		"Root InteropEnabled DriveMountingEnabled":              {DefaultUID: 0, InteropEnabled: true, PathAppended: false, DriveMountingEnabled: true},
+		"Root InteropEnabled PathAppended":                      {DefaultUID: 0, InteropEnabled: true, PathAppended: true, DriveMountingEnabled: false},
+		"Root InteropEnabled PathAppended DriveMountingEnabled": {DefaultUID: 0, InteropEnabled: true, PathAppended: true, DriveMountingEnabled: true},
+
+		// Default user cases
+		"User":                                                  {DefaultUID: 1000, InteropEnabled: false, PathAppended: false, DriveMountingEnabled: false},
+		"User DriveMountingEnabled":                             {DefaultUID: 1000, InteropEnabled: false, PathAppended: false, DriveMountingEnabled: true},
+		"User PathAppended":                                     {DefaultUID: 1000, InteropEnabled: false, PathAppended: true, DriveMountingEnabled: false},
+		"User PathAppended DriveMountingEnabled":                {DefaultUID: 1000, InteropEnabled: false, PathAppended: true, DriveMountingEnabled: true},
+		"User InteropEnabled":                                   {DefaultUID: 1000, InteropEnabled: true, PathAppended: false, DriveMountingEnabled: false},
+		"User InteropEnabled DriveMountingEnabled":              {DefaultUID: 1000, InteropEnabled: true, PathAppended: false, DriveMountingEnabled: true},
+		"User InteropEnabled PathAppended":                      {DefaultUID: 1000, InteropEnabled: true, PathAppended: true, DriveMountingEnabled: false},
+		"User InteropEnabled PathAppended DriveMountingEnabled": {DefaultUID: 1000, InteropEnabled: true, PathAppended: true, DriveMountingEnabled: true},
 	}
 
-	for name, wants := range tests {
-		tst.Run(name, func(tst *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			defer func() { // Reseting to default state
 				distro.DefaultUID(default_config.DefaultUID)
 				distro.InteropEnabled(default_config.InteropEnabled)
@@ -49,30 +54,26 @@ func TestConfiguration(tst *testing.T) {
 				distro.DriveMountingEnabled(default_config.DriveMountingEnabled)
 			}()
 
-			t := NewTester(tst)
-
-			distro.DefaultUID(wants.DefaultUID)
+			distro.DefaultUID(tc.DefaultUID)
 			require.NoError(t, err)
 
-			distro.InteropEnabled(wants.InteropEnabled)
+			distro.InteropEnabled(tc.InteropEnabled)
 			require.NoError(t, err)
 
-			distro.PathAppended(wants.PathAppended)
+			distro.PathAppended(tc.PathAppended)
 			require.NoError(t, err)
 
-			distro.DriveMountingEnabled(wants.DriveMountingEnabled)
+			distro.DriveMountingEnabled(tc.DriveMountingEnabled)
 			require.NoError(t, err)
 
 			got, err := distro.GetConfiguration()
 			require.NoError(t, err)
 
 			// Config test
-			require.Equal(t, wants.DefaultUID, got.DefaultUID)
-			require.Equal(t, wants.InteropEnabled, got.InteropEnabled)
-			require.Equal(t, wants.PathAppended, got.PathAppended)
-			require.Equal(t, wants.DriveMountingEnabled, got.DriveMountingEnabled)
-
-			// TODO: behaviour tests
+			assert.Equal(t, tc.DefaultUID, got.DefaultUID)
+			assert.Equal(t, tc.InteropEnabled, got.InteropEnabled)
+			assert.Equal(t, tc.PathAppended, got.PathAppended)
+			assert.Equal(t, tc.DriveMountingEnabled, got.DriveMountingEnabled)
 		})
 	}
 }

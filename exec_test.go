@@ -32,7 +32,7 @@ func TestCommandNoExistExecutable(t *testing.T) {
 
 	var errAsExitError *wsl.ExitError
 	require.ErrorAs(t, err, &errAsExitError)
-	require.Equal(t, errAsExitError.Code, wsl.ExitCode(127)) // 127: command not found
+	require.Equal(t, errAsExitError.Code, uint32(127)) // 127: command not found
 }
 
 func TestCommandExitStatusFailed(t *testing.T) {
@@ -47,7 +47,7 @@ func TestCommandExitStatusFailed(t *testing.T) {
 
 	var errAsExitError *wsl.ExitError
 	require.ErrorAs(t, err, &errAsExitError)
-	require.Equal(t, errAsExitError.Code, wsl.ExitCode(42))
+	require.Equal(t, errAsExitError.Code, uint32(42))
 }
 
 func TestCommandFailureNoDistro(t *testing.T) {
@@ -176,9 +176,3 @@ func TestCommandCancelLateFailure(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "process was closed before finshing")
 }
-
-// func TestDistroString(t *testing.T) {
-// 	t := NewTester(tst)
-// 	d := t.CachedDistro()
-//	got := fmt.Sprintf("%s", d)
-// }

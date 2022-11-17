@@ -227,8 +227,10 @@ func (conf Configuration) packFlags() (wslFlags, error) {
 func processEnvVariables(cStringArray **char, len uint64) map[string]string {
 	stringPtrs := unsafe.Slice(cStringArray, len)
 
-	keys := make(chan string)
-	values := make(chan string)
+	env := make(chan struct {
+		key   string
+		value string
+	})
 
 	wg := sync.WaitGroup{}
 	for _, cStr := range stringPtrs {
@@ -238,27 +240,26 @@ func processEnvVariables(cStringArray **char, len uint64) map[string]string {
 			defer wg.Done()
 			goStr := stringCtoGo(cStr, 32768)
 			idx := strings.Index(goStr, "=")
-			keys <- goStr[:idx]
-			values <- goStr[idx+1:]
+			env <- struct {
+				key   string
+				value string
+			}{
+				key:   goStr[:idx],
+				value: goStr[idx+1:],
+			}
 		}()
 	}
 
 	go func() {
-		defer close(keys)
-		defer close(values)
+		defer close(env)
 		wg.Wait()
 	}()
 
 	// Collecting results
 	m := map[string]string{}
 
-	k, okk := <-keys
-	v, okv := <-values
-	for okk && okv {
-		m[k] = v
-
-		k, okk = <-keys
-		v, okv = <-values
+	for kv := range env {
+		m[kv.key] = kv.value
 	}
 
 	return m

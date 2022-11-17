@@ -1,6 +1,7 @@
 package wsl_test
 
 import (
+	"context"
 	"testing"
 	"wsl"
 
@@ -13,7 +14,7 @@ func TestConfiguration(tst *testing.T) {
 	distro := t.NewWslDistro("jammy")
 	t.RegisterFromPowershell(distro, jammyRootFs)
 
-	cmd := distro.Command("useradd testuser")
+	cmd := distro.Command(context.Background(), "useradd testuser")
 	err := cmd.Run()
 	require.NoError(t, err)
 

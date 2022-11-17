@@ -9,9 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCommandExitStatusSuccess(tst *testing.T) {
-	t := NewTester(tst)
-	d := t.CachedDistro()
+func TestCommandExitStatusSuccess(t *testing.T) {
+	d := newDistro(t, jammyRootFs)
 
 	// Test that exit values are returned correctly
 	cmd := d.Command(context.Background(), "exit 0")
@@ -21,9 +20,8 @@ func TestCommandExitStatusSuccess(tst *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCommandNoExistExecutable(tst *testing.T) {
-	t := NewTester(tst)
-	d := t.CachedDistro()
+func TestCommandNoExistExecutable(t *testing.T) {
+	d := newDistro(t, jammyRootFs)
 
 	// Can't run a non-existent executable
 	cmd := d.Command(context.Background(), "/no-exist-executable")
@@ -37,9 +35,8 @@ func TestCommandNoExistExecutable(tst *testing.T) {
 	require.Equal(t, errAsExitError.Code, wsl.ExitCode(127)) // 127: command not found
 }
 
-func TestCommandExitStatusFailed(tst *testing.T) {
-	t := NewTester(tst)
-	d := t.CachedDistro()
+func TestCommandExitStatusFailed(t *testing.T) {
+	d := newDistro(t, jammyRootFs)
 
 	// Test that exit values are returned correctly
 	cmd := d.Command(context.Background(), "exit 42")
@@ -53,9 +50,8 @@ func TestCommandExitStatusFailed(tst *testing.T) {
 	require.Equal(t, errAsExitError.Code, wsl.ExitCode(42))
 }
 
-func TestCommandFailureNoDistro(tst *testing.T) {
-	t := NewTester(tst)
-	d := t.NewWslDistro("ubuntu")
+func TestCommandFailureNoDistro(t *testing.T) {
+	d := wsl.Distro{Name: "my favourite distro"}
 	// We do not register it
 
 	// Test that exit values are returned correctly
@@ -72,9 +68,8 @@ func TestCommandFailureNoDistro(tst *testing.T) {
 }
 
 // TestCommandTimeoutSuccess tests no error is returned if the command finishes on time
-func TestCommandTimeoutSuccess(tst *testing.T) {
-	t := NewTester(tst)
-	d := t.CachedDistro()
+func TestCommandTimeoutSuccess(t *testing.T) {
+	d := newDistro(t, jammyRootFs)
 
 	// Poking distro to wake it up
 	cmd := d.Command(context.Background(), "exit 0")
@@ -95,9 +90,8 @@ func TestCommandTimeoutSuccess(tst *testing.T) {
 }
 
 // TestCommandTimeoutEarlyFailure tests behaviour when timing out before command is launched
-func TestCommandTimeoutEarlyFailure(tst *testing.T) {
-	t := NewTester(tst)
-	d := t.CachedDistro()
+func TestCommandTimeoutEarlyFailure(t *testing.T) {
+	d := newDistro(t, jammyRootFs)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 	defer cancel()
@@ -113,9 +107,8 @@ func TestCommandTimeoutEarlyFailure(tst *testing.T) {
 }
 
 // TestCommandTimeoutLateFailure tests behaviour when timing out after command is launched
-func TestCommandTimeoutLateFailure(tst *testing.T) {
-	t := NewTester(tst)
-	d := t.CachedDistro()
+func TestCommandTimeoutLateFailure(t *testing.T) {
+	d := newDistro(t, jammyRootFs)
 
 	// Poking distro to wake it up
 	cmd := d.Command(context.Background(), "exit 0")
@@ -137,9 +130,8 @@ func TestCommandTimeoutLateFailure(tst *testing.T) {
 }
 
 // TestCommandCancelSuccess tests no error is returned if the command finishes on time
-func TestCommandCancelSuccess(tst *testing.T) {
-	t := NewTester(tst)
-	d := t.CachedDistro()
+func TestCommandCancelSuccess(t *testing.T) {
+	d := newDistro(t, jammyRootFs)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -152,9 +144,8 @@ func TestCommandCancelSuccess(tst *testing.T) {
 }
 
 // TestCommandCancelEarlyFailure tests behaviour when timing out before command is launched
-func TestCommandCancelEarlyFailure(tst *testing.T) {
-	t := NewTester(tst)
-	d := t.CachedDistro()
+func TestCommandCancelEarlyFailure(t *testing.T) {
+	d := newDistro(t, jammyRootFs)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -168,9 +159,8 @@ func TestCommandCancelEarlyFailure(tst *testing.T) {
 }
 
 // TestCommandCancelLateFailure tests behaviour when timing out after command is launched
-func TestCommandCancelLateFailure(tst *testing.T) {
-	t := NewTester(tst)
-	d := t.CachedDistro()
+func TestCommandCancelLateFailure(t *testing.T) {
+	d := newDistro(t, jammyRootFs)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -186,3 +176,9 @@ func TestCommandCancelLateFailure(tst *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "process was closed before finshing")
 }
+
+// func TestDistroString(t *testing.T) {
+// 	t := NewTester(tst)
+// 	d := t.CachedDistro()
+//	got := fmt.Sprintf("%s", d)
+// }

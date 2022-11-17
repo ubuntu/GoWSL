@@ -12,8 +12,8 @@ import (
 
 // Windows' constants
 const (
-	WindowsError  ExitCode = 4294967295 // Underflowed -1
-	ActiveProcess ExitCode = 259
+	WindowsError  uint32 = 4294967295 // Underflowed -1
+	ActiveProcess uint32 = 259
 )
 
 // Cmd is a wrapper around the Windows process spawned by WslLaunch
@@ -35,8 +35,10 @@ type Cmd struct {
 	exitStatus error
 }
 
+// ExitError represents a non-zero exit status from a WSL process.
+// Linux's exit errors range from 0 to 255, larger numbers correspond to Windows-side errors.
 type ExitError struct {
-	Code ExitCode
+	Code uint32
 }
 
 func (m *ExitError) Error() string {
@@ -171,7 +173,7 @@ func (p *Cmd) queryStatus() error {
 		return p.exitStatus
 	}
 
-	exit := ExitCode(0)
+	var exit uint32
 	err := syscall.GetExitCodeProcess(p.handle, &exit)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve exit status: %v", err)

@@ -10,11 +10,40 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConfiguration(tst *testing.T) {
-	t := NewTester(tst)
+func TestDistroString(t *testing.T) {
+	d := newDistro(t, jammyRootFs)
+	wants := fmt.Sprintf(`distro: %s
+configuration:
+  - Version: 2
+  - DefaultUID: 0
+  - InteropEnabled: true
+  - PathAppended: true
+  - DriveMountingEnabled: true
+  - undocumentedWSLVersion: 2
+  - DefaultEnvironmentVariables:
+    - HOSTTYPE: x86_64
+    - LANG: en_US.UTF-8
+    - PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+    - TERM: xterm-256color
+`, d.Name)
 
-	distro := t.NewWslDistro("jammy")
-	t.RegisterFromPowershell(distro, jammyRootFs)
+	got := d.String()
+	require.Equal(t, wants, got)
+}
+
+func TestDistroStringError(t *testing.T) {
+	d := wsl.Distro{Name: "ThisDistroIsNotRegistered"}
+	wants := fmt.Sprintf(`distro: %s
+configuration: failed to get configuration, failed syscall to WslGetDistributionConfiguration
+`, d.Name)
+
+	got := d.String()
+	require.Equal(t, wants, got)
+}
+
+func TestConfiguration(t *testing.T) {
+
+	distro := newDistro(t, jammyRootFs)
 
 	cmd := distro.Command(context.Background(), "useradd testuser")
 	err := cmd.Run()

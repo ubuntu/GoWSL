@@ -7,8 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
-	"strings"
+	"path/filepath"
 	"syscall"
 	"unsafe"
 )
@@ -111,16 +110,15 @@ func (distro *Distro) Unregister() error {
 
 // WslRegisterDistribuion is a bit picky with the format.
 func fixPath(relative string) (string, error) {
-	if pathIsAbs(relative) {
-		return strings.ReplaceAll(relative, `/`, string(os.PathSeparator)), nil
+	abs := filepath.FromSlash(relative)
+	if !filepath.IsAbs(abs) {
+		var err error
+		abs, err = filepath.Abs(relative)
+		if err != nil {
+			return "", err
+		}
 	}
 
-	base, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get CWD")
-	}
-	abs := path.Join(base, relative)
-	abs = strings.ReplaceAll(abs, `/`, string(os.PathSeparator))
 	if _, err := os.Stat(abs); errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("file %q does not exist", abs)
 	}

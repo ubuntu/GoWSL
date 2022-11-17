@@ -3,7 +3,6 @@ package wsl
 // This file contains windows-only API definitions and imports
 
 import (
-	"regexp"
 	"syscall"
 
 	"golang.org/x/sys/windows/registry"
@@ -30,9 +29,3 @@ type wBOOL = int       // Windows' BOOL
 type wULONG = uint32   // Windows' ULONG
 type ExitCode = uint32 // Windows' DWORD
 type char = byte       // Windows' CHAR (which is the same as C's char)
-
-// Replaces path.IsAbs, which assumes you're on linux
-func pathIsAbs(p string) bool {
-	pattern := regexp.MustCompile(`^[A-Z]:*.*`)
-	return pattern.Match([]byte(p))
-}

@@ -10,7 +10,7 @@ import (
 )
 
 func TestCommandExitStatusSuccess(t *testing.T) {
-	d := newDistro(t, jammyRootFs)
+	d := newTestDistro(t, jammyRootFs)
 
 	// Test that exit values are returned correctly
 	cmd := d.Command(context.Background(), "exit 0")
@@ -21,7 +21,7 @@ func TestCommandExitStatusSuccess(t *testing.T) {
 }
 
 func TestCommandNoExistExecutable(t *testing.T) {
-	d := newDistro(t, jammyRootFs)
+	d := newTestDistro(t, jammyRootFs)
 
 	// Can't run a non-existent executable
 	cmd := d.Command(context.Background(), "/no-exist-executable")
@@ -36,7 +36,7 @@ func TestCommandNoExistExecutable(t *testing.T) {
 }
 
 func TestCommandExitStatusFailed(t *testing.T) {
-	d := newDistro(t, jammyRootFs)
+	d := newTestDistro(t, jammyRootFs)
 
 	// Test that exit values are returned correctly
 	cmd := d.Command(context.Background(), "exit 42")
@@ -69,7 +69,7 @@ func TestCommandFailureNoDistro(t *testing.T) {
 
 // TestCommandTimeoutSuccess tests no error is returned if the command finishes on time
 func TestCommandTimeoutSuccess(t *testing.T) {
-	d := newDistro(t, jammyRootFs)
+	d := newTestDistro(t, jammyRootFs)
 
 	// Poking distro to wake it up
 	cmd := d.Command(context.Background(), "exit 0")
@@ -91,7 +91,7 @@ func TestCommandTimeoutSuccess(t *testing.T) {
 
 // TestCommandTimeoutEarlyFailure tests behaviour when timing out before command is launched
 func TestCommandTimeoutEarlyFailure(t *testing.T) {
-	d := newDistro(t, jammyRootFs)
+	d := newTestDistro(t, jammyRootFs)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 	defer cancel()
@@ -108,7 +108,7 @@ func TestCommandTimeoutEarlyFailure(t *testing.T) {
 
 // TestCommandTimeoutLateFailure tests behaviour when timing out after command is launched
 func TestCommandTimeoutLateFailure(t *testing.T) {
-	d := newDistro(t, jammyRootFs)
+	d := newTestDistro(t, jammyRootFs)
 
 	// Poking distro to wake it up
 	cmd := d.Command(context.Background(), "exit 0")
@@ -131,7 +131,7 @@ func TestCommandTimeoutLateFailure(t *testing.T) {
 
 // TestCommandCancelSuccess tests no error is returned if the command finishes on time
 func TestCommandCancelSuccess(t *testing.T) {
-	d := newDistro(t, jammyRootFs)
+	d := newTestDistro(t, jammyRootFs)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -145,7 +145,7 @@ func TestCommandCancelSuccess(t *testing.T) {
 
 // TestCommandCancelEarlyFailure tests behaviour when timing out before command is launched
 func TestCommandCancelEarlyFailure(t *testing.T) {
-	d := newDistro(t, jammyRootFs)
+	d := newTestDistro(t, jammyRootFs)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -160,7 +160,7 @@ func TestCommandCancelEarlyFailure(t *testing.T) {
 
 // TestCommandCancelLateFailure tests behaviour when timing out after command is launched
 func TestCommandCancelLateFailure(t *testing.T) {
-	d := newDistro(t, jammyRootFs)
+	d := newTestDistro(t, jammyRootFs)
 
 	ctx, cancel := context.WithCancel(context.Background())
 

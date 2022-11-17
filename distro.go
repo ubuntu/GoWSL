@@ -4,6 +4,7 @@ package wsl
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -120,15 +121,23 @@ func (d Distro) String() string {
 	c, err := d.GetConfiguration()
 	if err != nil {
 		return fmt.Sprintf(`distro: %s
-		config: failed to get configuration
-		`, d.Name)
+configuration: failed to get configuration, %v
+`, d.Name, err)
 	}
+
+	// Get sorted list of environment variables
+	envKeys := []string{}
+	for k := range c.DefaultEnvironmentVariables {
+		envKeys = append(envKeys, k)
+	}
+	sort.Strings(envKeys)
 
 	fmtEnvs := "\n"
-	for k, v := range c.DefaultEnvironmentVariables {
-		fmtEnvs = fmt.Sprintf("%s    - %s: %s\n", fmtEnvs, k, v)
+	for _, k := range envKeys {
+		fmtEnvs = fmt.Sprintf("%s    - %s: %s\n", fmtEnvs, k, c.DefaultEnvironmentVariables[k])
 	}
 
+	// Generate the string
 	return fmt.Sprintf(`distro: %s
 configuration:
   - Version: %d

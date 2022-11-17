@@ -18,8 +18,8 @@ import (
 
 const (
 	nameSuffix  string = "wsltesting"
-	emptyRootFs string = `C:\Users\edu19\Work\images\empty.tar.gz` // Empty non-functional image. It registers instantly.
-	jammyRootFs string = `C:\Users\edu19\Work\images\jammy.tar.gz` // Fully functional rootfs
+	emptyRootFs string = `.\images\empty.tar.gz` // Empty non-functional image. It registers instantly.
+	jammyRootFs string = `.\images\jammy.tar.gz` // Fully functional rootfs
 )
 
 type Tester struct {

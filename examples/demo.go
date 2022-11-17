@@ -13,7 +13,7 @@ func main() {
 
 	// Registering a new distro
 	fmt.Println("Registering a new WSL distro...")
-	if err := distro.Register(`C:\Users\edu19\Work\images\jammy.tar.gz`); err != nil {
+	if err := distro.Register(`.\images\jammy.tar.gz`); err != nil {
 		panic(err)
 	}
 

@@ -5,10 +5,10 @@ package wsl_test
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/exec"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 	"wsl"
@@ -33,12 +33,11 @@ func TestMain(m *testing.M) {
 }
 
 // distroCounter is used to generate unique IDs for distro names
-var distroCounter uint32
 
 // uniqueId generates unique ID for distro names.
 func uniqueId() string {
-	x := atomic.AddUint32(&distroCounter, 1)
-	return fmt.Sprintf("%d", x)
+	rand.Seed(time.Now().UnixNano())
+	return fmt.Sprintf("%d", rand.Intn(100_000_000))
 }
 
 // sanitizeDistroName sanitizes the name of the disto as much as possible.

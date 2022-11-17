@@ -116,26 +116,29 @@ func (i Distro) GetConfiguration() (Configuration, error) {
 }
 
 // String deserializes a Configuration object as a yaml string
-func (conf Configuration) String() string {
-	fmtEnvs := []string{}
-	for k, v := range conf.DefaultEnvironmentVariables {
-		fmtEnvs = append(fmtEnvs, fmt.Sprintf(`    - %s: %s`, k, v))
+func (d Distro) String() string {
+	c, err := d.GetConfiguration()
+	if err != nil {
+		return fmt.Sprintf(`distro: %s
+		config: failed to get configuration
+		`, d.Name)
 	}
 
-	envJSON := ""
-	if len(fmtEnvs) != 0 {
-		envJSON = fmt.Sprintf("\n%s\n", strings.Join(fmtEnvs, "\n"))
+	fmtEnvs := "\n"
+	for k, v := range c.DefaultEnvironmentVariables {
+		fmtEnvs = fmt.Sprintf("%s    - %s: %s\n", fmtEnvs, k, v)
 	}
 
-	return fmt.Sprintf(`configuration:
+	return fmt.Sprintf(`distro: %s
+configuration:
   - Version: %d
   - DefaultUID: %d
   - InteropEnabled: %t
   - PathAppended: %t
   - DriveMountingEnabled: %t
   - undocumentedWSLVersion: %d
-  - DefaultEnvironmentVariables:%s
-`, conf.Version, conf.DefaultUID, conf.InteropEnabled, conf.PathAppended, conf.DriveMountingEnabled, conf.undocumentedWSLVersion, envJSON)
+  - DefaultEnvironmentVariables:%s`, d.Name, c.Version, c.DefaultUID, c.InteropEnabled, c.PathAppended,
+		c.DriveMountingEnabled, c.undocumentedWSLVersion, fmtEnvs)
 }
 
 // configure is a wrapper around Win32's WslConfigureDistribution.

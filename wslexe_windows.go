@@ -6,8 +6,10 @@ package wsl
 import (
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"sync"
 
+	"github.com/0xrawsec/golang-utils/log"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -30,26 +32,36 @@ func terminate(distroName string) error {
 // registeredInstances returns a slice of the registered distros.
 //
 // It is analogous to
-//  `wsl.exe --list --verbose`
-func registeredInstances() ([]Distro, error) {
+//  `wsl.exe --list`
+func registeredInstances() (distros []Distro, err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		err = fmt.Errorf("failed to obtain list of registered distros: %v", err)
+	}()
+
 	lxssKey, err := registry.OpenKey(lxssRegistry, lxssPath, registry.READ)
 	if err != nil {
-		return nil, fmt.Errorf("cannot list distros: failed to open lxss registry: %v", err)
+		return nil, fmt.Errorf("failed to open lxss registry: %v", err)
 	}
 	defer lxssKey.Close()
 
 	lxssData, err := lxssKey.Stat()
 	if err != nil {
-		panic(err)
+		return []Distro{}, fmt.Errorf("failed to stat lxss registry key: %v", err)
 	}
 
 	subkeys, err := lxssKey.ReadSubKeyNames(int(lxssData.SubKeyCount))
 	if err != nil {
-		panic(err)
+		return []Distro{}, fmt.Errorf("failed to read lxss registry subkeys: %v", err)
 	}
 
-	distroCh := make(chan Distro)
-	errorCh := make(chan error)
+	type distroErr struct {
+		distro Distro
+		err    error
+	}
+	ch := make(chan distroErr)
 
 	wg := sync.WaitGroup{}
 	for _, skName := range subkeys {
@@ -61,34 +73,28 @@ func registeredInstances() ([]Distro, error) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			d, e := readRegistryDistributionName(skName)
-			errorCh <- e
-			if e != nil {
-				distroCh <- Distro{Name: "MALFORMED_WSL_INSTANCE"}
+			name, err := readRegistryDistributionName(skName)
+
+			if err != nil {
+				ch <- distroErr{err: fmt.Errorf("failed to parse registry entry %s: %v", skName, err)}
 				return
 			}
-			distroCh <- Distro{Name: d}
+			ch <- distroErr{distro: Distro{Name: name}}
 		}()
 	}
 
 	go func() {
-		defer close(distroCh)
-		defer close(errorCh)
 		wg.Wait()
+		close(ch)
 	}()
 
 	// Collecting results
-	distros := []Distro{}
-	e, oke := <-errorCh
-	d, okd := <-distroCh
-
-	for okd && oke {
-		if e != nil {
-			return []Distro{}, e
+	for d := range ch {
+		if d.err != nil {
+			log.Warnf("%v", d.err)
+			continue
 		}
-		distros = append(distros, d)
-		e, oke = <-errorCh
-		d, okd = <-distroCh
+		distros = append(distros, d.distro)
 	}
 
 	return distros, nil
@@ -102,15 +108,15 @@ func registeredInstances() ([]Distro, error) {
 // Then, the registryDir is
 //   `{ee8aef7a-846f-4561-a028-79504ce65cd3}`
 func readRegistryDistributionName(registryDir string) (string, error) {
-	keyPath := lxssPath + registryDir
-	key, err := registry.OpenKey(lxssRegistry, keyPath, registry.QUERY_VALUE)
-	target := "DistributionName"
+	keyPath := filepath.Join(lxssPath, registryDir)
 
+	key, err := registry.OpenKey(lxssRegistry, keyPath, registry.QUERY_VALUE)
 	if err != nil {
 		return "", fmt.Errorf("cannot find key %s: %v", keyPath, err)
 	}
 	defer key.Close()
 
+	target := "DistributionName"
 	name, _, err := key.GetStringValue(target)
 	if err != nil {
 		return "", fmt.Errorf("cannot find %s:%s : %v", keyPath, target, err)

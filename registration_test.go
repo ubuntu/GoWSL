@@ -5,6 +5,7 @@ import (
 	"testing"
 	"wsl"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,8 +29,8 @@ func TestRegister(t *testing.T) {
 
 	testInstances, err := registeredTestWslInstances()
 	require.NoError(t, err)
-	require.Contains(t, testInstances, d1)
-	require.NotContains(t, testInstances, d2)
+	assert.Contains(t, testInstances, d1)
+	assert.NotContains(t, testInstances, d2)
 }
 
 func TestRegisteredDistros(t *testing.T) {
@@ -40,9 +41,9 @@ func TestRegisteredDistros(t *testing.T) {
 	list, err := wsl.RegisteredDistros()
 	require.NoError(t, err)
 
-	require.Contains(t, list, d1)
-	require.Contains(t, list, d2)
-	require.NotContains(t, list, d3)
+	assert.Contains(t, list, d1)
+	assert.Contains(t, list, d2)
+	assert.NotContains(t, list, d3)
 }
 
 func TestIsRegistered(t *testing.T) {
@@ -101,7 +102,7 @@ func TestUnRegister(t *testing.T) {
 
 	testInstances, err := registeredTestWslInstances()
 	require.NoError(t, err)
-	require.NotContains(t, testInstances, distro1)
-	require.NotContains(t, testInstances, distro2)
-	require.NotContains(t, testInstances, distro3)
+	assert.NotContains(t, testInstances, distro1)
+	assert.NotContains(t, testInstances, distro2)
+	assert.NotContains(t, testInstances, distro3)
 }

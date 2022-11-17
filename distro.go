@@ -16,6 +16,14 @@ type Distro struct {
 	Name string
 }
 
+func (d Distro) Terminate() error {
+	return terminate(d.Name)
+}
+
+func Shutdown() error {
+	return shutdown()
+}
+
 // Windows' WSL_DISTRIBUTION_FLAGS
 // https://learn.microsoft.com/en-us/windows/win32/api/wslapi/ne-wslapi-wsl_distribution_flags
 type wslFlags int

@@ -45,12 +45,12 @@ func (i *Distro) Shell(opts ...func(*shellOptions)) error {
 		return fmt.Errorf("failed to convert %q to UTF16", options.command)
 	}
 
-	var useCwd wBOOL = 0
+	var useCwd wBOOL
 	if options.useCWD {
 		useCwd = 1
 	}
 
-	var exitCode ExitCode
+	var exitCode uint32
 
 	r1, _, _ := wslLaunchInteractive.Call(
 		uintptr(unsafe.Pointer(distroUTF16)),

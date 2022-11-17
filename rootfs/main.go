@@ -22,6 +22,7 @@ const (
 	nReleases
 )
 
+// String convertis the integer identifying the Release into the adjective.
 func (r Release) String() string {
 	switch r {
 	case Jammy:
@@ -32,6 +33,8 @@ func (r Release) String() string {
 	return "undefined-release"
 }
 
+// Get downloads the requested release's rootfs for WSL. If the rootfs is already available,
+// and up to date with the remote repository, then the download is skipped.
 func Get(r Release, location string) (string, error) {
 	if err := validateRelease(r); err != nil {
 		return "", err
@@ -131,29 +134,35 @@ func isLocalOutdated(r Release, location string) bool {
 	return localChecksum != remoteChecksum
 }
 
-func safeGetPath(path string) (string, error) {
+// validatePath is the identity if the path exists, otherwise it errors.
+func validatePath(path string) (string, error) {
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		return path, fmt.Errorf("file %s does not exist", path)
 	}
 	return path, nil
 }
 
+// safeLocalRootfs returns the path to the local rootfs iff it exists.
 func safeLocalRootfs(r Release, location string) (string, error) {
-	return safeGetPath(localRootfs(r, location))
+	return validatePath(localRootfs(r, location))
 }
 
+// localRootfs returns the path to the local rootfs.
 func localRootfs(r Release, location string) string {
 	return filepath.Join(location, localTarballName(r))
 }
 
+// localSha256Contents returns the checksum of the local rootfs as written in the local SHA256SUMS.
 func localSha256Contents(r Release, location string) (string, error) {
 	return parseSHA256SUMS(r, localSha256(r, location))
 }
 
+// localRootfs returns the path to the local SHA256SUMS.
 func localSha256(r Release, location string) string {
 	return filepath.Join(location, fmt.Sprintf(`%s.SHA256SUMS`, r))
 }
 
+// URL where the contents of a given release are.
 func baseURL(r Release) string {
 	switch r {
 	case Jammy:
@@ -165,19 +174,23 @@ func baseURL(r Release) string {
 	panic("Unreachable")
 }
 
+// Name of the remote rootfs
 func remoteTarballName(r Release) string {
 	return fmt.Sprintf("ubuntu-%s-wsl-amd64-wsl.rootfs.tar.gz", r)
 }
 
+// Name of the local rootfs
 func localTarballName(r Release) string {
 	return fmt.Sprintf("%s.tar.gz", r)
 }
 
+// Mockable wrapper around grab.Get.
 var downloadFile = func(dir string, url string) (string, error) {
 	r, err := grab.Get(dir, url)
 	return r.Filename, err
 }
 
+// remoteSha256Contents
 func remoteSha256Contents(r Release) (string, error) {
 	url := baseURL(r) + `SHA256SUMS`
 	fileName, err := downloadFile(os.TempDir(), url)
@@ -187,6 +200,7 @@ func remoteSha256Contents(r Release) (string, error) {
 	return parseSHA256SUMS(r, fileName)
 }
 
+// parseSHA256SUMS returns the checksum of the remote rootfs as written in the remote SHA256SUMS.
 func parseSHA256SUMS(r Release, path string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -214,6 +228,8 @@ func parseSHA256SUMS(r Release, path string) (string, error) {
 	return "", fmt.Errorf("could not find %q in SHA256SUMS file %q", targzName, path)
 }
 
+// stashLocal appends .backup to the filenames of local rootfs and SHA256SUMS files.
+// Returns functions to either remove the backup, and to restore it. Use only one of them.
 func stashLocal(r Release, location string) (remove func() error, restore func() error, err error) {
 	nilFunc := func() error { return nil }
 
@@ -230,10 +246,12 @@ func stashLocal(r Release, location string) (remove func() error, restore func()
 	return compose(removeRFS, removeSHA), compose(restoreRFS, restoreSHA), nil
 }
 
+// stashSingleFile appends .backup to the filenames of the provided file.
+// Returns functions to either remove the backup, and to restore it. Use only one of them.
 func stashSingleFile(original string) (remove func() error, restore func() error, err error) {
 	nilFunc := func() error { return nil }
 
-	if _, err := safeGetPath(original); err != nil {
+	if _, err := validatePath(original); err != nil {
 		return nilFunc, nilFunc, nil // No need to back it up beacuse it doesn't exist
 	}
 
@@ -264,6 +282,7 @@ func stashSingleFile(original string) (remove func() error, restore func() error
 	return remove, restore, nil
 }
 
+// fetchRemote downloads the remote rootfs and SHA256SUMS
 func fetchRemote(r Release, location string) (string, error) {
 	// Fetching rootfs
 	url := baseURL(r) + remoteTarballName(r)
@@ -282,6 +301,7 @@ func fetchRemote(r Release, location string) (string, error) {
 	return safeLocalRootfs(r, location)
 }
 
+// compose takes two functions that may error out and returns a function that calls them both and returns all of the errors.
 func compose(A func() error, B func() error) func() error {
 	return func() error {
 		errA := A()
@@ -308,6 +328,7 @@ ERROR 2:
 	}
 }
 
+// wrap is a functional utility that returns a getter for the value provided.
 func wrap[T any](x T) func() T {
 	return func() T { return x }
 }

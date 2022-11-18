@@ -49,7 +49,13 @@ func (m *ExitError) Error() string {
 //
 // The Wait method will return the exit code and release associated resources
 // once the command exits.
-func (p *Cmd) Start() error {
+func (p *Cmd) Start() (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("error during Distro.Start: %v", err)
+		}
+	}()
+
 	distroUTF16, err := syscall.UTF16PtrFromString(p.distro.Name)
 	if err != nil {
 		return fmt.Errorf("failed to convert '%s' to UTF16", p.distro)
@@ -85,6 +91,9 @@ func (p *Cmd) Start() error {
 	if r1 != 0 {
 		return fmt.Errorf("failed syscall to WslLaunch")
 	}
+	if p.handle == 0 {
+		return fmt.Errorf("syscall to WslLaunch returned a null handle")
+	}
 
 	if p.ctx != nil {
 		p.waitDone = make(chan struct{})
@@ -106,12 +115,23 @@ func (p *Cmd) Start() error {
 // The returned error is nil if the command runs and exits with a zero exit status.
 //
 // If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
-func (p *Cmd) Wait() error {
+func (p *Cmd) Wait() (err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		var e *ExitError
+		if errors.As(err, &e) {
+			return
+		}
+		err = fmt.Errorf("error during Distro.Wait: %v", err)
+	}()
+
 	defer p.close()
-	r1, error := syscall.WaitForSingleObject(p.handle, syscall.INFINITE)
+	r1, err := syscall.WaitForSingleObject(p.handle, syscall.INFINITE)
 
 	if r1 != 0 {
-		return fmt.Errorf("failed syscall to WaitForSingleObject: %v", error)
+		return fmt.Errorf("failed syscall to WaitForSingleObject: %v", err)
 	}
 
 	if p.waitDone != nil {
@@ -128,7 +148,7 @@ func (p *Cmd) Wait() error {
 // If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
 func (p *Cmd) Run() error {
 	if err := p.Start(); err != nil {
-		return fmt.Errorf("failed to start command: %v", err)
+		return err
 	}
 	return p.Wait()
 }
@@ -179,7 +199,7 @@ func (p *Cmd) queryStatus() error {
 		return fmt.Errorf("failed to retrieve exit status: %v", err)
 	}
 	if exit == WindowsError {
-		return errors.New("something went wrong Windows-side")
+		return errors.New("failed to Launch Linux command due to Windows-side error")
 	}
 	if exit != 0 {
 		return &ExitError{Code: exit}

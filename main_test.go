@@ -53,13 +53,9 @@ func sanitizeDistroName(candidateName string) string {
 // newTestDistro creates and registers a new distro with a mangled name and adds it to list of distros to remove.
 func newTestDistro(t *testing.T, rootfs string) wsl.Distro {
 	d := wsl.Distro{Name: sanitizeDistroName(fmt.Sprintf("%s_%s_%s", namePrefix, t.Name(), uniqueId()))}
+	t.Logf("Registering %q\n", d.Name)
 
-	temp := t.TempDir()
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second) // WSL sometimes gets stuck installing
-	defer cancel()
-	cmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --import %s %s %s", d.Name, temp, jammyRootFs)
-	output, err := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd).CombinedOutput()
-	require.NoError(t, err, string(output))
+	powershellInstallDistro(t, d.Name)
 
 	t.Cleanup(func() {
 		err := cleanUpWslInstance(d)
@@ -68,7 +64,54 @@ func newTestDistro(t *testing.T, rootfs string) wsl.Distro {
 		}
 	})
 
+	t.Logf("Distro %q registered\n", d.Name)
 	return d
+}
+
+// powershellInstallDistro installs using powershell to decouple the tests from Distro.Register
+// CommandContext sometimes fails to stop it, so a more aggressive approach is taken by rebooting WSL.
+func powershellInstallDistro(t *testing.T, distroName string) {
+	// Timeout to attempt a graceful failure
+	const gracefulTimeout = 60 * time.Second
+
+	// Timeout to shutdown WSL
+	const aggressiveTimeout = 70 * time.Second
+
+	// Cannot use context.WithTimeout because I want to quit by doing wsl --shutdown
+	ticker := time.NewTicker(aggressiveTimeout)
+
+	type combinedOutput struct {
+		output string
+		err    error
+	}
+	cmdOut := make(chan combinedOutput)
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), gracefulTimeout)
+		cmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --import %s %s %s", distroName, t.TempDir(), jammyRootFs)
+		o, e := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd).CombinedOutput()
+		cancel()
+
+		cmdOut <- combinedOutput{output: string(o), err: e}
+		close(cmdOut)
+	}()
+
+	select {
+	case o := <-cmdOut:
+		require.NoError(t, o.err, o.output)
+		return
+	case <-ticker.C:
+		// Failed to complete or gracefully fail. Switching to wsl --shutdown.
+	}
+
+	t.Logf("installation of WSL distro %s got stuck. Rebooting WSL.", distroName)
+	e := exec.Command("wsl.exe", "--shutdown").Run()
+	require.NoError(t, e, "failed to shutdown WSL after distro installation got stuck")
+
+	// Almost guaranteed to error out here
+	o := <-cmdOut
+	require.NoError(t, o.err, o.output)
+
 }
 
 // cleanUpTestWslInstances finds all distros with a prefixed name and unregisters them

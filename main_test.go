@@ -111,7 +111,7 @@ func powershellInstallDistro(t *testing.T, distroName string) {
 		output = <-cmdOut
 		require.NoError(t, output.err, output.output)
 
-		require.Fail(t, "Setup: unknown state: succesfully registered while WSL was shut down, stdout+stderr:", o.output)
+		require.Fail(t, "Setup: unknown state: succesfully registered while WSL was shut down, stdout+stderr:", output.output)
 	case output = <-cmdOut:
 	}
 	require.NoErrorf(t, output.err, "Setup: failed to register %q: %s", distroName, output.output)

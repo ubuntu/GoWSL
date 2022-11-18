@@ -46,22 +46,26 @@ configuration: failed to get configuration, failed syscall to WslGetDistribution
 				d = fakeDistro
 			}
 
-	got := d.String()
+			got := d.String()
 			require.Equal(t, tc.wants, got)
 		})
 	}
 }
 
-func TestDistroStringError(t *testing.T) {
-	d := wsl.Distro{Name: "ThisDistroIsNotRegistered"}
-	wants := fmt.Sprintf(`distro: %s
-configuration: failed to get configuration, failed syscall to WslGetDistributionConfiguration
-`, d.Name)
+// One table test per setting, with:
+//Set a value to non default, assert with Configuration()
+// Set a value fails, assert the configuration didn't change:
+// -- error no distro
+// -- error on null character name in distro
 
-	got := d.String()
-	require.Equal(t, wants, got)
-}
+// TestConfigurationWithChanges
+// set multiple non default values, assert with Configuration()
 
+// TestConfiguration:
+//Assert default
+// Error cases:
+// - no distro
+// - null character name in distro
 func TestConfiguration(t *testing.T) {
 
 	distro := newTestDistro(t, jammyRootFs)

@@ -79,7 +79,7 @@ func (d Distro) IsRegistered() (bool, error) {
 	return false, nil
 }
 
-// Register is a wrapper around Win32's WslUnregisterDistribution.
+// Unregister is a wrapper around Win32's WslUnregisterDistribution.
 func (d *Distro) Unregister() error {
 	r, err := d.IsRegistered()
 	if err != nil {

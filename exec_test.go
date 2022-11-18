@@ -2,15 +2,17 @@ package wsl_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
 	"wsl"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestCommandBackgroundContext(t *testing.T) {
+func TestCommandRun(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
 	fakeDistro := wsl.Distro{Name: sanitizeDistroName(fmt.Sprintf("%s_%s_%s", namePrefix, t.Name(), uniqueId()))}
 
@@ -21,14 +23,42 @@ func TestCommandBackgroundContext(t *testing.T) {
 	err := cmd.Run()
 	require.NoError(t, err)
 
+	// Enum with various times in the execution
+	type when uint
+	const (
+		CANCEL_NEVER when = iota
+		CANCEL_BEFORE_RUN
+		CANCEL_DURING_RUN
+		CANCEL_AFTER_RUN
+	)
+
 	testCases := map[string]struct {
-		cmd        string
+		cmd     string
+		timeout time.Duration
+
 		fakeDistro bool
-		wantsError error
+		cancelOn   when
+
+		wantErr       bool
+		wantExitError *wsl.ExitError
 	}{
-		"nominal":       {cmd: "exit 0"},
-		"windows error": {cmd: "exit 0", fakeDistro: true, wantsError: fmt.Errorf("error during Distro.Wait: failed to Launch Linux command due to Windows-side error")},
-		"linux error":   {cmd: "exit 42", wantsError: &wsl.ExitError{Code: 42}},
+		"success":       {cmd: "exit 0"},
+		"windows error": {cmd: "exit 0", fakeDistro: true, wantErr: true},
+		"linux error":   {cmd: "exit 42", wantErr: true, wantExitError: &wsl.ExitError{Code: 42}},
+
+		// timeout cases
+		"success with timeout long enough":       {cmd: "exit 0", timeout: 6 * time.Second},
+		"linux error with timeout long enough":   {cmd: "exit 42", timeout: 6 * time.Second, wantErr: true, wantExitError: &wsl.ExitError{Code: 42}},
+		"windows error with timeout long enough": {cmd: "exit 0", fakeDistro: true, wantErr: true},
+		"timeout before Run":                     {cmd: "exit 0", timeout: 1 * time.Nanosecond, wantErr: true},
+		"timeout during Run":                     {cmd: "sleep 3 && exit 0", timeout: 2 * time.Second, wantErr: true},
+
+		// cancel cases
+		"success with no cancel":  {cmd: "exit 0", cancelOn: CANCEL_AFTER_RUN},
+		"linux error no cancel":   {cmd: "exit 42", cancelOn: CANCEL_AFTER_RUN, wantErr: true, wantExitError: &wsl.ExitError{Code: 42}},
+		"windows error no cancel": {cmd: "exit 42", cancelOn: CANCEL_AFTER_RUN, fakeDistro: true, wantErr: true},
+		"cancel before Run":       {cmd: "exit 0", cancelOn: CANCEL_BEFORE_RUN, wantErr: true},
+		"cancel during Run":       {cmd: "sleep 5 && exit 0", cancelOn: CANCEL_DURING_RUN, wantErr: true},
 	}
 
 	for name, tc := range testCases {
@@ -39,67 +69,66 @@ func TestCommandBackgroundContext(t *testing.T) {
 				d = fakeDistro
 			}
 
-			cmd := d.Command(context.Background(), tc.cmd)
+			ctx := context.Background()
+			var cancel context.CancelFunc
+			if tc.timeout != 0 {
+				ctx, cancel = context.WithTimeout(ctx, tc.timeout)
+				defer cancel()
+				time.Sleep(time.Second) // Gives time for an early failure
+			}
+			if tc.cancelOn != CANCEL_NEVER {
+				ctx, cancel = context.WithCancel(ctx)
+				defer cancel()
+			}
+
+			cmd := d.Command(ctx, tc.cmd)
 			cmd.Stdout = 0
 			cmd.Stderr = 0
+
+			switch tc.cancelOn {
+			case CANCEL_BEFORE_RUN:
+				cancel()
+			case CANCEL_DURING_RUN:
+				go func() {
+					time.Sleep(1 * time.Second)
+					cancel()
+				}()
+			}
+
 			err := cmd.Run()
 
-			if tc.wantsError == nil {
-				require.NoError(t, err)
+			if !tc.wantErr {
+				require.NoError(t, err, "did not expect Run() to return an error")
 				return
 			}
 
-			require.Error(t, err)
-			require.Equal(t, tc.wantsError.Error(), err.Error())
-		})
+			require.Error(t, err, "expected Run() to return an error")
 
-	}
-}
-
-func TestCommandWithTimeout(t *testing.T) {
-	d := newTestDistro(t, jammyRootFs)
-
-	// Poking distro to wake it up
-	cmd := d.Command(context.Background(), "exit 0")
-	cmd.Stdout = 0
-	cmd.Stderr = 0
-	err := cmd.Run()
-	require.NoError(t, err)
-
-	testCases := map[string]struct {
-		wantsError    bool
-		errorContains string
-		timeout       time.Duration
-	}{
-		"nominal":               {timeout: 10 * time.Second},
-		"deadline before Start": {timeout: 1 * time.Nanosecond, wantsError: true, errorContains: "context deadline exceeded"},
-		"deadline after Start":  {timeout: 3 * time.Second, wantsError: true, errorContains: "process was closed before finshing"},
-	}
-
-	for name, tc := range testCases {
-		tc := tc
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			ctx, cancel := context.WithTimeout(context.Background(), tc.timeout)
-			defer cancel()
-
-			time.Sleep(time.Second) // Gives time for an early failure
-
-			cmd = d.Command(ctx, "sleep 4 && exit 0") // Gives time for a late failure, then exits normally
-			cmd.Stderr = 0
-			cmd.Stdout = 0
-			err = cmd.Run()
-
-			if !tc.wantsError {
-				require.NoError(t, err)
+			if tc.wantExitError != nil {
+				var target wsl.ExitError
+				if errors.As(err, &target) {
+					require.Equal(t, target.Code, tc.wantExitError.Code, "returned error ExitError has unexpected Code status")
+				}
 				return
 			}
-			require.Error(t, err)
-			require.Contains(t, err.Error(), tc.errorContains)
+
+			// Ensure that we don't get an ExitError
+			require.NotErrorIs(t, err, wsl.ExitError{}, "Run() should not have returned an ExitError")
 		})
 	}
 }
 
+func TestExitErrorIs(t *testing.T) {
+	reference := wsl.ExitError{Code: 35}
+	exit := wsl.ExitError{Code: 5}
+	err := errors.New("")
+
+	assert.ErrorIs(t, exit, reference, "An ExitError should have been detected as being an ExitError")
+	assert.NotErrorIs(t, err, reference, "A string error should not have been detected as being an ExitError")
+	assert.NotErrorIs(t, reference, err, "An ExitError error should not have been detected as being a string error")
+}
+
+//TODO: STAR/WAIT()
 func TestCommandWithCancel(t *testing.T) {
 	d := newTestDistro(t, jammyRootFs)
 
@@ -121,12 +150,12 @@ func TestCommandWithCancel(t *testing.T) {
 
 	testCases := map[string]struct {
 		cancel        when
-		wantsError    when
+		wantError     when
 		errorContains string
 	}{
-		"nominal":                 {cancel: AFTER_WAIT, wantsError: NEVER},
-		"cancel before execution": {cancel: BEFORE_START, wantsError: AFTER_START, errorContains: "context canceled"},
-		"cancel during execution": {cancel: AFTER_START, wantsError: AFTER_WAIT, errorContains: "process was closed before finshing"},
+		"nominal":                 {cancel: AFTER_WAIT, wantError: NEVER},
+		"cancel before execution": {cancel: BEFORE_START, wantError: AFTER_START, errorContains: "context canceled"},
+		"cancel during execution": {cancel: AFTER_START, wantError: AFTER_WAIT, errorContains: "process was closed before finishing"},
 	}
 
 	for name, tc := range testCases {
@@ -134,20 +163,14 @@ func TestCommandWithCancel(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			// Informing both the user and the linter
 			require.Less(t, tc.cancel, NEVER, "Ill-formed test: cancel must be between %d and %d (inclusive)", BEFORE_START, AFTER_WAIT)
-			require.LessOrEqual(t, tc.wantsError, NEVER, "Ill-formed test: wantsError must be between %d and %d (inclusive)", AFTER_START, NEVER)
+			require.LessOrEqual(t, tc.wantError, NEVER, "Ill-formed test: wantsError must be between %d and %d (inclusive)", AFTER_START, NEVER)
 
 			ctx, cancel := context.WithCancel(context.Background())
-			var cancelled bool
-			defer func() {
-				if !cancelled {
-					cancel()
-				}
-			}()
+			defer cancel()
 
 			// BEFORE_START block
 			if tc.cancel == BEFORE_START {
 				cancel()
-				cancelled = true
 			}
 
 			cmd = d.Command(ctx, "sleep 3 && exit 0")
@@ -157,7 +180,7 @@ func TestCommandWithCancel(t *testing.T) {
 			err = cmd.Start()
 
 			// AFTER_START block
-			if tc.wantsError == AFTER_START {
+			if tc.wantError == AFTER_START {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.errorContains)
 				return
@@ -166,13 +189,11 @@ func TestCommandWithCancel(t *testing.T) {
 
 			if tc.cancel == AFTER_START {
 				cancel()
-				cancelled = true
 			}
-
 			err = cmd.Wait()
 
 			// AFTER_WAIT block
-			if tc.wantsError == AFTER_WAIT {
+			if tc.wantError == AFTER_WAIT {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.errorContains)
 				return

@@ -41,8 +41,13 @@ type ExitError struct {
 	Code uint32
 }
 
-func (m *ExitError) Error() string {
+func (m ExitError) Error() string {
 	return fmt.Sprintf("exit error: %d", m.Code)
+}
+
+func (m ExitError) Is(target error) bool {
+	_, ok := target.(ExitError)
+	return ok
 }
 
 // Start starts the specified WslProcess but does not wait for it to complete.
@@ -91,7 +96,7 @@ func (p *Cmd) Start() (err error) {
 	if r1 != 0 {
 		return fmt.Errorf("failed syscall to WslLaunch")
 	}
-	if p.handle == 0 {
+	if p.handle == syscall.Handle(0) {
 		return fmt.Errorf("syscall to WslLaunch returned a null handle")
 	}
 
@@ -120,7 +125,7 @@ func (p *Cmd) Wait() (err error) {
 		if err == nil {
 			return
 		}
-		var e *ExitError
+		var e ExitError
 		if errors.As(err, &e) {
 			return
 		}
@@ -208,7 +213,7 @@ func (p *Cmd) queryStatus() error {
 }
 
 // kill gets the exit status before closing the process, without checking
-// if it has finsihed or not.
+// if it has finished or not.
 func (p *Cmd) kill() error {
 
 	// If the exit code is ActiveProcess, we write a more useful error message
@@ -226,7 +231,7 @@ func (p *Cmd) kill() error {
 		if asExitError.Code != ActiveProcess {
 			return e
 		}
-		return errors.New("process was closed before finshing")
+		return errors.New("process was closed before finishing")
 	}()
 
 	return syscall.TerminateProcess(p.handle, ActiveProcess)

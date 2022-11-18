@@ -56,23 +56,6 @@ func TestCommandBackgroundContext(t *testing.T) {
 	}
 }
 
-func TestCommandFailureNoDistro(t *testing.T) {
-	d := wsl.Distro{Name: "my favourite distro"}
-	// We do not register it
-
-	// Test that exit values are returned correctly
-	cmd := d.Command(context.Background(), "exit 0")
-	cmd.Stderr = 0
-	cmd.Stdout = 0
-
-	err := cmd.Run()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "something went wrong Windows-side")
-
-	var errAsExitError *wsl.ExitError
-	require.NotErrorIs(t, err, errAsExitError)
-}
-
 func TestCommandWithTimeout(t *testing.T) {
 	d := newTestDistro(t, jammyRootFs)
 

@@ -10,8 +10,6 @@ import (
 )
 
 func TestRegister(t *testing.T) {
-	t.Skip("The WslRegisterDistribution API call is very flaky for some reason")
-
 	d1 := wsl.Distro{Name: fmt.Sprintf("%s_%s_%s", namePrefix, "_nameIsValid", uniqueId())}
 	t.Cleanup(func() { cleanUpWslInstance(d1) })
 

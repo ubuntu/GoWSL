@@ -100,6 +100,7 @@ func TestConfigurationSetters(t *testing.T) {
 		want      any    // Wanted value (will be overridden during test)
 	}
 
+	// Overrides the "want" in a settingDetails dict (bypasses the non-addressablity of the struct member)
 	setWant := func(d map[testedSetting]settingDetails, setter testedSetting, want any) {
 		det := d[setter]
 		det.want = want

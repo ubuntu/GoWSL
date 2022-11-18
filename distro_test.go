@@ -10,13 +10,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// all in one test: 3 cases:
-// with env
-// with no env
-// error
 func TestDistroString(t *testing.T) {
-	d := newTestDistro(t, jammyRootFs)
-	wants := fmt.Sprintf(`distro: %s
+	realDistro := newTestDistro(t, jammyRootFs)
+	fakeDistro := wsl.Distro{Name: sanitizeDistroName(fmt.Sprintf("%s_%s_%s", namePrefix, t.Name(), uniqueId()))}
+
+	testCases := map[string]struct {
+		fakeDistro bool
+		withoutEnv bool
+		wants      string
+	}{
+		"nominal": {wants: fmt.Sprintf(`distro: %s
 configuration:
   - Version: 2
   - DefaultUID: 0
@@ -29,10 +32,24 @@ configuration:
     - LANG: en_US.UTF-8
     - PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
     - TERM: xterm-256color
-`, d.Name)
+`, realDistro.Name)},
+		"wrong distro": {fakeDistro: true, wants: fmt.Sprintf(`distro: %s
+configuration: failed to get configuration, failed syscall to WslGetDistributionConfiguration
+`, fakeDistro.Name)},
+	}
+
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			d := realDistro
+			if tc.fakeDistro {
+				d = fakeDistro
+			}
 
 	got := d.String()
-	require.Equal(t, wants, got)
+			require.Equal(t, tc.wants, got)
+		})
+	}
 }
 
 func TestDistroStringError(t *testing.T) {

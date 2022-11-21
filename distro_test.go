@@ -3,12 +3,70 @@ package wsl_test
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"testing"
+	"time"
 	"wsl"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestShutdown(t *testing.T) {
+	d := newTestDistro(t, jammyRootFs) // Will terminate
+
+	defer startTestLinuxProcess(t, &d)()
+
+	wsl.Shutdown()
+
+	require.False(t, isTestLinuxProcessAlive(t, &d), "Process was not killed by shutting down.")
+}
+
+func TestTerminate(t *testing.T) {
+	sampleDistro := newTestDistro(t, jammyRootFs)  // Will terminate
+	controlDistro := newTestDistro(t, jammyRootFs) // Will not terminate, used to assert other distros are unaffected
+
+	defer startTestLinuxProcess(t, &sampleDistro)()
+	defer startTestLinuxProcess(t, &controlDistro)()
+
+	sampleDistro.Terminate()
+
+	require.False(t, isTestLinuxProcessAlive(t, &sampleDistro), "Process was not killed by termination.")
+	require.True(t, isTestLinuxProcessAlive(t, &controlDistro), "Process was killed by termination of a diferent distro.")
+}
+
+// startTestLinuxProcess starts a linux process that is easy to grep for.
+func startTestLinuxProcess(t *testing.T, d *wsl.Distro) context.CancelFunc {
+	cmd := "$env:WSL_UTF8=1 ; wsl.exe -d " + d.Name + " -- bash -ec 'sleep 500 && echo LongIdentifyableStringThatICanGrep'"
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	c := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd)
+	err := c.Start()
+	require.NoError(t, err, "Unexpected error launching command")
+
+	// Waiting for process to start
+	tk := time.NewTicker(100 * time.Microsecond)
+	defer tk.Stop()
+
+	for i := 0; i < 10; i++ {
+		<-tk.C
+		if !isTestLinuxProcessAlive(t, d) { // Process not started
+			continue
+		}
+		return cancel
+	}
+	require.Fail(t, "Command failed to start")
+	return cancel
+}
+
+// isTestLinuxProcessAlive checks if the process strated by startTestLinuxProcess is still alive.
+func isTestLinuxProcessAlive(t *testing.T, d *wsl.Distro) bool {
+	cmd := "$env:WSL_UTF8=1 ; wsl.exe -d " + d.Name + " -- bash -ec 'ps aux | grep LongIdentifyableStringThatICanGrep | grep -v grep'"
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd).CombinedOutput()
+	return err == nil
+}
 
 func TestDistroString(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)

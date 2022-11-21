@@ -3,6 +3,7 @@ package wsl_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 	"wsl"
@@ -10,6 +11,37 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestExitErrorIs(t *testing.T) {
+	reference := wsl.ExitError{Code: 35}
+	exit := wsl.ExitError{Code: 5}
+	err := errors.New("")
+
+	assert.ErrorIs(t, exit, reference, "An ExitError should have been detected as being an ExitError")
+	assert.NotErrorIs(t, err, reference, "A string error should not have been detected as being an ExitError")
+	assert.NotErrorIs(t, reference, err, "An ExitError error should not have been detected as being a string error")
+}
+
+// TestExitErrorAsString ensures that ExitError's message contains the actual code
+func TestExitErrorAsString(t *testing.T) {
+	t.Parallel()
+	testCases := []uint32{1, 15, 255, wsl.ActiveProcess, wsl.WindowsError}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(fmt.Sprintf("%d", tc), func(t *testing.T) {
+			t.Parallel()
+
+			err := wsl.ExitError{Code: tc}
+
+			s := fmt.Sprintf("%v", err)
+			assert.Contains(t, s, fmt.Sprintf("%d", tc))
+
+			s = err.Error()
+			assert.Contains(t, s, fmt.Sprintf("%d", tc))
+		})
+	}
+}
 
 func TestCommandRun(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
@@ -115,16 +147,6 @@ func TestCommandRun(t *testing.T) {
 			require.NotErrorIs(t, err, wsl.ExitError{}, "Run() should not have returned an ExitError")
 		})
 	}
-}
-
-func TestExitErrorIs(t *testing.T) {
-	reference := wsl.ExitError{Code: 35}
-	exit := wsl.ExitError{Code: 5}
-	err := errors.New("")
-
-	assert.ErrorIs(t, exit, reference, "An ExitError should have been detected as being an ExitError")
-	assert.NotErrorIs(t, err, reference, "A string error should not have been detected as being an ExitError")
-	assert.NotErrorIs(t, reference, err, "An ExitError error should not have been detected as being a string error")
 }
 
 //TODO: STAR/WAIT()

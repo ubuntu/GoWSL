@@ -47,14 +47,6 @@ func (d *Distro) Register(rootFsPath string) error {
 		return fmt.Errorf("failed syscall to wslRegisterDistribution")
 	}
 
-	registered, err := d.IsRegistered()
-	if err != nil {
-		return err
-	}
-	if !registered {
-		return fmt.Errorf("WSL distro %q was not succesfully registered", d.Name)
-	}
-
 	return nil
 }
 

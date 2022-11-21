@@ -2,6 +2,7 @@ package wsl_test
 
 import (
 	"testing"
+	"time"
 	"wsl"
 
 	"github.com/stretchr/testify/assert"
@@ -9,25 +10,49 @@ import (
 )
 
 func TestRegister(t *testing.T) {
-	d1 := wsl.Distro{Name: UniqueDistroName(t)}
-	t.Cleanup(func() { cleanUpWslInstance(d1) })
+	testCases := map[string]struct {
+		distroSuffix string
+		rootfs       string
+		wantError    bool
+	}{
+		"happy path":          {rootfs: jammyRootFs},
+		"wrong name":          {rootfs: jammyRootFs, distroSuffix: "--I contain whitespace", wantError: true},
+		"null char in name":   {rootfs: jammyRootFs, distroSuffix: "--I \x00 contain a null char", wantError: true},
+		"null char in rootfs": {rootfs: "jammy\x00.tar.gz", wantError: true},
+		"inexistent rootfs":   {rootfs: "I am not a real file.tar.gz", wantError: true},
+	}
 
-	d2 := wsl.Distro{Name: UniqueDistroName(t) + "_name not valid"}
-	t.Cleanup(func() { cleanUpWslInstance(d2) })
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			d := wsl.Distro{Name: UniqueDistroName(t) + tc.distroSuffix}
+			defer CleanUpWslInstance(d)
 
-	err := d1.Register(emptyRootFs)
-	require.NoError(t, err)
+			cancel := wslShutdownTimeout(t, time.Minute)
+			t.Logf("Registering %q", d.Name)
+			err := d.Register(tc.rootfs)
+			cancel()
+			t.Log("Registration completed")
 
-	err = d2.Register(emptyRootFs)
-	require.Error(t, err) // Space not allowed in name
+			if tc.wantError {
+				require.Errorf(t, err, "Unexpected success in registering distro %q.", d.Name)
+				return
+			}
+			require.NoError(t, err, "Unexpected failure in registering distro %q.", d.Name)
+			list, err := registeredTestWslInstances()
+			require.NoError(t, err, "Failed to read list of registered test distros.")
+			require.Contains(t, list, d, "Failed to find distro in list of registered distros.")
 
-	err = d1.Register(emptyRootFs)
-	require.Error(t, err) // Double registration disallowed
+			// Testing double registration failure
+			cancel = wslShutdownTimeout(t, time.Minute)
+			t.Logf("Registering %q", d.Name)
+			err = d.Register(tc.rootfs)
+			cancel()
+			t.Log("Registration completed")
 
-	testInstances, err := registeredTestWslInstances()
-	require.NoError(t, err)
-	assert.Contains(t, testInstances, d1)
-	assert.NotContains(t, testInstances, d2)
+			require.Error(t, err, "Unexpected success in registering distro that was already registered.")
+		})
+	}
 }
 
 func TestRegisteredDistros(t *testing.T) {
@@ -45,13 +70,14 @@ func TestRegisteredDistros(t *testing.T) {
 
 func TestIsRegistered(t *testing.T) {
 	tests := map[string]struct {
-		distroName     string
+		distroSuffix   string
 		register       bool
 		wantError      bool
 		wantRegistered bool
 	}{
-		"nominal":    {register: true, wantError: false, wantRegistered: true},
-		"inexistent": {register: false, wantError: false, wantRegistered: false},
+		"nominal":           {register: true, wantRegistered: true},
+		"inexistent":        {},
+		"null char in name": {distroSuffix: "Oh no, there is a \x00!"},
 	}
 
 	for name, config := range tests {
@@ -83,23 +109,71 @@ func TestIsRegistered(t *testing.T) {
 	}
 }
 
-func TestUnRegister(t *testing.T) {
-	distro1 := newTestDistro(t, emptyRootFs)
-	distro2 := wsl.Distro{Name: UniqueDistroName(t)}
-	distro3 := wsl.Distro{Name: "This Distro Is Not Valid"}
+func TestUnregister(t *testing.T) {
+	realDistro := newTestDistro(t, emptyRootFs)
+	fakeDistro := wsl.Distro{Name: UniqueDistroName(t)}
+	wrongDistro := wsl.Distro{Name: UniqueDistroName(t) + "This Distro \x00 has a null char"}
 
-	err := distro1.Unregister()
-	require.NoError(t, err)
+	testCases := map[string]struct {
+		distro    *wsl.Distro
+		wantError bool
+	}{
+		"happy path":        {distro: &realDistro},
+		"not registered":    {distro: &fakeDistro, wantError: true},
+		"null char in name": {distro: &wrongDistro, wantError: true},
+	}
 
-	err = distro2.Unregister()
-	require.Error(t, err)
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			d := *tc.distro
 
-	err = distro3.Unregister()
-	require.Error(t, err)
+			cancel := wslShutdownTimeout(t, time.Minute)
+			t.Logf("Unregistering %q", d.Name)
+			err := d.Unregister()
+			cancel()
+			t.Log("Unregistration completed")
 
-	testInstances, err := registeredTestWslInstances()
-	require.NoError(t, err)
-	assert.NotContains(t, testInstances, distro1)
-	assert.NotContains(t, testInstances, distro2)
-	assert.NotContains(t, testInstances, distro3)
+			if tc.wantError {
+				require.Errorf(t, err, "Unexpected success in unregistering distro %q.", d.Name)
+			} else {
+				require.NoError(t, err, "Unexpected failure in unregistering distro %q.", d.Name)
+			}
+
+			list, err := registeredTestWslInstances()
+			require.NoError(t, err, "Failed to read list of registered test distros.")
+			require.NotContains(t, list, d, "Found allegedly unregistered distro in list of registered distros.")
+		})
+	}
+}
+
+// wslShutdownTimeout starts a timer. When the timer finishes, WSL is shut down.
+// Use the returned function to cancel it. Even if you time out, cancel should be
+// called in order to deallocate resources. You can call cancel multiple times without
+// adverse effect.
+func wslShutdownTimeout(t *testing.T, timeout time.Duration) (cancel func()) {
+	stop := make(chan struct{})
+	var cancelled bool
+
+	go func() {
+		timer := time.NewTimer(timeout)
+		select {
+		case <-stop:
+		case <-timer.C:
+			t.Logf("wslShutdownTimeout timed out")
+			err := wsl.Shutdown()
+			require.NoError(t, err, "Failed to shutdown WSL after it timed out")
+			<-stop
+		}
+		timer.Stop()
+	}()
+
+	return func() {
+		if cancelled {
+			return
+		}
+		cancelled = true
+		stop <- struct{}{}
+		close(stop)
+	}
 }

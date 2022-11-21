@@ -149,7 +149,6 @@ func TestCommandRun(t *testing.T) {
 	}
 }
 
-//TODO: STAR/WAIT()
 func TestCommandStartWait(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
 	fakeDistro := wsl.Distro{Name: UniqueDistroName(t)}

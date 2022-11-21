@@ -13,8 +13,12 @@ import (
 )
 
 // Register is a wrapper around Win32's WslRegisterDistribution
-func (d *Distro) Register(rootFsPath string) error {
-	// TODO: decorate the function
+func (d *Distro) Register(rootFsPath string) (e error) {
+	defer func() {
+		if e != nil {
+			e = fmt.Errorf("error registering %q: %v", d.Name, e)
+		}
+	}()
 
 	rootFsPath, err := fixPath(rootFsPath)
 	if err != nil {
@@ -23,20 +27,20 @@ func (d *Distro) Register(rootFsPath string) error {
 
 	r, err := d.IsRegistered()
 	if err != nil {
-		return fmt.Errorf("failed to detect if '%q' is installed already", d.Name)
+		return errors.New("failed to detect if it is already installed")
 	}
 	if r {
-		return fmt.Errorf("'%q' is already registered", d.Name)
+		return errors.New("already registered")
 	}
 
 	distroUTF16, err := syscall.UTF16PtrFromString(d.Name)
 	if err != nil {
-		return fmt.Errorf("failed to convert '%q' to UTF16", d.Name)
+		return errors.New("failed to convert distro name to UTF16")
 	}
 
 	rootFsPathUTF16, err := syscall.UTF16PtrFromString(rootFsPath)
 	if err != nil {
-		return fmt.Errorf("failed to convert '%q' to UTF16", rootFsPath)
+		return fmt.Errorf("failed to convert rootfs '%q' to UTF16", rootFsPath)
 	}
 
 	r1, _, _ := wslRegisterDistribution.Call(
@@ -52,18 +56,24 @@ func (d *Distro) Register(rootFsPath string) error {
 
 // RegisteredDistros returns a slice of the registered distros
 func RegisteredDistros() ([]Distro, error) {
-	return registeredInstances()
+	return registeredDistros()
 }
 
 // IsRegistered returns whether an distro is registered in WSL or not.
-func (d Distro) IsRegistered() (bool, error) {
+func (d Distro) IsRegistered() (registered bool, e error) {
+	defer func() {
+		if e != nil {
+			e = fmt.Errorf("failed to detect if %q is registered: %v", d.Name, e)
+		}
+	}()
+
 	distros, err := RegisteredDistros()
 	if err != nil {
 		return false, err
 	}
 
-	for _, i := range distros {
-		if i.Name != d.Name {
+	for _, dist := range distros {
+		if dist.Name != d.Name {
 			continue
 		}
 		return true, nil
@@ -72,18 +82,24 @@ func (d Distro) IsRegistered() (bool, error) {
 }
 
 // Unregister is a wrapper around Win32's WslUnregisterDistribution.
-func (d *Distro) Unregister() error {
+func (d *Distro) Unregister() (e error) {
+	defer func() {
+		if e != nil {
+			e = fmt.Errorf("failed to unregister %q: %v", d.Name, e)
+		}
+	}()
+
 	r, err := d.IsRegistered()
 	if err != nil {
-		return fmt.Errorf("failed to detect if '%q' is installed already", d.Name)
+		return err
 	}
 	if !r {
-		return fmt.Errorf("WSL distro '%q' is not registered", d.Name)
+		return errors.New("not registered")
 	}
 
 	distroUTF16, err := syscall.UTF16PtrFromString(d.Name)
 	if err != nil {
-		return fmt.Errorf("failed to convert '%q' to UTF16", d.Name)
+		return errors.New("failed to convert distro name to UTF16")
 	}
 
 	r1, _, _ := wslUnregisterDistribution.Call(uintptr(unsafe.Pointer(distroUTF16)))

@@ -92,12 +92,17 @@ func (d *Distro) DriveMountingEnabled(value bool) error {
 }
 
 // GetConfiguration is a wrapper around Win32's WslGetDistributionConfiguration.
-func (i Distro) GetConfiguration() (Configuration, error) {
+func (d Distro) GetConfiguration() (c Configuration, e error) {
+	defer func() {
+		if e != nil {
+			e = fmt.Errorf("error in GetConfiguration: %v", e)
+		}
+	}()
 	var conf Configuration
 
-	distroUTF16, err := syscall.UTF16PtrFromString(i.Name)
+	distroUTF16, err := syscall.UTF16PtrFromString(d.Name)
 	if err != nil {
-		return conf, fmt.Errorf("failed to convert '%s' to UTF16", i.Name)
+		return conf, fmt.Errorf("failed to convert %q to UTF16", d.Name)
 	}
 
 	var (
@@ -129,7 +134,7 @@ func (d Distro) String() string {
 	c, err := d.GetConfiguration()
 	if err != nil {
 		return fmt.Sprintf(`distro: %s
-configuration: failed to get configuration, %v
+configuration: %v
 `, d.Name, err)
 	}
 
@@ -164,11 +169,11 @@ configuration:
 //  - InteropEnabled
 //  - PathAppended
 //  - DriveMountingEnabled
-func (i *Distro) configure(config Configuration) error {
+func (d *Distro) configure(config Configuration) error {
 
-	distroUTF16, err := syscall.UTF16PtrFromString(i.Name)
+	distroUTF16, err := syscall.UTF16PtrFromString(d.Name)
 	if err != nil {
-		return fmt.Errorf("failed to convert '%s' to UTF16", i.Name)
+		return fmt.Errorf("failed to convert %q to UTF16", d.Name)
 	}
 
 	flags, err := config.packFlags()

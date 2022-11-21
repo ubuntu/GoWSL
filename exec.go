@@ -160,11 +160,11 @@ func (p *Cmd) Run() error {
 // close closes a WslProcess. If it was still running, it is terminated,
 // although its Linux counterpart may not.
 func (p *Cmd) close() error {
-	defer func() {
+	e := syscall.CloseHandle(p.handle)
+	if e != nil {
 		p.handle = 0
-	}()
-
-	return syscall.CloseHandle(p.handle)
+	}
+	return e
 }
 
 // Command returns the Cmd struct to execute the named program with

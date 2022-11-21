@@ -29,11 +29,11 @@ func terminate(distroName string) error {
 	return exec.Command("wsl.exe", "--terminate", distroName).Run()
 }
 
-// registeredInstances returns a slice of the registered distros.
+// registeredDistros returns a slice of the registered distros.
 //
 // It is analogous to
 //  `wsl.exe --list`
-func registeredInstances() (distros []Distro, err error) {
+func registeredDistros() (distros []Distro, err error) {
 	defer func() {
 		if err == nil {
 			return

@@ -89,7 +89,6 @@ func newTestDistro(t *testing.T, rootfs string) wsl.Distro {
 
 // powershellInstallDistro installs using powershell to decouple the tests from Distro.Register
 // CommandContext sometimes fails to stop it, so a more aggressive approach is taken by rebooting WSL.
-// TODO: decorate
 // TODO: Consider if we want to retry
 func powershellInstallDistro(t *testing.T, distroName string) {
 	t.Helper()

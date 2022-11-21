@@ -92,7 +92,7 @@ configuration:
     - TERM: xterm-256color
 `, realDistro.Name)},
 		"wrong distro": {fakeDistro: true, wants: fmt.Sprintf(`distro: %s
-configuration: failed to get configuration, failed syscall to WslGetDistributionConfiguration
+configuration: error in GetConfiguration: failed syscall to WslGetDistributionConfiguration
 `, fakeDistro.Name)},
 	}
 

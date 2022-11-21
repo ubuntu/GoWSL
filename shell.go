@@ -1,6 +1,7 @@
 package wsl
 
 import (
+	"errors"
 	"fmt"
 	"syscall"
 	"unsafe"
@@ -25,7 +26,16 @@ func WithCommand(cmd string) func(*shellOptions) {
 
 // Shell is a wrapper around Win32's WslLaunchInteractive.
 // This is a syncronous, blocking call.
-func (i *Distro) Shell(opts ...func(*shellOptions)) error {
+func (d *Distro) Shell(opts ...func(*shellOptions)) (err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		if errors.Is(err, ExitError{}) {
+			return
+		}
+		err = fmt.Errorf("error in Shell with distro %q: %v", d.Name, err)
+	}()
 
 	options := shellOptions{
 		command: "",
@@ -35,14 +45,14 @@ func (i *Distro) Shell(opts ...func(*shellOptions)) error {
 		o(&options)
 	}
 
-	distroUTF16, err := syscall.UTF16PtrFromString(i.Name)
+	distroUTF16, err := syscall.UTF16PtrFromString(d.Name)
 	if err != nil {
-		return fmt.Errorf("failed to convert %q to UTF16", i.Name)
+		return errors.New("failed to convert distro name to UTF16")
 	}
 
 	commandUTF16, err := syscall.UTF16PtrFromString(options.command)
 	if err != nil {
-		return fmt.Errorf("failed to convert %q to UTF16", options.command)
+		return fmt.Errorf("failed to convert command %q to UTF16", options.command)
 	}
 
 	var useCwd wBOOL

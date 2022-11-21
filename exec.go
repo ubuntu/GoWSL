@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"syscall"
 	"unsafe"
 
@@ -21,14 +23,20 @@ const (
 // Cmd is a wrapper around the Windows process spawned by WslLaunch.
 type Cmd struct {
 	// Public parameters
-	Stdout syscall.Handle
 	Stdin  syscall.Handle
+	Stdout io.Writer
 	Stderr syscall.Handle
 	UseCWD bool
 
 	// Immutable parameters
 	distro  *Distro
 	command string
+
+	// Pipes
+	closeAfterStart []io.Closer
+	closeAfterWait  []io.Closer
+	pipeGoroutines  []func() error
+	errch           chan error // one send per goroutine
 
 	// Book-keeping
 	handle     syscall.Handle
@@ -53,127 +61,6 @@ func (m ExitError) Is(target error) bool {
 	return ok
 }
 
-// Start starts the specified WslProcess but does not wait for it to complete.
-//
-// The Wait method will return the exit code and release associated resources
-// once the command exits.
-func (p *Cmd) Start() (err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("error during Distro.Start: %v", err)
-		}
-	}()
-
-	distroUTF16, err := syscall.UTF16PtrFromString(p.distro.Name)
-	if err != nil {
-		return fmt.Errorf("failed to convert '%s' to UTF16", p.distro)
-	}
-
-	commandUTF16, err := syscall.UTF16PtrFromString(p.command)
-	if err != nil {
-		return fmt.Errorf("failed to convert '%s' to UTF16", p.command)
-	}
-
-	var useCwd wBOOL
-	if p.UseCWD {
-		useCwd = 1
-	}
-
-	if p.ctx != nil {
-		select {
-		case <-p.ctx.Done():
-			return p.ctx.Err()
-		default:
-		}
-	}
-
-	r1, _, _ := wslLaunch.Call(
-		uintptr(unsafe.Pointer(distroUTF16)),
-		uintptr(unsafe.Pointer(commandUTF16)),
-		uintptr(useCwd),
-		uintptr(p.Stdin),
-		uintptr(p.Stdout),
-		uintptr(p.Stderr),
-		uintptr(unsafe.Pointer(&p.handle)))
-
-	if r1 != 0 {
-		return fmt.Errorf("failed syscall to WslLaunch")
-	}
-	if p.handle == syscall.Handle(0) {
-		return fmt.Errorf("syscall to WslLaunch returned a null handle")
-	}
-
-	if p.ctx != nil {
-		p.waitDone = make(chan struct{})
-		// This goroutine monitors the status of the context to kill the process if needed
-		go func() {
-			select {
-			case <-p.waitDone:
-				return
-			case <-p.ctx.Done():
-			}
-			err := p.kill()
-			if err != nil {
-				log.Warnf("wsl: Failed to kill process: %v", err)
-			}
-		}()
-	}
-
-	return nil
-}
-
-// Wait blocks execution until the process finishes and returns the process exit status.
-//
-// The returned error is nil if the command runs and exits with a zero exit status.
-//
-// If the command fails to run or doesn't complete successfully, the error is of type ExitError.
-func (p *Cmd) Wait() (err error) {
-	defer func() {
-		if err == nil {
-			return
-		}
-		if errors.Is(err, ExitError{}) {
-			return
-		}
-		err = fmt.Errorf("error during Distro.Wait: %v", err)
-	}()
-
-	defer p.close()
-	r1, err := syscall.WaitForSingleObject(p.handle, syscall.INFINITE)
-
-	if r1 != 0 {
-		return fmt.Errorf("failed syscall to WaitForSingleObject: %v", err)
-	}
-
-	if p.waitDone != nil {
-		close(p.waitDone)
-	}
-
-	return p.queryStatus()
-}
-
-// Run starts the specified WslProcess and waits for it to complete.
-//
-// The returned error is nil if the command runs and exits with a zero exit status.
-//
-// If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
-func (p *Cmd) Run() error {
-	if err := p.Start(); err != nil {
-		return err
-	}
-	return p.Wait()
-}
-
-// close closes a WslProcess. If it was still running, it is terminated,
-// although its Linux counterpart may not.
-func (p *Cmd) close() error {
-	e := syscall.CloseHandle(p.handle)
-	if e != nil {
-		p.handle = 0
-	}
-	return e
-}
-
 // Command returns the Cmd struct to execute the named program with
 // the given arguments in the same string.
 //
@@ -187,9 +74,9 @@ func (d *Distro) Command(ctx context.Context, cmd string) *Cmd {
 		panic("nil Context")
 	}
 	return &Cmd{
-		Stdin:   syscall.Stdin,
-		Stdout:  syscall.Stdout,
-		Stderr:  syscall.Stderr,
+		Stdin:   0,
+		Stdout:  nil,
+		Stderr:  0,
 		UseCWD:  false,
 		distro:  d,
 		handle:  0,
@@ -198,14 +85,215 @@ func (d *Distro) Command(ctx context.Context, cmd string) *Cmd {
 	}
 }
 
-// queryStatus querries Windows for the process' status.
-func (p *Cmd) queryStatus() error {
-	if p.exitStatus != nil {
-		return p.exitStatus
+// Start starts the specified WslProcess but does not wait for it to complete.
+//
+// The Wait method will return the exit code and release associated resources
+// once the command exits.
+func (c *Cmd) Start() (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("error in distro %q during Start: %v", c.distro.Name, err)
+		}
+	}()
+
+	if c.handle != 0 {
+		return errors.New("already started")
+	}
+
+	distroUTF16, err := syscall.UTF16PtrFromString(c.distro.Name)
+	if err != nil {
+		return errors.New("failed to convert distro name to UTF16")
+	}
+
+	commandUTF16, err := syscall.UTF16PtrFromString(c.command)
+	if err != nil {
+		return fmt.Errorf("failed to convert command '%s' to UTF16", c.command)
+	}
+
+	var useCwd wBOOL = 0
+	if c.UseCWD {
+		useCwd = 1
+	}
+
+	if c.ctx != nil {
+		select {
+		case <-c.ctx.Done():
+			return c.ctx.Err()
+		default:
+		}
+	}
+
+	stdout, err := c.stdout()
+	if err != nil {
+		c.closeDescriptors(c.closeAfterStart)
+		c.closeDescriptors(c.closeAfterWait)
+		return err
+	}
+
+	r1, _, _ := wslLaunch.Call(
+		uintptr(unsafe.Pointer(distroUTF16)),
+		uintptr(unsafe.Pointer(commandUTF16)),
+		uintptr(useCwd),
+		uintptr(c.Stdin),
+		stdout.Fd(),
+		uintptr(c.Stderr),
+		uintptr(unsafe.Pointer(&c.handle)))
+
+	if r1 != 0 {
+		c.closeDescriptors(c.closeAfterStart)
+		c.closeDescriptors(c.closeAfterWait)
+		return fmt.Errorf("failed syscall to WslLaunch")
+	}
+	if c.handle == syscall.Handle(0) {
+		c.closeDescriptors(c.closeAfterStart)
+		c.closeDescriptors(c.closeAfterWait)
+		return fmt.Errorf("syscall to WslLaunch returned a null handle")
+	}
+
+	c.closeDescriptors(c.closeAfterStart)
+	// Don't allocate the channel unless there are goroutines to fire.
+	if len(c.pipeGoroutines) > 0 {
+		c.errch = make(chan error, len(c.pipeGoroutines))
+		for _, fn := range c.pipeGoroutines {
+			go func(fn func() error) {
+				c.errch <- fn()
+			}(fn)
+		}
+	}
+
+	if c.ctx != nil {
+		c.waitDone = make(chan struct{})
+		// This goroutine monitors the status of the context to kill the process if needed
+		go func() {
+			select {
+			case <-c.waitDone:
+				return
+			case <-c.ctx.Done():
+			}
+			err := c.kill()
+			if err != nil {
+				log.Warnf("wsl: Failed to kill process: %v", err)
+			}
+		}()
+	}
+
+	return nil
+}
+
+func (c *Cmd) stdout() (f *os.File, err error) {
+	return c.writerDescriptor(c.Stdout)
+}
+
+func (c *Cmd) closeDescriptors(closers []io.Closer) {
+	for _, fd := range closers {
+		fd.Close()
+	}
+}
+
+// Adapted from exec/exec.go
+func (c *Cmd) writerDescriptor(writer io.Writer) (f *os.File, err error) {
+	if writer == nil {
+		f, err = os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+		if err != nil {
+			return
+		}
+		c.closeAfterStart = append(c.closeAfterStart, f)
+		return
+	}
+
+	if f, ok := writer.(*os.File); ok {
+		return f, nil
+	}
+
+	pipeRead, pipeWrite, err := os.Pipe()
+	if err != nil {
+		return
+	}
+
+	c.closeAfterStart = append(c.closeAfterStart, pipeWrite)
+	c.closeAfterWait = append(c.closeAfterWait, pipeRead)
+	c.pipeGoroutines = append(c.pipeGoroutines, func() error {
+		_, err := io.Copy(writer, pipeRead)
+		pipeRead.Close() // in case io.Copy stopped due to write error
+		return err
+	})
+	return pipeWrite, nil
+}
+
+// Wait blocks execution until the process finishes and returns the process exit status.
+//
+// The returned error is nil if the command runs and exits with a zero exit status.
+//
+// If the command fails to run or doesn't complete successfully, the error is of type ExitError.
+func (c *Cmd) Wait() (err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		if errors.Is(err, ExitError{}) {
+			return
+		}
+		err = fmt.Errorf("error during Distro.Wait: %v", err)
+	}()
+
+	defer c.close()
+	r1, err := syscall.WaitForSingleObject(c.handle, syscall.INFINITE)
+
+	if r1 != 0 {
+		return fmt.Errorf("failed syscall to WaitForSingleObject: %v", err)
+	}
+
+	if c.waitDone != nil {
+		close(c.waitDone)
+	}
+
+	// Collecting errors from pipe redirections
+	var copyError error
+	for range c.pipeGoroutines {
+		if err := <-c.errch; err != nil && copyError == nil {
+			copyError = err
+		}
+	}
+
+	c.closeDescriptors(c.closeAfterWait)
+
+	if err := c.status(); err != nil {
+		return err
+	}
+
+	return copyError
+}
+
+// Run starts the specified WslProcess and waits for it to complete.
+//
+// The returned error is nil if the command runs and exits with a zero exit status.
+//
+// If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
+func (c *Cmd) Run() error {
+	if err := c.Start(); err != nil {
+		return err
+	}
+	return c.Wait()
+}
+
+// close closes a WslProcess. If it was still running, it is terminated,
+// although its Linux counterpart may not.
+func (c *Cmd) close() error {
+	e := syscall.CloseHandle(c.handle)
+	if e != nil {
+		c.handle = 0
+	}
+	return e
+}
+
+// status querries Windows for the process' status.
+func (c *Cmd) status() error {
+	if c.exitStatus != nil {
+		return c.exitStatus
 	}
 
 	var exit uint32
-	err := syscall.GetExitCodeProcess(p.handle, &exit)
+	err := syscall.GetExitCodeProcess(c.handle, &exit)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve exit status: %v", err)
 	}
@@ -220,11 +308,11 @@ func (p *Cmd) queryStatus() error {
 
 // kill gets the exit status before closing the process, without checking
 // if it has finished or not.
-func (p *Cmd) kill() error {
+func (c *Cmd) kill() error {
 	// If the exit code is ActiveProcess, we write a more useful error message
 	// indicating it was interrupted.
-	p.exitStatus = func() error {
-		e := p.queryStatus()
+	c.exitStatus = func() error {
+		e := c.status()
 
 		if e == nil {
 			return nil
@@ -239,5 +327,5 @@ func (p *Cmd) kill() error {
 		return errors.New("process was closed before finishing")
 	}()
 
-	return syscall.TerminateProcess(p.handle, ActiveProcess)
+	return syscall.TerminateProcess(c.handle, ActiveProcess)
 }

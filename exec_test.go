@@ -49,7 +49,6 @@ func TestCommandRun(t *testing.T) {
 
 	// Poking distro to wake it up
 	cmd := realDistro.Command(context.Background(), "exit 0")
-	cmd.Stdout = 0
 	cmd.Stderr = 0
 	err := cmd.Run()
 	require.NoError(t, err)
@@ -113,7 +112,6 @@ func TestCommandRun(t *testing.T) {
 			}
 
 			cmd := d.Command(ctx, tc.cmd)
-			cmd.Stdout = 0
 			cmd.Stderr = 0
 
 			switch tc.cancelOn {
@@ -254,7 +252,6 @@ func TestCommandStartWait(t *testing.T) {
 
 			cmd.Stdin = 0
 			cmd.Stderr = 0
-			cmd.Stdout = 0
 			err := cmd.Start()
 
 			// AFTER_START block
@@ -264,6 +261,9 @@ func TestCommandStartWait(t *testing.T) {
 			if requireErrors(t, tc, AfterStart, err) {
 				return
 			}
+
+			err = cmd.Start()
+			require.Error(t, err, "Unexpectedly succeeded at starting a command that had already been started")
 
 			err = cmd.Wait()
 

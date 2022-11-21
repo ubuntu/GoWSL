@@ -119,14 +119,13 @@ func (p *Cmd) Start() (err error) {
 //
 // The returned error is nil if the command runs and exits with a zero exit status.
 //
-// If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
+// If the command fails to run or doesn't complete successfully, the error is of type ExitError.
 func (p *Cmd) Wait() (err error) {
 	defer func() {
 		if err == nil {
 			return
 		}
-		var e ExitError
-		if errors.As(err, &e) {
+		if errors.Is(err, ExitError{}) {
 			return
 		}
 		err = fmt.Errorf("error during Distro.Wait: %v", err)

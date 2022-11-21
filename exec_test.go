@@ -3,7 +3,6 @@ package wsl_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 	"wsl"
@@ -14,7 +13,7 @@ import (
 
 func TestCommandRun(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
-	fakeDistro := wsl.Distro{Name: sanitizeDistroName(fmt.Sprintf("%s_%s_%s", namePrefix, t.Name(), uniqueId()))}
+	fakeDistro := wsl.Distro{Name: UniqueDistroName(t)}
 
 	// Poking distro to wake it up
 	cmd := realDistro.Command(context.Background(), "exit 0")

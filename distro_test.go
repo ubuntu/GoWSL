@@ -12,7 +12,7 @@ import (
 
 func TestDistroString(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
-	fakeDistro := wsl.Distro{Name: sanitizeDistroName(fmt.Sprintf("%s_%s_%s", namePrefix, t.Name(), uniqueId()))}
+	fakeDistro := wsl.Distro{Name: UniqueDistroName(t)}
 
 	testCases := map[string]struct {
 		fakeDistro bool
@@ -138,7 +138,7 @@ func TestConfigurationSetters(t *testing.T) {
 				err := d.Command(context.Background(), "useradd testuser").Run()
 				require.NoError(t, err, "unexpectedly failed to add a user to the distro")
 			case DISTRO_NOT_REGISTERED:
-				d = wsl.Distro{Name: "I am not registered"}
+				d = wsl.Distro{Name: UniqueDistroName(t)}
 			case DISTRO_WRONG_NAME:
 				d = wsl.Distro{Name: "Wrong character \x00 in name"}
 			}

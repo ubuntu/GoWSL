@@ -1,7 +1,6 @@
 package wsl_test
 
 import (
-	"fmt"
 	"testing"
 	"wsl"
 
@@ -10,10 +9,10 @@ import (
 )
 
 func TestRegister(t *testing.T) {
-	d1 := wsl.Distro{Name: fmt.Sprintf("%s_%s_%s", namePrefix, "_nameIsValid", uniqueId())}
+	d1 := wsl.Distro{Name: UniqueDistroName(t)}
 	t.Cleanup(func() { cleanUpWslInstance(d1) })
 
-	d2 := wsl.Distro{Name: fmt.Sprintf("%s_%s_%s", namePrefix, "_name Not Valid", uniqueId())}
+	d2 := wsl.Distro{Name: UniqueDistroName(t) + "_name not valid"}
 	t.Cleanup(func() { cleanUpWslInstance(d2) })
 
 	err := d1.Register(emptyRootFs)
@@ -34,7 +33,7 @@ func TestRegister(t *testing.T) {
 func TestRegisteredDistros(t *testing.T) {
 	d1 := newTestDistro(t, emptyRootFs)
 	d2 := newTestDistro(t, emptyRootFs)
-	d3 := wsl.Distro{Name: "NotRegistered"}
+	d3 := wsl.Distro{Name: UniqueDistroName(t)}
 
 	list, err := wsl.RegisteredDistros()
 	require.NoError(t, err)
@@ -65,7 +64,7 @@ func TestIsRegistered(t *testing.T) {
 			if config.register {
 				distro = newTestDistro(t, emptyRootFs)
 			} else {
-				distro = wsl.Distro{Name: "IAmNotRegistered"}
+				distro = wsl.Distro{Name: UniqueDistroName(t)}
 			}
 
 			reg, err := distro.IsRegistered()
@@ -86,7 +85,7 @@ func TestIsRegistered(t *testing.T) {
 
 func TestUnRegister(t *testing.T) {
 	distro1 := newTestDistro(t, emptyRootFs)
-	distro2 := wsl.Distro{Name: "ThisDistroDoesNotExist"}
+	distro2 := wsl.Distro{Name: UniqueDistroName(t)}
 	distro3 := wsl.Distro{Name: "This Distro Is Not Valid"}
 
 	err := distro1.Unregister()

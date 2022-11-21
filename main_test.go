@@ -32,8 +32,6 @@ func TestMain(m *testing.M) {
 	os.Exit(exitVal)
 }
 
-// distroCounter is used to generate unique IDs for distro names
-
 // uniqueId generates unique ID for distro names.
 func uniqueId() string {
 	rand.Seed(time.Now().UnixNano())
@@ -50,9 +48,30 @@ func sanitizeDistroName(candidateName string) string {
 	return r.Replace(candidateName)
 }
 
+// Generates a unique distro name. It does not create the distro.
+func UniqueDistroName(t *testing.T) string {
+	t.Helper()
+	maxAttempts := 10
+	for i := 0; i < maxAttempts; i++ {
+		d := wsl.Distro{Name: sanitizeDistroName(fmt.Sprintf("%s_%s_%s", namePrefix, t.Name(), uniqueId()))}
+		// Ensuring no name collision
+		exists, err := d.IsRegistered()
+		if err != nil {
+			t.Logf("Generated invalid distro name: %q. Trying again.", d.Name)
+			continue
+		}
+		if exists {
+			t.Logf("Generated non-unique distro name: %q. Trying again.", d.Name)
+		}
+		return d.Name
+	}
+	require.Fail(t, "Failed to generate a valid, unique distro name.")
+	return ""
+}
+
 // newTestDistro creates and registers a new distro with a mangled name and adds it to list of distros to remove.
 func newTestDistro(t *testing.T, rootfs string) wsl.Distro {
-	d := wsl.Distro{Name: sanitizeDistroName(fmt.Sprintf("%s_%s_%s", namePrefix, t.Name(), uniqueId()))}
+	d := wsl.Distro{Name: UniqueDistroName(t)}
 	t.Logf("Setup: Registering %q\n", d.Name)
 
 	powershellInstallDistro(t, d.Name)

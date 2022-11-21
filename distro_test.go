@@ -71,13 +71,16 @@ func isTestLinuxProcessAlive(t *testing.T, d *wsl.Distro) bool {
 func TestDistroString(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
 	fakeDistro := wsl.Distro{Name: UniqueDistroName(t)}
+	wrongDistro := wsl.Distro{Name: UniqueDistroName(t) + "_\x00_invalid_name"}
 
 	testCases := map[string]struct {
-		fakeDistro bool
+		distro     *wsl.Distro
 		withoutEnv bool
 		wants      string
 	}{
-		"nominal": {wants: fmt.Sprintf(`distro: %s
+		"nominal": {
+			distro: &realDistro,
+			wants: fmt.Sprintf(`distro: %s
 configuration:
   - Version: 2
   - DefaultUID: 0
@@ -91,19 +94,22 @@ configuration:
     - PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
     - TERM: xterm-256color
 `, realDistro.Name)},
-		"wrong distro": {fakeDistro: true, wants: fmt.Sprintf(`distro: %s
+		"fake distro": {
+			distro: &fakeDistro,
+			wants: fmt.Sprintf(`distro: %s
 configuration: error in GetConfiguration: failed syscall to WslGetDistributionConfiguration
 `, fakeDistro.Name)},
+		"wrong distro": {
+			distro: &wrongDistro,
+			wants: fmt.Sprintf(`distro: %s
+configuration: error in GetConfiguration: failed to convert %q to UTF16
+`, wrongDistro.Name, wrongDistro.Name)},
 	}
 
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			d := realDistro
-			if tc.fakeDistro {
-				d = fakeDistro
-			}
-
+			d := *tc.distro
 			got := d.String()
 			require.Equal(t, tc.wants, got)
 		})

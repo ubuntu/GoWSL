@@ -244,8 +244,9 @@ func (conf Configuration) packFlags() (wslFlags, error) {
 	return flags, nil
 }
 
-// processEnvVariables takes the **char and length obtained from Win32's API and returs a
-// map[variableName]variableValue
+// processEnvVariables takes the (**char, length) obtained from Win32's API and returs a
+// map[variableName]variableValue. It also deallocates each of the *char strings as well
+// as the **char array.
 func processEnvVariables(cStringArray **char, len uint64) map[string]string {
 	stringPtrs := unsafe.Slice(cStringArray, len)
 
@@ -266,15 +267,18 @@ func processEnvVariables(cStringArray **char, len uint64) map[string]string {
 				key   string
 				value string
 			}{
-				key:   goStr[:idx],
-				value: goStr[idx+1:],
+				key:   strings.Clone(goStr[:idx]),
+				value: strings.Clone(goStr[idx+1:]),
 			}
+			coTaskMemFree(unsafe.Pointer(cStr))
 		}()
 	}
 
+	// Cleanup
 	go func() {
-		defer close(env)
 		wg.Wait()
+		coTaskMemFree(unsafe.Pointer(cStringArray))
+		close(env)
 	}()
 
 	// Collecting results

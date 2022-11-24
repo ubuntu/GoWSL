@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"syscall"
 	"unsafe"
+
+	"github.com/0xrawsec/golang-utils/log"
 )
 
 // Windows' constants
@@ -105,9 +107,13 @@ func (p *Cmd) Start() (err error) {
 		// This goroutine monitors the status of the context to kill the process if needed
 		go func() {
 			select {
-			case <-p.ctx.Done():
-				p.kill()
 			case <-p.waitDone:
+				return
+			case <-p.ctx.Done():
+			}
+			err := p.kill()
+			if err != nil {
+				log.Warnf("wsl: Failed to kill process: %v", err)
 			}
 		}()
 	}

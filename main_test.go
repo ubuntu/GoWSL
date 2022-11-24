@@ -13,6 +13,7 @@ import (
 	"time"
 	"wsl"
 
+	"github.com/0xrawsec/golang-utils/log"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,7 +27,10 @@ func TestMain(m *testing.M) {
 
 	exitVal := m.Run()
 
-	wsl.Shutdown()
+	err := wsl.Shutdown()
+	if err != nil {
+		log.Warnf("cleanup: Failed to shutdown WSL")
+	}
 	cleanUpTestWslInstances()
 
 	os.Exit(exitVal)
@@ -57,15 +61,15 @@ func UniqueDistroName(t *testing.T) string {
 		// Ensuring no name collision
 		exists, err := d.IsRegistered()
 		if err != nil {
-			t.Logf("Generated invalid distro name: %q. Trying again.", d.Name)
+			t.Logf("Setup: Generated invalid distro name: %q. Trying again.", d.Name)
 			continue
 		}
 		if exists {
-			t.Logf("Generated non-unique distro name: %q. Trying again.", d.Name)
+			t.Logf("Setup: Generated non-unique distro name: %q. Trying again.", d.Name)
 		}
 		return d.Name
 	}
-	require.Fail(t, "Failed to generate a valid, unique distro name.")
+	require.Fail(t, "Setup: Failed to generate a valid, unique distro name.")
 	return ""
 }
 
@@ -79,7 +83,7 @@ func newTestDistro(t *testing.T, rootfs string) wsl.Distro {
 	t.Cleanup(func() {
 		err := CleanUpWslInstance(d)
 		if err != nil {
-			t.Logf("Teardown: %v\n", err)
+			t.Logf("Cleanup: %v\n", err)
 		}
 	})
 
@@ -142,11 +146,18 @@ func cleanUpTestWslInstances() {
 		return
 	}
 	if len(testInstances) != 0 {
-		fmt.Printf("The following WSL distros were not properly cleaned up: %v\n", testInstances)
+		s := ""
+		for _, d := range testInstances {
+			s = s + "\n - " + d.Name
+		}
+		log.Warnf("Cleanup: The following WSL distros were not properly cleaned up:%s", s)
 	}
 
 	for _, d := range testInstances {
-		CleanUpWslInstance(d)
+		err := CleanUpWslInstance(d)
+		if err != nil {
+			log.Warnf("Cleanup: %v\n", err)
+		}
 	}
 }
 

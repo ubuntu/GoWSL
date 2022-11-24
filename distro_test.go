@@ -17,7 +17,8 @@ func TestShutdown(t *testing.T) {
 
 	defer startTestLinuxProcess(t, &d)()
 
-	wsl.Shutdown()
+	err := wsl.Shutdown()
+	require.NoError(t, err, "Unexpected error attempting to shut down")
 
 	require.False(t, isTestLinuxProcessAlive(t, &d), "Process was not killed by shutting down.")
 }
@@ -29,7 +30,8 @@ func TestTerminate(t *testing.T) {
 	defer startTestLinuxProcess(t, &sampleDistro)()
 	defer startTestLinuxProcess(t, &controlDistro)()
 
-	sampleDistro.Terminate()
+	err := sampleDistro.Terminate()
+	require.NoError(t, err, "Unexpected error attempting to terminate")
 
 	require.False(t, isTestLinuxProcessAlive(t, &sampleDistro), "Process was not killed by termination.")
 	require.True(t, isTestLinuxProcessAlive(t, &controlDistro), "Process was killed by termination of a diferent distro.")

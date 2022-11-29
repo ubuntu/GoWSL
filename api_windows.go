@@ -12,13 +12,13 @@ import (
 
 var (
 	// WSL api.
-	wslApiDll                       = syscall.NewLazyDLL("wslapi.dll")
-	wslConfigureDistribution        = wslApiDll.NewProc("WslConfigureDistribution")
-	wslGetDistributionConfiguration = wslApiDll.NewProc("WslGetDistributionConfiguration")
-	wslLaunch                       = wslApiDll.NewProc("WslLaunch")
-	wslLaunchInteractive            = wslApiDll.NewProc("WslLaunchInteractive")
-	wslRegisterDistribution         = wslApiDll.NewProc("WslRegisterDistribution")
-	wslUnregisterDistribution       = wslApiDll.NewProc("WslUnregisterDistribution")
+	wslAPIDll                       = syscall.NewLazyDLL("wslapi.dll")
+	wslConfigureDistribution        = wslAPIDll.NewProc("WslConfigureDistribution")
+	wslGetDistributionConfiguration = wslAPIDll.NewProc("WslGetDistributionConfiguration")
+	wslLaunch                       = wslAPIDll.NewProc("WslLaunch")
+	wslLaunchInteractive            = wslAPIDll.NewProc("WslLaunchInteractive")
+	wslRegisterDistribution         = wslAPIDll.NewProc("WslRegisterDistribution")
+	wslUnregisterDistribution       = wslAPIDll.NewProc("WslUnregisterDistribution")
 )
 
 const (

@@ -12,12 +12,16 @@ type shellOptions struct {
 	useCWD  bool
 }
 
+// UseCWD is an optional parameter for Shell that makes it so the shell is
+// started on the CWD. Otherwise, it starts at the distro's $HOME.
 func UseCWD() func(*shellOptions) {
 	return func(o *shellOptions) {
 		o.useCWD = true
 	}
 }
 
+// WithCommand allows you to shell in with a particular command. Particularly useful
+// to choose what shell to use.
 func WithCommand(cmd string) func(*shellOptions) {
 	return func(o *shellOptions) {
 		o.command = cmd

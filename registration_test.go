@@ -156,6 +156,8 @@ func TestUnregister(t *testing.T) {
 // called in order to deallocate resources. You can call cancel multiple times without
 // adverse effect.
 func wslShutdownTimeout(t *testing.T, timeout time.Duration) (cancel func()) {
+	t.Helper()
+
 	stop := make(chan struct{})
 	var cancelled bool
 

@@ -47,8 +47,9 @@ func (m ExitError) Error() string {
 	return fmt.Sprintf("exit error: %d", m.Code)
 }
 
+// Is ensures ExitErrors can be matched with errors.Is().
 func (m ExitError) Is(target error) bool {
-	_, ok := target.(ExitError)
+	_, ok := target.(ExitError) // nolint: errorlint
 	return ok
 }
 
@@ -73,7 +74,7 @@ func (p *Cmd) Start() (err error) {
 		return fmt.Errorf("failed to convert '%s' to UTF16", p.command)
 	}
 
-	var useCwd wBOOL = 0
+	var useCwd wBOOL
 	if p.UseCWD {
 		useCwd = 1
 	}

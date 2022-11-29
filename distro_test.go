@@ -20,7 +20,7 @@ func TestShutdown(t *testing.T) {
 	err := wsl.Shutdown()
 	require.NoError(t, err, "Unexpected error attempting to shut down")
 
-	require.False(t, isTestLinuxProcessAlive(t, &d), "Process was not killed by shutting down.")
+	require.False(t, isTestLinuxProcessAlive(&d), "Process was not killed by shutting down.")
 }
 
 func TestTerminate(t *testing.T) {
@@ -33,15 +33,17 @@ func TestTerminate(t *testing.T) {
 	err := sampleDistro.Terminate()
 	require.NoError(t, err, "Unexpected error attempting to terminate")
 
-	require.False(t, isTestLinuxProcessAlive(t, &sampleDistro), "Process was not killed by termination.")
-	require.True(t, isTestLinuxProcessAlive(t, &controlDistro), "Process was killed by termination of a different distro.")
+	require.False(t, isTestLinuxProcessAlive(&sampleDistro), "Process was not killed by termination.")
+	require.True(t, isTestLinuxProcessAlive(&controlDistro), "Process was killed by termination of a different distro.")
 }
 
 // startTestLinuxProcess starts a linux process that is easy to grep for.
 func startTestLinuxProcess(t *testing.T, d *wsl.Distro) context.CancelFunc {
+	t.Helper()
+
 	cmd := "$env:WSL_UTF8=1 ; wsl.exe -d " + d.Name + " -- bash -ec 'sleep 500 && echo LongIdentifyableStringThatICanGrep'"
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	c := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd)
+	c := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd) //nolint:gosec
 	err := c.Start()
 	require.NoError(t, err, "Unexpected error launching command")
 
@@ -51,7 +53,7 @@ func startTestLinuxProcess(t *testing.T, d *wsl.Distro) context.CancelFunc {
 
 	for i := 0; i < 10; i++ {
 		<-tk.C
-		if !isTestLinuxProcessAlive(t, d) { // Process not started
+		if !isTestLinuxProcessAlive(d) { // Process not started
 			continue
 		}
 		return cancel
@@ -61,12 +63,12 @@ func startTestLinuxProcess(t *testing.T, d *wsl.Distro) context.CancelFunc {
 }
 
 // isTestLinuxProcessAlive checks if the process strated by startTestLinuxProcess is still alive.
-func isTestLinuxProcessAlive(t *testing.T, d *wsl.Distro) bool {
+func isTestLinuxProcessAlive(d *wsl.Distro) bool {
 	cmd := "$env:WSL_UTF8=1 ; wsl.exe -d " + d.Name + " -- bash -ec 'ps aux | grep LongIdentifyableStringThatICanGrep | grep -v grep'"
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	_, err := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd).CombinedOutput()
+	_, err := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd).CombinedOutput() //nolint:gosec
 	return err == nil
 }
 
@@ -121,17 +123,17 @@ configuration: error in GetConfiguration: failed to convert %q to UTF16
 func TestConfigurationSetters(t *testing.T) {
 	type testedSetting uint
 	const (
-		DEFAULT_UID testedSetting = iota
-		INTEROP_ENABLED
-		PATH_APPEND
-		DRIVE_MOUNTING
+		DefaultUID testedSetting = iota
+		InteropEnabled
+		PathAppend
+		DriveMounting
 	)
 
 	type distroType uint
 	const (
-		DISTRO_REGISTERED distroType = iota
-		DISTRO_NOT_REGISTERED
-		DISTRO_WRONG_NAME
+		DistroRegistered distroType = iota
+		DistroNotRegistered
+		DistroInvalidName
 	)
 
 	tests := map[string]struct {
@@ -140,24 +142,24 @@ func TestConfigurationSetters(t *testing.T) {
 		wantErr bool
 	}{
 		// DefaultUID
-		"success DefaultUID":             {setting: DEFAULT_UID},
-		"fail DefaultUID \\0 in name":    {setting: DEFAULT_UID, distro: DISTRO_WRONG_NAME, wantErr: true},
-		"fail DefaultUID not registered": {setting: DEFAULT_UID, distro: DISTRO_NOT_REGISTERED, wantErr: true},
+		"success DefaultUID":             {setting: DefaultUID},
+		"fail DefaultUID \\0 in name":    {setting: DefaultUID, distro: DistroInvalidName, wantErr: true},
+		"fail DefaultUID not registered": {setting: DefaultUID, distro: DistroNotRegistered, wantErr: true},
 
 		// InteropEnabled
-		"success InteropEnabled":             {setting: INTEROP_ENABLED},
-		"fail InteropEnabled \\0 in name":    {setting: INTEROP_ENABLED, distro: DISTRO_WRONG_NAME, wantErr: true},
-		"fail InteropEnabled not registered": {setting: INTEROP_ENABLED, distro: DISTRO_NOT_REGISTERED, wantErr: true},
+		"success InteropEnabled":             {setting: InteropEnabled},
+		"fail InteropEnabled \\0 in name":    {setting: InteropEnabled, distro: DistroInvalidName, wantErr: true},
+		"fail InteropEnabled not registered": {setting: InteropEnabled, distro: DistroNotRegistered, wantErr: true},
 
 		// PathAppended
-		"success PathAppended":             {setting: PATH_APPEND},
-		"fail PathAppended \\0 in name":    {setting: PATH_APPEND, distro: DISTRO_WRONG_NAME, wantErr: true},
-		"fail PathAppended not registered": {setting: PATH_APPEND, distro: DISTRO_NOT_REGISTERED, wantErr: true},
+		"success PathAppended":             {setting: PathAppend},
+		"fail PathAppended \\0 in name":    {setting: PathAppend, distro: DistroInvalidName, wantErr: true},
+		"fail PathAppended not registered": {setting: PathAppend, distro: DistroNotRegistered, wantErr: true},
 
 		// DriveMountingEnabled
-		"success DriveMountingEnabled":             {setting: DRIVE_MOUNTING},
-		"fail DriveMountingEnabled \\0 in name":    {setting: DRIVE_MOUNTING, distro: DISTRO_WRONG_NAME, wantErr: true},
-		"fail DriveMountingEnabled not registered": {setting: DRIVE_MOUNTING, distro: DISTRO_NOT_REGISTERED, wantErr: true},
+		"success DriveMountingEnabled":             {setting: DriveMounting},
+		"fail DriveMountingEnabled \\0 in name":    {setting: DriveMounting, distro: DistroInvalidName, wantErr: true},
+		"fail DriveMountingEnabled not registered": {setting: DriveMounting, distro: DistroNotRegistered, wantErr: true},
 	}
 
 	type settingDetails struct {
@@ -181,90 +183,89 @@ func TestConfigurationSetters(t *testing.T) {
 
 			// details has info about each of the settings
 			details := map[testedSetting]settingDetails{
-				DEFAULT_UID:     {name: "DefaultUID", byDefault: uint32(0), want: uint32(0)},
-				INTEROP_ENABLED: {name: "InteropEnabled", byDefault: true, want: true},
-				PATH_APPEND:     {name: "PathAppended", byDefault: true, want: true},
-				DRIVE_MOUNTING:  {name: "DriveMountingEnabled", byDefault: true, want: true},
+				DefaultUID:     {name: "DefaultUID", byDefault: uint32(0), want: uint32(0)},
+				InteropEnabled: {name: "InteropEnabled", byDefault: true, want: true},
+				PathAppend:     {name: "PathAppended", byDefault: true, want: true},
+				DriveMounting:  {name: "DriveMountingEnabled", byDefault: true, want: true},
 			}
 
 			// errorMsg is a helper map to avoid rewriting the same error message
 			errorMsg := map[testedSetting]string{
-				DEFAULT_UID:     fmt.Sprintf("config %s changed when it wasn't supposed to", details[DEFAULT_UID].name),
-				INTEROP_ENABLED: fmt.Sprintf("config %s changed when it wasn't supposed to", details[INTEROP_ENABLED].name),
-				PATH_APPEND:     fmt.Sprintf("config %s changed when it wasn't supposed to", details[PATH_APPEND].name),
-				DRIVE_MOUNTING:  fmt.Sprintf("config %s changed when it wasn't supposed to", details[DRIVE_MOUNTING].name),
+				DefaultUID:     fmt.Sprintf("config %s changed when it wasn't supposed to", details[DefaultUID].name),
+				InteropEnabled: fmt.Sprintf("config %s changed when it wasn't supposed to", details[InteropEnabled].name),
+				PathAppend:     fmt.Sprintf("config %s changed when it wasn't supposed to", details[PathAppend].name),
+				DriveMounting:  fmt.Sprintf("config %s changed when it wasn't supposed to", details[DriveMounting].name),
 			}
 
 			// Choosing the distro
 			var d wsl.Distro
 			switch tc.distro {
-			case DISTRO_REGISTERED:
+			case DistroRegistered:
 				d = newTestDistro(t, jammyRootFs)
 				err := d.Command(context.Background(), "useradd testuser").Run()
 				require.NoError(t, err, "unexpectedly failed to add a user to the distro")
-			case DISTRO_NOT_REGISTERED:
+			case DistroNotRegistered:
 				d = wsl.Distro{Name: UniqueDistroName(t)}
-			case DISTRO_WRONG_NAME:
+			case DistroInvalidName:
 				d = wsl.Distro{Name: "Wrong character \x00 in name"}
 			}
 
 			// Test changing a setting
 			var err error
 			switch tc.setting {
-			case DEFAULT_UID:
-				setWant(details, DEFAULT_UID, uint32(1000))
+			case DefaultUID:
+				setWant(details, DefaultUID, uint32(1000))
 				err = d.DefaultUID(1000)
-			case INTEROP_ENABLED:
-				setWant(details, INTEROP_ENABLED, false)
+			case InteropEnabled:
+				setWant(details, InteropEnabled, false)
 				err = d.InteropEnabled(false)
-			case PATH_APPEND:
-				setWant(details, PATH_APPEND, false)
+			case PathAppend:
+				setWant(details, PathAppend, false)
 				err = d.PathAppended(false)
-			case DRIVE_MOUNTING:
-				setWant(details, DRIVE_MOUNTING, false)
+			case DriveMounting:
+				setWant(details, DriveMounting, false)
 				err = d.DriveMountingEnabled(false)
 			}
 			if tc.wantErr {
 				require.Errorf(t, err, "unexpected failure when setting config %s", details[tc.setting].name)
 				return
-			} else {
-				require.NoErrorf(t, err, "unexpected success when setting config %s", details[tc.setting].name)
 			}
+			require.NoErrorf(t, err, "unexpected success when setting config %s", details[tc.setting].name)
 
 			got, err := d.GetConfiguration()
 			require.NoError(t, err, "unexpected failure getting configuration")
 
 			errorMsg[tc.setting] = fmt.Sprintf("config %s did not change to the expected value", details[tc.setting].name)
-			require.Equal(t, details[DEFAULT_UID].want, got.DefaultUID, errorMsg[DEFAULT_UID])
-			require.Equal(t, details[INTEROP_ENABLED].want, got.InteropEnabled, errorMsg[INTEROP_ENABLED])
-			require.Equal(t, details[PATH_APPEND].want, got.PathAppended, errorMsg[PATH_APPEND])
-			require.Equal(t, details[DRIVE_MOUNTING].want, got.DriveMountingEnabled, errorMsg[DRIVE_MOUNTING])
+			require.Equal(t, details[DefaultUID].want, got.DefaultUID, errorMsg[DefaultUID])
+			require.Equal(t, details[InteropEnabled].want, got.InteropEnabled, errorMsg[InteropEnabled])
+			require.Equal(t, details[PathAppend].want, got.PathAppended, errorMsg[PathAppend])
+			require.Equal(t, details[DriveMounting].want, got.DriveMountingEnabled, errorMsg[DriveMounting])
 
 			// Test restore default
 			switch tc.setting {
-			case DEFAULT_UID:
+			case DefaultUID:
 				err = d.DefaultUID(0)
-			case INTEROP_ENABLED:
+			case InteropEnabled:
 				err = d.InteropEnabled(true)
-			case PATH_APPEND:
+			case PathAppend:
 				err = d.PathAppended(true)
-			case DRIVE_MOUNTING:
+			case DriveMounting:
 				err = d.DriveMountingEnabled(true)
 			}
 			require.NoErrorf(t, err, "unexpected failure when setting %s back to the default", details[tc.setting].name)
 
-			setWant(details, DEFAULT_UID, details[DEFAULT_UID].byDefault)
-			setWant(details, INTEROP_ENABLED, details[INTEROP_ENABLED].byDefault)
-			setWant(details, PATH_APPEND, details[PATH_APPEND].byDefault)
-			setWant(details, DRIVE_MOUNTING, details[DRIVE_MOUNTING].byDefault)
+			setWant(details, DefaultUID, details[DefaultUID].byDefault)
+			setWant(details, InteropEnabled, details[InteropEnabled].byDefault)
+			setWant(details, PathAppend, details[PathAppend].byDefault)
+			setWant(details, DriveMounting, details[DriveMounting].byDefault)
 			got, err = d.GetConfiguration()
 			require.NoErrorf(t, err, "unexpected error calling GetConfiguration after reseting default value for %s", details[tc.setting].name)
 
 			errorMsg[tc.setting] = fmt.Sprintf("config %s was not set back to the default", details[tc.setting].name)
-			assert.Equal(t, details[DEFAULT_UID].want, got.DefaultUID, errorMsg[DEFAULT_UID])
-			assert.Equal(t, details[INTEROP_ENABLED].want, got.InteropEnabled, errorMsg[INTEROP_ENABLED])
-			assert.Equal(t, details[PATH_APPEND].want, got.PathAppended, errorMsg[PATH_APPEND])
-			assert.Equal(t, details[DRIVE_MOUNTING].want, got.DriveMountingEnabled, errorMsg[DRIVE_MOUNTING])
+			assert.Equal(t, details[DefaultUID].want, got.DefaultUID, errorMsg[DefaultUID])
+			assert.Equal(t, details[InteropEnabled].want, got.InteropEnabled, errorMsg[InteropEnabled])
+			assert.Equal(t, details[PathAppend].want, got.PathAppended, errorMsg[PathAppend])
+			assert.Equal(t, details[DriveMounting].want, got.DriveMountingEnabled, errorMsg[DriveMounting])
 		})
 	}
 }

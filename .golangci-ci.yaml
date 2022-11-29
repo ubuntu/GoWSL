@@ -13,18 +13,18 @@ linters:
     - exportloopref
     - forbidigo
     - forcetypeassert
-    # - gci
+    # - gci # Fails on windows
     - godot
-    # - gofmt
+    # - gofmt # Fails on windows
     - gosec
-    # - ifshort
+    # - ifshort # Deprecated
     - misspell
     - revive
     - thelper
     - tparallel
     - unconvert
     - unparam
-    - wastedassign
+    # - wastedassign # Disabled because of generics
     - whitespace
     ##- wrapcheck # To think properly about it
 
@@ -44,6 +44,10 @@ issues:
     - (G104|G307)
     # EXC0010 gosec: False positive is triggered by 'src, err := ioutil.ReadFile(filename)'
     - Potential file inclusion via variable
+    # Use of unsafe is unavoidable in this package
+    - G103
+    # We don't wrap errors on purpose
+    - non-wrapping format verb for fmt.Errorf. Use `%w` to format errors
     # revive: unexported-return for functions exported only in tests, aliasing doesn't work here as the linter always goes for the underlying model which is unexported
     - 'unexported-return: exported func InitialModel(ForTests|WithPrevConfig)? returns unexported type watchdtui.model, which can be annoying to use'
   #fix: true # we don’t want this in CI

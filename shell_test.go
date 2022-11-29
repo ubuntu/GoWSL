@@ -103,7 +103,7 @@ func TestShell(t *testing.T) {
 				return
 			}
 			require.ErrorIs(t, err, wsl.ExitError{}, "Expected exit error returned from Distro.Shell")
-			require.Equal(t, tc.wantExitError, err.(*wsl.ExitError).Code, "Unexpected value for ExitCode returned from Distro.Shell")
+			require.Equal(t, tc.wantExitError, err.(*wsl.ExitError).Code, "Unexpected value for ExitCode returned from Distro.Shell") //nolint: forcetypeassert, errorlint
 		})
 	}
 }

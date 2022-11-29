@@ -1,3 +1,4 @@
+// Package wsl TODO: Package comment
 package wsl
 
 // This file contains utilities to interact with a Distro and its configuration
@@ -16,10 +17,16 @@ type Distro struct {
 	Name string
 }
 
+// Terminate powers off the distro.
+// Equivalent to:
+//  wsl --terminate <distro>
 func (d Distro) Terminate() error {
 	return terminate(d.Name)
 }
 
+// Shutdown powers off all of WSL, including all other distros.
+// Equivalent to:
+//   wsl --shutdown
 func Shutdown() error {
 	return shutdown()
 }
@@ -28,16 +35,17 @@ func Shutdown() error {
 // https://learn.microsoft.com/en-us/windows/win32/api/wslapi/ne-wslapi-wsl_distribution_flags
 type wslFlags int
 
+// Allowing underscores in names to keep it as close to Windows as possible.
 const (
-	flag_NONE                  wslFlags = 0x0
-	flag_ENABLE_INTEROP        wslFlags = 0x1
-	flag_APPEND_NT_PATH        wslFlags = 0x2
-	flag_ENABLE_DRIVE_MOUNTING wslFlags = 0x4
+	flag_NONE                  wslFlags = 0x0 // nolint: revive
+	flag_ENABLE_INTEROP        wslFlags = 0x1 // nolint: revive
+	flag_APPEND_NT_PATH        wslFlags = 0x2 // nolint: revive
+	flag_ENABLE_DRIVE_MOUNTING wslFlags = 0x4 // nolint: revive
 
 	// Per conversation at https://github.com/microsoft/WSL-DistroLauncher/issues/96
 	// the information about version 1 or 2 is on the 4th bit of the flags, which is not
 	// currently referenced by the API nor docs.
-	flag_undocumented_WSL_VERSION wslFlags = 0x8
+	flag_undocumented_WSL_VERSION wslFlags = 0x8 // nolint: revive
 )
 
 // Configuration is the configuration of the distro.

@@ -51,7 +51,7 @@ type Configuration struct {
 	DefaultEnvironmentVariables map[string]string // Environment variables passed to the distro by default
 }
 
-// DefaultUID sets the user you log in as when you run a command
+// DefaultUID sets the user you log in as when you run a command.
 func (d *Distro) DefaultUID(uid uint32) error {
 	conf, err := d.GetConfiguration()
 	if err != nil {
@@ -61,7 +61,7 @@ func (d *Distro) DefaultUID(uid uint32) error {
 	return d.configure(conf)
 }
 
-// InteropEnabled sets the ENABLE_INTEROP flag to the provided value
+// InteropEnabled sets the ENABLE_INTEROP flag to the provided value.
 func (d *Distro) InteropEnabled(value bool) error {
 	conf, err := d.GetConfiguration()
 	if err != nil {
@@ -71,7 +71,7 @@ func (d *Distro) InteropEnabled(value bool) error {
 	return d.configure(conf)
 }
 
-// PathAppended sets the APPEND_NT_PATH flag to the provided value
+// PathAppended sets the APPEND_NT_PATH flag to the provided value.
 func (d *Distro) PathAppended(value bool) error {
 	conf, err := d.GetConfiguration()
 	if err != nil {
@@ -81,7 +81,7 @@ func (d *Distro) PathAppended(value bool) error {
 	return d.configure(conf)
 }
 
-// DriveMountingEnabled sets the ENABLE_DRIVE_MOUNTING flag to the provided value
+// DriveMountingEnabled sets the ENABLE_DRIVE_MOUNTING flag to the provided value.
 func (d *Distro) DriveMountingEnabled(value bool) error {
 	conf, err := d.GetConfiguration()
 	if err != nil {
@@ -129,7 +129,7 @@ func (d Distro) GetConfiguration() (c Configuration, e error) {
 	return conf, nil
 }
 
-// String deserializes a Configuration object as a yaml string
+// String deserializes a Configuration object as a yaml string.
 func (d Distro) String() string {
 	c, err := d.GetConfiguration()
 	if err != nil {
@@ -170,7 +170,6 @@ configuration:
 //  - PathAppended
 //  - DriveMountingEnabled
 func (d *Distro) configure(config Configuration) error {
-
 	distroUTF16, err := syscall.UTF16PtrFromString(d.Name)
 	if err != nil {
 		return fmt.Errorf("failed to convert %q to UTF16", d.Name)
@@ -194,7 +193,7 @@ func (d *Distro) configure(config Configuration) error {
 	return nil
 }
 
-// unpackFlags examines a winWslFlags object and stores its findings in the Configuration
+// unpackFlags examines a winWslFlags object and stores its findings in the Configuration.
 func (conf *Configuration) unpackFlags(flags wslFlags) {
 	conf.InteropEnabled = false
 	if flags&flag_ENABLE_INTEROP != 0 {
@@ -217,7 +216,7 @@ func (conf *Configuration) unpackFlags(flags wslFlags) {
 	}
 }
 
-// packFlags generates a winWslFlags object from the Configuration
+// packFlags generates a winWslFlags object from the Configuration.
 func (conf Configuration) packFlags() (wslFlags, error) {
 	flags := flag_NONE
 
@@ -309,7 +308,7 @@ func strnlen(ptr *char, maxlen uint64) (length uint64) {
 	return length
 }
 
-// charNext advances *char by one position
+// charNext advances *char by one position.
 func charNext(ptr *char) *char {
 	return (*char)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr)) + unsafe.Sizeof(char(0))))
 }

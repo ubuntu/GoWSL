@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	// WSL api
+	// WSL api.
 	wslApiDll                       = syscall.NewLazyDLL("wslapi.dll")
 	wslConfigureDistribution        = wslApiDll.NewProc("WslConfigureDistribution")
 	wslGetDistributionConfiguration = wslApiDll.NewProc("WslGetDistributionConfiguration")
@@ -26,7 +26,7 @@ const (
 	lxssPath     = `Software\Microsoft\Windows\CurrentVersion\Lxss\`
 )
 
-// Windows' typedefs
+// Windows' typedefs.
 type wBOOL = int     // Windows' BOOL
 type wULONG = uint32 // Windows' ULONG
 type char = byte     // Windows' CHAR (which is the same as C's char)

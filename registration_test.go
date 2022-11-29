@@ -90,7 +90,6 @@ func TestIsRegistered(t *testing.T) {
 		config := config
 
 		t.Run(name, func(t *testing.T) {
-
 			var distro wsl.Distro
 			if config.register {
 				distro = newTestDistro(t, emptyRootFs)

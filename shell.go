@@ -25,7 +25,7 @@ func WithCommand(cmd string) func(*shellOptions) {
 }
 
 // Shell is a wrapper around Win32's WslLaunchInteractive.
-// This is a syncronous, blocking call.
+// This is a synchronous, blocking call.
 func (d *Distro) Shell(opts ...func(*shellOptions)) (err error) {
 	defer func() {
 		if err == nil {

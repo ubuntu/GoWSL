@@ -24,7 +24,6 @@ const (
 )
 
 func TestMain(m *testing.M) {
-
 	exitVal := m.Run()
 
 	err := wsl.Shutdown()
@@ -93,7 +92,7 @@ func newTestDistro(t *testing.T, rootfs string) wsl.Distro {
 
 // powershellInstallDistro installs using powershell to decouple the tests from Distro.Register
 // CommandContext sometimes fails to stop it, so a more aggressive approach is taken by rebooting WSL.
-// TODO: Consider if we want to retry
+// TODO: Consider if we want to retry.
 func powershellInstallDistro(t *testing.T, distroName string) {
 	t.Helper()
 
@@ -133,13 +132,13 @@ func powershellInstallDistro(t *testing.T, distroName string) {
 		output = <-cmdOut
 		require.NoError(t, output.err, output.output)
 
-		require.Fail(t, "Setup: unknown state: succesfully registered while WSL was shut down, stdout+stderr:", output.output)
+		require.Fail(t, "Setup: unknown state: successfully registered while WSL was shut down, stdout+stderr:", output.output)
 	case output = <-cmdOut:
 	}
 	require.NoErrorf(t, output.err, "Setup: failed to register %q: %s", distroName, output.output)
 }
 
-// cleanUpTestWslInstances finds all distros with a prefixed name and unregisters them
+// cleanUpTestWslInstances finds all distros with a prefixed name and unregisters them.
 func cleanUpTestWslInstances() {
 	testInstances, err := registeredTestWslInstances()
 	if err != nil {
@@ -161,7 +160,7 @@ func cleanUpTestWslInstances() {
 	}
 }
 
-// CleanUpWslInstance checks if a distro exists and if it does, it unregisters it
+// CleanUpWslInstance checks if a distro exists and if it does, it unregisters it.
 func CleanUpWslInstance(distro wsl.Distro) error {
 	if r, err := distro.IsRegistered(); err == nil && !r {
 		return nil
@@ -174,7 +173,7 @@ func CleanUpWslInstance(distro wsl.Distro) error {
 	return nil
 }
 
-// registeredTestWslInstances finds all distros with a mangled name
+// registeredTestWslInstances finds all distros with a mangled name.
 func registeredTestWslInstances() ([]wsl.Distro, error) {
 	distros := []wsl.Distro{}
 

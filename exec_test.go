@@ -22,7 +22,7 @@ func TestExitErrorIs(t *testing.T) {
 	assert.NotErrorIs(t, reference, err, "An ExitError error should not have been detected as being a string error")
 }
 
-// TestExitErrorAsString ensures that ExitError's message contains the actual code
+// TestExitErrorAsString ensures that ExitError's message contains the actual code.
 func TestExitErrorAsString(t *testing.T) {
 	t.Parallel()
 	testCases := []uint32{1, 15, 255, wsl.ActiveProcess, wsl.WindowsError}
@@ -195,19 +195,19 @@ func TestCommandStartWait(t *testing.T) {
 		"failure exit code":           {distro: &realDistro, cmd: "exit 42", wantErrOn: AFTER_WAIT, wantExitError: &wsl.ExitError{42}},
 
 		// Timeout context
-		"timeout sucess":           {distro: &realDistro, cmd: "exit 0", timeout: 2 * time.Second},
+		"timeout success":           {distro: &realDistro, cmd: "exit 0", timeout: 2 * time.Second},
 		"timeout exit code":        {distro: &realDistro, cmd: "exit 42", timeout: 2 * time.Second, wantErrOn: AFTER_WAIT, wantExitError: &wsl.ExitError{42}},
 		"timeout before execution": {distro: &realDistro, cmd: "exit 0", timeout: time.Nanosecond, wantErrOn: AFTER_START},
 		"timeout during execution": {distro: &realDistro, cmd: "sleep 3", timeout: 2 * time.Second, wantErrOn: AFTER_WAIT},
 
 		// Cancel context
-		"cancel sucess":           {distro: &realDistro, cmd: "exit 0", cancelOn: AFTER_WAIT},
+		"cancel success":           {distro: &realDistro, cmd: "exit 0", cancelOn: AFTER_WAIT},
 		"cancel exit code":        {distro: &realDistro, cmd: "exit 42", cancelOn: AFTER_WAIT, wantErrOn: AFTER_WAIT, wantExitError: &wsl.ExitError{42}},
 		"cancel before execution": {distro: &realDistro, cmd: "exit 0", cancelOn: BEFORE_START, wantErrOn: AFTER_START},
 		"cancel during execution": {distro: &realDistro, cmd: "sleep 3", cancelOn: AFTER_START, wantErrOn: AFTER_WAIT},
 	}
 
-	// requireErrors checks that an error is emited when expected, and checks that it is the proper type.
+	// requireErrors checks that an error is emitted when expected, and checks that it is the proper type.
 	// Returns true if, as expected, an error was caught.
 	// Returns false if, as expected, no error was caught.
 	// Fails the test if err does not match expectations.

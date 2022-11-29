@@ -12,7 +12,7 @@ import (
 	"unsafe"
 )
 
-// Register is a wrapper around Win32's WslRegisterDistribution
+// Register is a wrapper around Win32's WslRegisterDistribution.
 func (d *Distro) Register(rootFsPath string) (e error) {
 	defer func() {
 		if e != nil {
@@ -54,7 +54,7 @@ func (d *Distro) Register(rootFsPath string) (e error) {
 	return nil
 }
 
-// RegisteredDistros returns a slice of the registered distros
+// RegisteredDistros returns a slice of the registered distros.
 func RegisteredDistros() ([]Distro, error) {
 	return registeredDistros()
 }

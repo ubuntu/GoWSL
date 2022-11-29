@@ -34,7 +34,7 @@ func TestTerminate(t *testing.T) {
 	require.NoError(t, err, "Unexpected error attempting to terminate")
 
 	require.False(t, isTestLinuxProcessAlive(t, &sampleDistro), "Process was not killed by termination.")
-	require.True(t, isTestLinuxProcessAlive(t, &controlDistro), "Process was killed by termination of a diferent distro.")
+	require.True(t, isTestLinuxProcessAlive(t, &controlDistro), "Process was killed by termination of a different distro.")
 }
 
 // startTestLinuxProcess starts a linux process that is easy to grep for.
@@ -174,7 +174,6 @@ func TestConfigurationSetters(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-
 		t.Run(name, func(t *testing.T) {
 			// This test has two phases:
 			// 1. Changes one of the default settings and asserts that it has changed, and the others have not.
@@ -307,5 +306,4 @@ func TestGetConfiguration(t *testing.T) {
 			assert.Equal(t, c.DefaultEnvironmentVariables, defaultEnvs)
 		})
 	}
-
 }

@@ -12,13 +12,13 @@ import (
 	"github.com/0xrawsec/golang-utils/log"
 )
 
-// Windows' constants
+// Windows' constants.
 const (
 	WindowsError  uint32 = 4294967295 // Underflowed -1
 	ActiveProcess uint32 = 259
 )
 
-// Cmd is a wrapper around the Windows process spawned by WslLaunch
+// Cmd is a wrapper around the Windows process spawned by WslLaunch.
 type Cmd struct {
 	// Public parameters
 	Stdout syscall.Handle
@@ -220,7 +220,6 @@ func (p *Cmd) queryStatus() error {
 // kill gets the exit status before closing the process, without checking
 // if it has finished or not.
 func (p *Cmd) kill() error {
-
 	// If the exit code is ActiveProcess, we write a more useful error message
 	// indicating it was interrupted.
 	p.exitStatus = func() error {

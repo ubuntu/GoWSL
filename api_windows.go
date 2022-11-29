@@ -11,14 +11,14 @@ import (
 )
 
 var (
-	// WSL api
-	wslApiDll                       = syscall.NewLazyDLL("wslapi.dll")
-	wslConfigureDistribution        = wslApiDll.NewProc("WslConfigureDistribution")
-	wslGetDistributionConfiguration = wslApiDll.NewProc("WslGetDistributionConfiguration")
-	wslLaunch                       = wslApiDll.NewProc("WslLaunch")
-	wslLaunchInteractive            = wslApiDll.NewProc("WslLaunchInteractive")
-	wslRegisterDistribution         = wslApiDll.NewProc("WslRegisterDistribution")
-	wslUnregisterDistribution       = wslApiDll.NewProc("WslUnregisterDistribution")
+	// WSL api.
+	wslAPIDll                       = syscall.NewLazyDLL("wslapi.dll")
+	wslConfigureDistribution        = wslAPIDll.NewProc("WslConfigureDistribution")
+	wslGetDistributionConfiguration = wslAPIDll.NewProc("WslGetDistributionConfiguration")
+	wslLaunch                       = wslAPIDll.NewProc("WslLaunch")
+	wslLaunchInteractive            = wslAPIDll.NewProc("WslLaunchInteractive")
+	wslRegisterDistribution         = wslAPIDll.NewProc("WslRegisterDistribution")
+	wslUnregisterDistribution       = wslAPIDll.NewProc("WslUnregisterDistribution")
 )
 
 const (
@@ -26,7 +26,7 @@ const (
 	lxssPath     = `Software\Microsoft\Windows\CurrentVersion\Lxss\`
 )
 
-// Windows' typedefs
+// Windows' typedefs.
 type wBOOL = int     // Windows' BOOL
 type wULONG = uint32 // Windows' ULONG
 type char = byte     // Windows' CHAR (which is the same as C's char)

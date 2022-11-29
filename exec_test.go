@@ -22,7 +22,7 @@ func TestExitErrorIs(t *testing.T) {
 	assert.NotErrorIs(t, reference, err, "An ExitError error should not have been detected as being a string error")
 }
 
-// TestExitErrorAsString ensures that ExitError's message contains the actual code
+// TestExitErrorAsString ensures that ExitError's message contains the actual code.
 func TestExitErrorAsString(t *testing.T) {
 	t.Parallel()
 	testCases := []uint32{1, 15, 255, wsl.ActiveProcess, wsl.WindowsError}
@@ -57,10 +57,10 @@ func TestCommandRun(t *testing.T) {
 	// Enum with various times in the execution
 	type when uint
 	const (
-		CANCEL_NEVER when = iota
-		CANCEL_BEFORE_RUN
-		CANCEL_DURING_RUN
-		CANCEL_AFTER_RUN
+		CancelNever when = iota
+		CancelBeforeRun
+		CancelDuringRun
+		CancelAfterRun
 	)
 
 	testCases := map[string]struct {
@@ -85,11 +85,11 @@ func TestCommandRun(t *testing.T) {
 		"timeout during Run":                     {cmd: "sleep 3 && exit 0", timeout: 2 * time.Second, wantErr: true},
 
 		// cancel cases
-		"success with no cancel":  {cmd: "exit 0", cancelOn: CANCEL_AFTER_RUN},
-		"linux error no cancel":   {cmd: "exit 42", cancelOn: CANCEL_AFTER_RUN, wantErr: true, wantExitError: &wsl.ExitError{Code: 42}},
-		"windows error no cancel": {cmd: "exit 42", cancelOn: CANCEL_AFTER_RUN, fakeDistro: true, wantErr: true},
-		"cancel before Run":       {cmd: "exit 0", cancelOn: CANCEL_BEFORE_RUN, wantErr: true},
-		"cancel during Run":       {cmd: "sleep 5 && exit 0", cancelOn: CANCEL_DURING_RUN, wantErr: true},
+		"success with no cancel":  {cmd: "exit 0", cancelOn: CancelAfterRun},
+		"linux error no cancel":   {cmd: "exit 42", cancelOn: CancelAfterRun, wantErr: true, wantExitError: &wsl.ExitError{Code: 42}},
+		"windows error no cancel": {cmd: "exit 42", cancelOn: CancelAfterRun, fakeDistro: true, wantErr: true},
+		"cancel before Run":       {cmd: "exit 0", cancelOn: CancelBeforeRun, wantErr: true},
+		"cancel during Run":       {cmd: "sleep 5 && exit 0", cancelOn: CancelDuringRun, wantErr: true},
 	}
 
 	for name, tc := range testCases {
@@ -107,7 +107,7 @@ func TestCommandRun(t *testing.T) {
 				defer cancel()
 				time.Sleep(time.Second) // Gives time for an early failure
 			}
-			if tc.cancelOn != CANCEL_NEVER {
+			if tc.cancelOn != CancelNever {
 				ctx, cancel = context.WithCancel(ctx)
 				defer cancel()
 			}
@@ -117,9 +117,9 @@ func TestCommandRun(t *testing.T) {
 			cmd.Stderr = 0
 
 			switch tc.cancelOn {
-			case CANCEL_BEFORE_RUN:
+			case CancelBeforeRun:
 				cancel()
-			case CANCEL_DURING_RUN:
+			case CancelDuringRun:
 				go func() {
 					time.Sleep(1 * time.Second)
 					cancel()
@@ -157,21 +157,21 @@ func TestCommandStartWait(t *testing.T) {
 	// Enum with various times in the execution
 	type when uint
 	const (
-		NEVER when = iota
-		BEFORE_START
-		AFTER_START
-		AFTER_WAIT
+		Never when = iota
+		BeforeStart
+		AfterStart
+		AfterWait
 	)
 
 	whenToString := func(w when) string {
 		switch w {
-		case NEVER:
+		case Never:
 			return "NEVER"
-		case BEFORE_START:
+		case BeforeStart:
 			return "BEFORE_START"
-		case AFTER_START:
+		case AfterStart:
 			return "AFTER_START"
-		case AFTER_WAIT:
+		case AfterWait:
 			return "AFTER_WAIT"
 		}
 		return "UNKNOWN_TIME"
@@ -190,24 +190,24 @@ func TestCommandStartWait(t *testing.T) {
 	testCases := map[string]testCase{
 		// Background context
 		"success":                     {distro: &realDistro, cmd: "exit 0"},
-		"failure fake distro":         {distro: &fakeDistro, cmd: "exit 0", wantErrOn: AFTER_WAIT},
-		"failure null char in distro": {distro: &wrongDistro, cmd: "exit 0", wantErrOn: AFTER_START},
-		"failure exit code":           {distro: &realDistro, cmd: "exit 42", wantErrOn: AFTER_WAIT, wantExitError: &wsl.ExitError{42}},
+		"failure fake distro":         {distro: &fakeDistro, cmd: "exit 0", wantErrOn: AfterWait},
+		"failure null char in distro": {distro: &wrongDistro, cmd: "exit 0", wantErrOn: AfterStart},
+		"failure exit code":           {distro: &realDistro, cmd: "exit 42", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{42}},
 
 		// Timeout context
-		"timeout sucess":           {distro: &realDistro, cmd: "exit 0", timeout: 2 * time.Second},
-		"timeout exit code":        {distro: &realDistro, cmd: "exit 42", timeout: 2 * time.Second, wantErrOn: AFTER_WAIT, wantExitError: &wsl.ExitError{42}},
-		"timeout before execution": {distro: &realDistro, cmd: "exit 0", timeout: time.Nanosecond, wantErrOn: AFTER_START},
-		"timeout during execution": {distro: &realDistro, cmd: "sleep 3", timeout: 2 * time.Second, wantErrOn: AFTER_WAIT},
+		"timeout success":          {distro: &realDistro, cmd: "exit 0", timeout: 2 * time.Second},
+		"timeout exit code":        {distro: &realDistro, cmd: "exit 42", timeout: 2 * time.Second, wantErrOn: AfterWait, wantExitError: &wsl.ExitError{42}},
+		"timeout before execution": {distro: &realDistro, cmd: "exit 0", timeout: time.Nanosecond, wantErrOn: AfterStart},
+		"timeout during execution": {distro: &realDistro, cmd: "sleep 3", timeout: 2 * time.Second, wantErrOn: AfterWait},
 
 		// Cancel context
-		"cancel sucess":           {distro: &realDistro, cmd: "exit 0", cancelOn: AFTER_WAIT},
-		"cancel exit code":        {distro: &realDistro, cmd: "exit 42", cancelOn: AFTER_WAIT, wantErrOn: AFTER_WAIT, wantExitError: &wsl.ExitError{42}},
-		"cancel before execution": {distro: &realDistro, cmd: "exit 0", cancelOn: BEFORE_START, wantErrOn: AFTER_START},
-		"cancel during execution": {distro: &realDistro, cmd: "sleep 3", cancelOn: AFTER_START, wantErrOn: AFTER_WAIT},
+		"cancel success":          {distro: &realDistro, cmd: "exit 0", cancelOn: AfterWait},
+		"cancel exit code":        {distro: &realDistro, cmd: "exit 42", cancelOn: AfterWait, wantErrOn: AfterWait, wantExitError: &wsl.ExitError{42}},
+		"cancel before execution": {distro: &realDistro, cmd: "exit 0", cancelOn: BeforeStart, wantErrOn: AfterStart},
+		"cancel during execution": {distro: &realDistro, cmd: "sleep 3", cancelOn: AfterStart, wantErrOn: AfterWait},
 	}
 
-	// requireErrors checks that an error is emited when expected, and checks that it is the proper type.
+	// requireErrors checks that an error is emitted when expected, and checks that it is the proper type.
 	// Returns true if, as expected, an error was caught.
 	// Returns false if, as expected, no error was caught.
 	// Fails the test if err does not match expectations.
@@ -221,7 +221,7 @@ func TestCommandStartWait(t *testing.T) {
 
 		if tc.wantExitError != nil {
 			require.ErrorIsf(t, err, wsl.ExitError{}, "Unexpected error type at time %s. Expected an ExitCode.", whenToString(now))
-			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitError.Code, "Unexpected value for ExitError.Code at time %s", whenToString(now))
+			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitError.Code, "Unexpected value for ExitError.Code at time %s", whenToString(now)) // nolint: forcetypeassert, errorlint
 			return true
 		}
 
@@ -235,7 +235,7 @@ func TestCommandStartWait(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 			var cancel context.CancelFunc
-			if tc.cancelOn != NEVER {
+			if tc.cancelOn != Never {
 				ctx, cancel = context.WithCancel(context.Background())
 				defer cancel()
 			}
@@ -248,7 +248,7 @@ func TestCommandStartWait(t *testing.T) {
 			cmd := tc.distro.Command(ctx, tc.cmd)
 
 			// BEFORE_START block
-			if tc.cancelOn == BEFORE_START {
+			if tc.cancelOn == BeforeStart {
 				cancel()
 			}
 
@@ -258,17 +258,17 @@ func TestCommandStartWait(t *testing.T) {
 			err := cmd.Start()
 
 			// AFTER_START block
-			if tc.cancelOn == AFTER_START {
+			if tc.cancelOn == AfterStart {
 				cancel()
 			}
-			if requireErrors(t, tc, AFTER_START, err) {
+			if requireErrors(t, tc, AfterStart, err) {
 				return
 			}
 
 			err = cmd.Wait()
 
 			// AFTER_WAIT block
-			if requireErrors(t, tc, AFTER_WAIT, err) {
+			if requireErrors(t, tc, AfterWait, err) {
 				return
 			}
 		})

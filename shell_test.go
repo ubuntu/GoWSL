@@ -55,7 +55,7 @@ func TestShell(t *testing.T) {
 			// Because Shell is an interactive command, it needs to be quit from
 			// outside. This goroutine sets a fuse before shutting down the distro.
 			// Some commands can escape on their own. Using `done` skips the
-			// termination, preventing unsuccesful exit codes.
+			// termination, preventing unsuccessful exit codes.
 			timeout := make(chan time.Duration)
 			done := make(chan struct{})
 			go func() {
@@ -103,9 +103,7 @@ func TestShell(t *testing.T) {
 				return
 			}
 			require.ErrorIs(t, err, wsl.ExitError{}, "Expected exit error returned from Distro.Shell")
-			require.Equal(t, tc.wantExitError, err.(*wsl.ExitError).Code, "Unexpected value for ExitCode returned from Distro.Shell")
+			require.Equal(t, tc.wantExitError, err.(*wsl.ExitError).Code, "Unexpected value for ExitCode returned from Distro.Shell") //nolint: forcetypeassert, errorlint
 		})
-
 	}
-
 }

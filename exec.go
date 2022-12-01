@@ -230,6 +230,22 @@ func (c *Cmd) Output() ([]byte, error) {
 	return stdout.Bytes(), err
 }
 
+// CombinedOutput runs the command and returns its combined standard
+// output and standard error.
+func (c *Cmd) CombinedOutput() ([]byte, error) {
+	if c.Stdout != nil {
+		return nil, errors.New("wsl: Stdout already set")
+	}
+	if c.Stderr != nil {
+		return nil, errors.New("wsl: Stderr already set")
+	}
+	var b bytes.Buffer
+	c.Stdout = &b
+	c.Stderr = &b
+	err := c.Run()
+	return b.Bytes(), err
+}
+
 func (c *Cmd) stdin() error {
 	// TODO
 	return nil

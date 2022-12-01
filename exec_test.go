@@ -359,3 +359,55 @@ func TestCommandOutput(t *testing.T) {
 		})
 	}
 }
+
+func TestCommandCombinedOutput(t *testing.T) {
+	realDistro := newTestDistro(t, jammyRootFs)
+	fakeDistro := wsl.Distro{Name: UniqueDistroName(t)}
+	wrongDistro := wsl.Distro{Name: UniqueDistroName(t) + "--IHaveA\x00NullChar!"}
+
+	testCases := map[string]struct {
+		cmd           string
+		distro        *wsl.Distro
+		wantOutput    string
+		wantError     bool
+		wantExitError bool
+		// Only relevant if wantExitError==true
+		wantExitCode uint32
+	}{
+		"happy path":                                   {cmd: "exit 0", distro: &realDistro},
+		"happy path with stdout":                       {cmd: "echo Hello", distro: &realDistro, wantOutput: "Hello\n"},
+		"unregistered distro":                          {cmd: "exit 0", distro: &fakeDistro, wantError: true},
+		"null char in distro name":                     {cmd: "exit 0", distro: &wrongDistro, wantError: true},
+		"non-zero return value":                        {cmd: "exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42},
+		"non-zero return value with stderr":            {cmd: "echo 'Error!' >&2 && exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42, wantOutput: "Error!\n"},
+		"non-zero return value with stdout and stderr": {cmd: "echo Hello && echo 'Error!' >&2 && exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42, wantOutput: "Hello\nError!\n"},
+	}
+
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			output, err := tc.distro.Command(ctx, tc.cmd).CombinedOutput()
+
+			if tc.wantError {
+				require.Errorf(t, err, "Unexpected success calling CombinedOutput(). Stdout:\n%s", output)
+			} else {
+				require.NoErrorf(t, err, "Unexpected failure calling CombinedOutput(). Stdout:\n%s", output)
+			}
+
+			if tc.wantOutput != "" {
+				// Cannot check for all outputs, because some are localized (e.g. when the distro does not exist)
+				// So we only check when one is specified.
+				require.Equal(t, tc.wantOutput, string(output), "Unexpected contents in stdout")
+			}
+
+			if !tc.wantExitError {
+				return // Success
+			}
+
+			require.ErrorIsf(t, err, wsl.ExitError{}, "Unexpected error type. Expected an ExitCode.")
+			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitCode, "Unexpected value for ExitError.Code.") // nolint: forcetypeassert, errorlint
+		})
+	}
+}

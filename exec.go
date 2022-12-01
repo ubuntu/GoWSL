@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -28,7 +29,7 @@ const (
 // A Cmd cannot be reused after calling its Run method.
 type Cmd struct {
 	// Public parameters
-	Stdin  syscall.Handle
+	Stdin  io.Reader // Reader to read stdin from
 	Stdout io.Writer // Writer to write stdout into
 	Stderr io.Writer // Writer to write stdout into
 	UseCWD bool      // Whether WSL is launched in the current working directory (true) or the home directory (false)
@@ -44,13 +45,13 @@ type Cmd struct {
 	errch           chan error     // The gouroutines will send any error down this chanel
 
 	// File descriptors for pipes. These are analogous to (*exec.Cmd).childFiles[:3]
-	// stdinF  *os.File // File for stdin
+	stdinR  *os.File // File that acts as a reader for WSL to read stdin from
 	stdoutW *os.File // File that acts as a writer for WSL to write stdout into
 	stderrW *os.File // File that acts as a writer for WSL to write stderr into
 
 	// Book-keeping
 	handle     syscall.Handle // The windows handle to the WSL process
-	finished   bool           // Flag to fail nicely when Wait is invoked twicw
+	finished   bool           // Flag to fail nicely when Wait is invoked twice
 	exitStatus *uint32        // Exit status of the process. Cached because it cannot be read after the preocess is closed.
 
 	// Context management
@@ -88,7 +89,7 @@ func (d *Distro) Command(ctx context.Context, cmd string) *Cmd {
 		panic("nil Context")
 	}
 	return &Cmd{
-		Stdin:   0,
+		Stdin:   nil,
 		Stdout:  nil,
 		Stderr:  nil,
 		UseCWD:  false,
@@ -159,7 +160,7 @@ func (c *Cmd) Start() (err error) {
 		uintptr(unsafe.Pointer(distroUTF16)),
 		uintptr(unsafe.Pointer(commandUTF16)),
 		uintptr(useCwd),
-		uintptr(c.Stdin),
+		c.stdinR.Fd(),
 		c.stdoutW.Fd(),
 		c.stderrW.Fd(),
 		uintptr(unsafe.Pointer(&c.handle)))
@@ -250,6 +251,51 @@ func (c *Cmd) CombinedOutput() ([]byte, error) {
 	return b.Bytes(), err
 }
 
+// StdinPipe returns a pipe that will be connected to the command's
+// standard input when the command starts.
+// The pipe will be closed automatically after Wait sees the command exit.
+// A caller need only call Close to force the pipe to close sooner.
+// For example, if the command being run will not exit until standard input
+// is closed, the caller must close the pipe.
+//
+// Based on exec/exec.go.
+func (c *Cmd) StdinPipe() (io.WriteCloser, error) {
+	if c.Stdin != nil {
+		return nil, errors.New("wsl: Stdin already set")
+	}
+	if c.handle != 0 {
+		return nil, errors.New("wsl: StdinPipe after process started")
+	}
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return nil, err
+	}
+	c.Stdin = pr
+	c.closeAfterStart = append(c.closeAfterStart, pr)
+	wc := &closeOnce{File: pw}
+	c.closeAfterWait = append(c.closeAfterWait, wc)
+	return wc, nil
+}
+
+// Taken from exec/exec.go.
+type closeOnce struct {
+	*os.File
+
+	once sync.Once
+	err  error
+}
+
+// Taken from exec/exec.go.
+func (c *closeOnce) Close() error {
+	c.once.Do(c.close)
+	return c.err
+}
+
+// Taken from exec/exec.go.
+func (c *closeOnce) close() {
+	c.err = c.File.Close()
+}
+
 // StdoutPipe returns a pipe that will be connected to the command's
 // standard output when the command starts.
 //
@@ -303,8 +349,11 @@ func (c *Cmd) StderrPipe() (io.ReadCloser, error) {
 }
 
 func (c *Cmd) stdin() error {
-	// TODO
-	return nil
+	r, e := c.readerDescriptor(c.Stdin)
+	if e == nil {
+		c.stdinR = r
+	}
+	return e
 }
 
 // Based on exec/exec.go.
@@ -346,6 +395,41 @@ func (c *Cmd) closeDescriptors(closers []io.Closer) {
 	for _, fd := range closers {
 		fd.Close()
 	}
+}
+
+// readerDescriptor connects an arbitrary reader to an os pipe's writer,
+// and returns this pipe's reader as a file.
+//
+// Taken from exec/exec.go:stdin.
+func (c *Cmd) readerDescriptor(reader io.Reader) (f *os.File, err error) {
+	if reader == nil {
+		f, err = os.Open(os.DevNull)
+		if err != nil {
+			return
+		}
+		c.closeAfterStart = append(c.closeAfterStart, f)
+		return
+	}
+
+	if f, ok := reader.(*os.File); ok {
+		return f, nil
+	}
+
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return
+	}
+
+	c.closeAfterStart = append(c.closeAfterStart, pr)
+	c.closeAfterWait = append(c.closeAfterWait, pw)
+	c.goroutine = append(c.goroutine, func() error {
+		_, err := io.Copy(pw, reader)
+		if err1 := pw.Close(); err == nil {
+			err = err1
+		}
+		return err
+	})
+	return pr, nil
 }
 
 // writerDescriptor connects an arbitrary writer to an os pipe's reader,

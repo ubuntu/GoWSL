@@ -288,7 +288,6 @@ func TestCommandStartWait(t *testing.T) {
 			err := cmd.Wait()
 			require.Error(t, err, "Unexpected success calling (*Cmd).Wait before (*Cmd).Start")
 
-			cmd.Stdin = 0
 			err = cmd.Start()
 
 			// AfterStart block
@@ -491,6 +490,108 @@ func TestCommandCombinedOutput(t *testing.T) {
 
 			require.ErrorIsf(t, err, wsl.ExitError{}, "Unexpected error type. Expected an ExitCode.")
 			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitCode, "Unexpected value for ExitError.Code.") // nolint: forcetypeassert, errorlint
+		})
+	}
+}
+
+func TestCommandStdin(t *testing.T) {
+	d := newTestDistro(t, jammyRootFs)
+
+	const (
+		readFromPipe int = iota + 1
+		readFromBuffer
+	)
+
+	testCases := map[string]struct {
+		text string // We'll write this to Stdin. A python program will read it back to us.
+		// It is therefore both input and part of the expected output.
+
+		closeBeforeWait bool // Set to true to close the pipe before execution of the Cmd is over
+		readFrom        int  // Where Cmd should read Stdin from
+	}{
+		"standard":         {text: "Hello, wsl!", readFrom: readFromPipe},
+		"funny characters": {text: "Hello, \x00\twsl!", readFrom: readFromPipe},
+		"closing early":    {text: "Hello, wsl!", closeBeforeWait: true, readFrom: readFromPipe},
+		"using a buffer":   {text: "Hello, wsl!", readFrom: readFromBuffer},
+	}
+
+	// Simple program to test stdin
+	command := `python3 -c '
+from time import sleep
+v = input("Write your text here: ")
+sleep(1)					        # Ensures we get the prompts in separate reads
+print("Your text was", v)
+'`
+
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+
+			os.Setenv("WSL_UTF8", "1")
+			cmd := d.Command(ctx, command)
+
+			out, err := cmd.StdoutPipe()
+			require.NoError(t, err, "Failed to pipe stdout")
+			cmd.Stderr = cmd.Stdout
+
+			var stdin io.Writer
+			switch tc.readFrom {
+			case readFromPipe:
+				stdin, err = cmd.StdinPipe()
+				require.NoError(t, err, "Failed to pipe stdin")
+			case readFromBuffer:
+				stdinbuff := bytes.NewBufferString(tc.text + "\n")
+				cmd.Stdin = stdinbuff
+				stdin = stdinbuff
+			default:
+				t.Fatalf("test implementation error: unrecognized testCase.readFrom: %d", tc.readFrom)
+			}
+
+			_, err = cmd.StdinPipe()
+			require.Error(t, err, "Unexpected success calling (*Cmd).StdinPipe twice")
+
+			err = cmd.Start()
+			require.NoError(t, err, "Unexpected error calling (*Cmd).Start")
+
+			defer cmd.Wait() // nolint: errcheck
+			// We know it's going to fail in normal execution. It's here to close
+			// the process when a require check fails, at which point the test has
+			// failed already, hence no need to make more checks.
+
+			buffer := make([]byte, 1024)
+
+			// Reading prompt
+			n, err := out.Read(buffer)
+			require.NoError(t, err, "Unexpected error on read")
+			require.Equal(t, "Write your text here: ", string(buffer[:n]), "Unexpected text read from stdout")
+			t.Log(string(buffer[:n]))
+
+			// Answering
+			if tc.readFrom == readFromPipe {
+				_, err = stdin.Write([]byte(tc.text + "\n"))
+				require.NoError(t, err, "Unexpected error on write")
+			}
+
+			// Hearing response
+			n, err = out.Read(buffer)
+			require.NoError(t, err, "Unexpected error on second read")
+			require.Equal(t, fmt.Sprintf("Your text was %s\n", tc.text), string(buffer[:n]), "Answer does not match expected value.")
+
+			// Finishing
+			if tc.closeBeforeWait && tc.readFrom == readFromPipe {
+				err = stdin.(io.WriteCloser).Close() // nolint: forcetypeassert
+				require.NoError(t, err, "Failed to close stdin pipe prematurely")
+			}
+
+			err = cmd.Wait()
+			require.NoError(t, err, "Unexpected error on comand wait")
+
+			if tc.readFrom == readFromPipe {
+				err = stdin.(io.WriteCloser).Close() // nolint: forcetypeassert
+				require.NoError(t, err, "Failed to close stdin pipe multiple times")
+			}
 		})
 	}
 }

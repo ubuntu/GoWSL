@@ -28,12 +28,10 @@ func main() {
 
 	// Launching async command
 	process1 := distro.Command(context.Background(), `sleep 3 && cat goodmorning.txt`)
-	process1.Stdin = 0 // (nullptr) TODO: Make this more Go-like with readers and writers
 	process1.Start()
 
 	// Launching async command
 	process2 := distro.Command(context.Background(), `echo "Hello, world from WSL!" > "goodmorning.txt"`)
-	process2.Stdin = 0 // (nullptr) TODO: Make this more Go-like with readers and writers
 	process2.Run()
 
 	// Launching an interactive command (should fail as per config change)

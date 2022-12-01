@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"testing"
 	"time"
 	"wsl"
@@ -271,15 +272,24 @@ func TestCommandStartWait(t *testing.T) {
 				pr, err := cmd.StdoutPipe()
 				require.NoError(t, err, "Unexpected failure in call to (*Cmd).StdoutPipe")
 				stdout = bufio.NewReader(pr)
+
+				_, err = cmd.StdoutPipe()
+				require.Error(t, err, "Unexpected success calling (*Cmd).StdoutPipe twice")
 			}
 			if tc.stderrPipe {
 				pr, err := cmd.StderrPipe()
 				require.NoError(t, err, "Unexpected failure in call to (*Cmd).StderrPipe")
 				stderr = bufio.NewReader(pr)
+
+				_, err = cmd.StderrPipe()
+				require.Error(t, err, "Unexpected success calling (*Cmd).StderrPipe twice")
 			}
 
+			err := cmd.Wait()
+			require.Error(t, err, "Unexpected success calling (*Cmd).Wait before (*Cmd).Wait")
+
 			cmd.Stdin = 0
-			err := cmd.Start()
+			err = cmd.Start()
 
 			// AFTER_START block
 			if tc.cancelOn == AfterStart {
@@ -306,12 +316,23 @@ func TestCommandStartWait(t *testing.T) {
 			}
 
 			err = cmd.Start()
-			require.Error(t, err, "Unexpectedly succeeded at starting a command that had already been started")
+			require.Error(t, err, "Unexpected succeeded calling (*Cmd).Start twice")
+
+			_, err = cmd.StdoutPipe()
+			require.Error(t, err, "Unexpected success calling (*Cmd).StdoutPipe after (*Cmd).Start")
+
+			_, err = cmd.StderrPipe()
+			require.Error(t, err, "Unexpected success calling (*Cmd).StderrPipe after (*Cmd).Start")
 
 			err = cmd.Wait()
 
 			// AFTER_WAIT block
-			requireErrors(t, tc, AfterWait, err)
+			if requireErrors(t, tc, AfterWait, err) {
+				return
+			}
+
+			err = cmd.Wait()
+			require.Error(t, err, "Unexpected succeeded calling (*Cmd).Wait twice")
 		})
 	}
 }
@@ -361,6 +382,7 @@ func TestCommandOutput(t *testing.T) {
 	testCases := map[string]struct {
 		cmd           string
 		distro        *wsl.Distro
+		presetStdout  io.Writer
 		wantStdout    string
 		wantError     bool
 		wantExitError bool
@@ -375,6 +397,7 @@ func TestCommandOutput(t *testing.T) {
 		"non-zero return value":                        {cmd: "exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42},
 		"non-zero return value with stderr":            {cmd: "echo 'Error!' >&2 && exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42, wantStderr: "Error!\n"},
 		"non-zero return value with stdout and stderr": {cmd: "echo Hello && echo 'Error!' >&2 && exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42, wantStdout: "Hello\n", wantStderr: "Error!\n"},
+		"error stdout already set":                     {cmd: "exit 0", distro: &realDistro, presetStdout: os.Stdout, wantError: true},
 	}
 
 	for name, tc := range testCases {
@@ -382,7 +405,9 @@ func TestCommandOutput(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			stdout, err := tc.distro.Command(ctx, tc.cmd).Output()
+			cmd := tc.distro.Command(ctx, tc.cmd)
+			cmd.Stdout = tc.presetStdout
+			stdout, err := cmd.Output()
 
 			if tc.wantError {
 				require.Errorf(t, err, "Unexpected success calling Output(). Stdout:\n%s", stdout)
@@ -412,8 +437,11 @@ func TestCommandCombinedOutput(t *testing.T) {
 	wrongDistro := wsl.Distro{Name: UniqueDistroName(t) + "--IHaveA\x00NullChar!"}
 
 	testCases := map[string]struct {
-		cmd           string
-		distro        *wsl.Distro
+		cmd          string
+		distro       *wsl.Distro
+		presetStdout io.Writer
+		presetStderr io.Writer
+
 		wantOutput    string
 		wantError     bool
 		wantExitError bool
@@ -427,6 +455,8 @@ func TestCommandCombinedOutput(t *testing.T) {
 		"non-zero return value":                        {cmd: "exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42},
 		"non-zero return value with stderr":            {cmd: "echo 'Error!' >&2 && exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42, wantOutput: "Error!\n"},
 		"non-zero return value with stdout and stderr": {cmd: "echo Hello && echo 'Error!' >&2 && exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42, wantOutput: "Hello\nError!\n"},
+		"error stdout already set":                     {cmd: "exit 0", distro: &realDistro, presetStdout: os.Stdout, wantError: true},
+		"error stderr already set":                     {cmd: "exit 0", distro: &realDistro, presetStderr: os.Stderr, wantError: true},
 	}
 
 	for name, tc := range testCases {
@@ -434,7 +464,11 @@ func TestCommandCombinedOutput(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			output, err := tc.distro.Command(ctx, tc.cmd).CombinedOutput()
+
+			cmd := tc.distro.Command(ctx, tc.cmd)
+			cmd.Stdout = tc.presetStdout
+			cmd.Stderr = tc.presetStderr
+			output, err := cmd.CombinedOutput()
 
 			if tc.wantError {
 				require.Errorf(t, err, "Unexpected success calling CombinedOutput(). Stdout:\n%s", output)

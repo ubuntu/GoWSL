@@ -286,7 +286,7 @@ func TestCommandStartWait(t *testing.T) {
 			}
 
 			err := cmd.Wait()
-			require.Error(t, err, "Unexpected success calling (*Cmd).Wait before (*Cmd).Wait")
+			require.Error(t, err, "Unexpected success calling (*Cmd).Wait before (*Cmd).Start")
 
 			cmd.Stdin = 0
 			err = cmd.Start()
@@ -316,7 +316,7 @@ func TestCommandStartWait(t *testing.T) {
 			}
 
 			err = cmd.Start()
-			require.Error(t, err, "Unexpected succeeded calling (*Cmd).Start twice")
+			require.Error(t, err, "Unexpected success calling (*Cmd).Start twice")
 
 			_, err = cmd.StdoutPipe()
 			require.Error(t, err, "Unexpected success calling (*Cmd).StdoutPipe after (*Cmd).Start")
@@ -332,7 +332,7 @@ func TestCommandStartWait(t *testing.T) {
 			}
 
 			err = cmd.Wait()
-			require.Error(t, err, "Unexpected succeeded calling (*Cmd).Wait twice")
+			require.Error(t, err, "Unexpected success calling (*Cmd).Wait twice")
 		})
 	}
 }

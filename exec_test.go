@@ -173,7 +173,7 @@ func TestCommandStartWait(t *testing.T) {
 		case AfterWait:
 			return "AfterWait"
 		}
-		return "UNKNOWN_TIME"
+		return "UnknownTime"
 	}
 
 	type testCase struct {

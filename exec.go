@@ -38,6 +38,10 @@ type Cmd struct {
 	goroutine       []func() error // Goroutines that monitor Stdout/Stderr/Stdin and copy them asyncrounously
 	errch           chan error     // The gouroutines will send any error down this chanel
 
+	// File descriptors for pipes. These are analogous to (*exec.Cmd).childFiles[:3]
+	// stdinF  *os.File // File for stdin
+	stdoutW *os.File // File for stdout
+
 	// Book-keeping
 	handle     syscall.Handle
 	finished   bool
@@ -99,6 +103,8 @@ func (c *Cmd) Start() (err error) {
 		if c.handle == 0 {
 			return
 		}
+		c.closeDescriptors(c.closeAfterStart)
+		c.closeDescriptors(c.closeAfterWait)
 	}()
 
 	distroUTF16, err := syscall.UTF16PtrFromString(c.distro.Name)
@@ -123,16 +129,21 @@ func (c *Cmd) Start() (err error) {
 	if c.ctx != nil {
 		select {
 		case <-c.ctx.Done():
+			c.closeDescriptors(c.closeAfterStart)
+			c.closeDescriptors(c.closeAfterWait)
 			return c.ctx.Err()
 		default:
 		}
 	}
 
-	stdout, err := c.stdout()
-	if err != nil {
-		c.closeDescriptors(c.closeAfterStart)
-		c.closeDescriptors(c.closeAfterWait)
-		return err
+	type F func(*Cmd) error
+	for _, setupFd := range []F{(*Cmd).stdin, (*Cmd).stdout, (*Cmd).stderr} {
+		err := setupFd(c)
+		if err != nil {
+			c.closeDescriptors(c.closeAfterStart)
+			c.closeDescriptors(c.closeAfterWait)
+			return err
+		}
 	}
 
 	r1, _, _ := wslLaunch.Call(
@@ -140,7 +151,7 @@ func (c *Cmd) Start() (err error) {
 		uintptr(unsafe.Pointer(commandUTF16)),
 		uintptr(useCwd),
 		uintptr(c.Stdin),
-		stdout.Fd(),
+		c.stdoutW.Fd(),
 		uintptr(c.Stderr),
 		uintptr(unsafe.Pointer(&c.handle)))
 
@@ -186,8 +197,22 @@ func (c *Cmd) Start() (err error) {
 	return nil
 }
 
-func (c *Cmd) stdout() (f *os.File, err error) {
-	return c.writerDescriptor(c.Stdout)
+func (c *Cmd) stdin() error {
+	// TODO
+	return nil
+}
+
+func (c *Cmd) stdout() error {
+	w, e := c.writerDescriptor(c.Stdout)
+	if e == nil {
+		c.stdoutW = w
+	}
+	return e
+}
+
+func (c *Cmd) stderr() error {
+	// TODO
+	return nil
 }
 
 func (c *Cmd) closeDescriptors(closers []io.Closer) {

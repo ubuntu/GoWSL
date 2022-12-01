@@ -248,6 +248,58 @@ func (c *Cmd) CombinedOutput() ([]byte, error) {
 	return b.Bytes(), err
 }
 
+// StdoutPipe returns a pipe that will be connected to the command's
+// standard output when the command starts.
+//
+// Wait will close the pipe after seeing the command exit, so most callers
+// need not close the pipe themselves. It is thus incorrect to call Wait
+// before all reads from the pipe have completed.
+// For the same reason, it is incorrect to call Run when using StdoutPipe.
+//
+// Based on exec/exec.go.
+func (c *Cmd) StdoutPipe() (io.ReadCloser, error) {
+	if c.Stdout != nil {
+		return nil, errors.New("wsl: Stdout already set")
+	}
+	if c.handle != 0 {
+		return nil, errors.New("wsl: StdoutPipe after process started")
+	}
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return nil, err
+	}
+	c.Stdout = pw
+	c.closeAfterStart = append(c.closeAfterStart, pw)
+	c.closeAfterWait = append(c.closeAfterWait, pr)
+	return pr, nil
+}
+
+// StderrPipe returns a pipe that will be connected to the command's
+// standard error when the command starts.
+//
+// Wait will close the pipe after seeing the command exit, so most callers
+// need not close the pipe themselves. It is thus incorrect to call Wait
+// before all reads from the pipe have completed.
+// For the same reason, it is incorrect to use Run when using StderrPipe.
+//
+// Based on exec/exec.go.
+func (c *Cmd) StderrPipe() (io.ReadCloser, error) {
+	if c.Stderr != nil {
+		return nil, errors.New("wsl: Stderr already set")
+	}
+	if c.handle != 0 {
+		return nil, errors.New("wsl: StderrPipe after process started")
+	}
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return nil, err
+	}
+	c.Stderr = pw
+	c.closeAfterStart = append(c.closeAfterStart, pw)
+	c.closeAfterWait = append(c.closeAfterWait, pr)
+	return pr, nil
+}
+
 func (c *Cmd) stdin() error {
 	// TODO
 	return nil

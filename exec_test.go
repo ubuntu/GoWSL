@@ -1,10 +1,12 @@
 package wsl_test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"testing"
 	"time"
 	"wsl"
@@ -174,11 +176,15 @@ func TestCommandStartWait(t *testing.T) {
 	}
 
 	type testCase struct {
-		distro   *wsl.Distro
-		cmd      string
-		cancelOn when
-		timeout  time.Duration
+		distro     *wsl.Distro
+		cmd        string
+		cancelOn   when
+		timeout    time.Duration
+		stdoutPipe bool
+		stderrPipe bool
 
+		wantStdout    string
+		wantStderr    string
 		wantErrOn     when
 		wantExitError *wsl.ExitError
 	}
@@ -189,6 +195,18 @@ func TestCommandStartWait(t *testing.T) {
 		"failure fake distro":         {distro: &fakeDistro, cmd: "exit 0", wantErrOn: AfterWait},
 		"failure null char in distro": {distro: &wrongDistro, cmd: "exit 0", wantErrOn: AfterStart},
 		"failure exit code":           {distro: &realDistro, cmd: "exit 42", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
+
+		// Pipe success
+		"success with empty stdout": {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
+		"success with stdout":       {distro: &realDistro, cmd: "echo 'Hello!'", stdoutPipe: true, wantStdout: "Hello!\n"},
+		"success with empty stderr": {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
+		"success with stderr":       {distro: &realDistro, cmd: "echo 'Error!' 1>&2", stderrPipe: true, wantStderr: "Error!\n"},
+		"success with both pipes":   {distro: &realDistro, cmd: "echo 'Hello!' && echo 'Error!' 1>&2", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n"},
+
+		// Pipe failure
+		"failure exit code with stdout": {distro: &realDistro, cmd: "echo 'Hello!' && echo 'Error!' 1>&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
+		"failure exit code with stderr": {distro: &realDistro, cmd: "echo 'Hello!' && echo 'Error!' 1>&2 && exit 42", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
+		"failure exit code both pipes":  {distro: &realDistro, cmd: "echo 'Hello!' && echo 'Error!' 1>&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
 
 		// Timeout context
 		"timeout success":          {distro: &realDistro, cmd: "exit 0", timeout: 2 * time.Second},
@@ -247,6 +265,17 @@ func TestCommandStartWait(t *testing.T) {
 			if tc.cancelOn == BeforeStart {
 				cancel()
 			}
+			var stdout, stderr *bufio.Reader
+			if tc.stdoutPipe {
+				pr, err := cmd.StdoutPipe()
+				require.NoError(t, err, "Unexpected failure in call to (*Cmd).StdoutPipe")
+				stdout = bufio.NewReader(pr)
+			}
+			if tc.stderrPipe {
+				pr, err := cmd.StderrPipe()
+				require.NoError(t, err, "Unexpected failure in call to (*Cmd).StderrPipe")
+				stderr = bufio.NewReader(pr)
+			}
 
 			cmd.Stdin = 0
 			err := cmd.Start()
@@ -257,6 +286,22 @@ func TestCommandStartWait(t *testing.T) {
 			}
 			if requireErrors(t, tc, AfterStart, err) {
 				return
+			}
+
+			if stdout != nil {
+				text, err := stdout.ReadString('\n')
+				if err != nil {
+					require.ErrorIs(t, err, io.EOF, "Unexpected failure reading from StdoutPipe")
+				}
+				assert.Equal(t, tc.wantStdout, text, "Mismatch in piped stdout")
+			}
+
+			if stderr != nil {
+				text, err := stderr.ReadString('\n')
+				if err != nil {
+					require.ErrorIs(t, err, io.EOF, "Unexpected failure reading from StderrPipe")
+				}
+				assert.Equal(t, tc.wantStderr, text, "Mismatch in piped stderr")
 			}
 
 			err = cmd.Start()

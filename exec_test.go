@@ -355,7 +355,7 @@ func TestCommandOutput(t *testing.T) {
 			require.ErrorIsf(t, err, wsl.ExitError{}, "Unexpected error type. Expected an ExitCode.")
 			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitCode, "Unexpected value for ExitError.Code.") // nolint: forcetypeassert, errorlint
 
-			require.Equal(t, tc.wantStderr, string(err.(*wsl.ExitError).Stderr), "Unexpected contents in stderr")
+			require.Equal(t, tc.wantStderr, string(err.(*wsl.ExitError).Stderr), "Unexpected contents in stderr") // nolint: forcetypeassert, errorlint
 		})
 	}
 }

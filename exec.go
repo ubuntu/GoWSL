@@ -223,8 +223,8 @@ func (c *Cmd) Output() ([]byte, error) {
 
 	err := c.Run()
 	if err != nil && captureErr {
-		if ee, ok := err.(*ExitError); ok {
-			ee.Stderr = c.Stderr.(*prefixSuffixSaver).Bytes()
+		if ee, ok := err.(*ExitError); ok { // nolint: errorlint, forcetypeassert
+			ee.Stderr = c.Stderr.(*prefixSuffixSaver).Bytes() // nolint: errorlint, forcetypeassert
 		}
 	}
 	return stdout.Bytes(), err
@@ -403,7 +403,7 @@ func (c *Cmd) waitProcess() (uint32, error) {
 //
 // If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
 //
-// Taken from exec/exec.go
+// Taken from exec/exec.go.
 func (c *Cmd) Run() error {
 	if err := c.Start(); err != nil {
 		return err
@@ -440,7 +440,7 @@ func (c *Cmd) kill() error {
 // and the last N bytes written to it. The Bytes() methods reconstructs
 // it with a pretty error message.
 //
-// Taken from exec/exec.go
+// Taken from exec/exec.go.
 type prefixSuffixSaver struct {
 	N         int // max size of prefix or suffix
 	prefix    []byte
@@ -482,7 +482,7 @@ func (w *prefixSuffixSaver) Write(p []byte) (n int, err error) {
 // fill appends up to len(p) bytes of p to *dst, such that *dst does not
 // grow larger than w.N. It returns the un-appended suffix of p.
 //
-// Taken from exec/exec.go
+// Taken from exec/exec.go.
 func (w *prefixSuffixSaver) fill(dst *[]byte, p []byte) (pRemain []byte) {
 	if remain := w.N - len(*dst); remain > 0 {
 		add := minInt(len(p), remain)
@@ -494,7 +494,7 @@ func (w *prefixSuffixSaver) fill(dst *[]byte, p []byte) (pRemain []byte) {
 
 // Bytes returns the contents of the buffer.
 //
-// Taken from exec/exec.go
+// Taken from exec/exec.go.
 func (w *prefixSuffixSaver) Bytes() []byte {
 	if w.suffix == nil {
 		return w.prefix
@@ -513,7 +513,7 @@ func (w *prefixSuffixSaver) Bytes() []byte {
 	return buf.Bytes()
 }
 
-// Taken from exec/exec.go
+// Taken from exec/exec.go.
 func minInt(a, b int) int {
 	if a < b {
 		return a

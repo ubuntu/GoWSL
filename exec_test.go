@@ -162,13 +162,13 @@ func TestCommandStartWait(t *testing.T) {
 	whenToString := func(w when) string {
 		switch w {
 		case Never:
-			return "NEVER"
+			return "Never"
 		case BeforeStart:
-			return "BEFORE_START"
+			return "BeforeStart"
 		case AfterStart:
-			return "AFTER_START"
+			return "AfterStart"
 		case AfterWait:
-			return "AFTER_WAIT"
+			return "AfterWait"
 		}
 		return "UNKNOWN_TIME"
 	}

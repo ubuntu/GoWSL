@@ -232,6 +232,8 @@ func (c *Cmd) Output() ([]byte, error) {
 
 // CombinedOutput runs the command and returns its combined standard
 // output and standard error.
+//
+// Taken from exec/exec.go.
 func (c *Cmd) CombinedOutput() ([]byte, error) {
 	if c.Stdout != nil {
 		return nil, errors.New("wsl: Stdout already set")
@@ -471,6 +473,7 @@ type prefixSuffixSaver struct {
 	// now just for error messages. It's only ~64KB anyway.
 }
 
+// Taken from exec/exec.go.
 func (w *prefixSuffixSaver) Write(p []byte) (n int, err error) {
 	lenp := len(p)
 	p = w.fill(&w.prefix, p)

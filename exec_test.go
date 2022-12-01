@@ -188,17 +188,17 @@ func TestCommandStartWait(t *testing.T) {
 		"success":                     {distro: &realDistro, cmd: "exit 0"},
 		"failure fake distro":         {distro: &fakeDistro, cmd: "exit 0", wantErrOn: AfterWait},
 		"failure null char in distro": {distro: &wrongDistro, cmd: "exit 0", wantErrOn: AfterStart},
-		"failure exit code":           {distro: &realDistro, cmd: "exit 42", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{42}},
+		"failure exit code":           {distro: &realDistro, cmd: "exit 42", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
 
 		// Timeout context
 		"timeout success":          {distro: &realDistro, cmd: "exit 0", timeout: 2 * time.Second},
-		"timeout exit code":        {distro: &realDistro, cmd: "exit 42", timeout: 2 * time.Second, wantErrOn: AfterWait, wantExitError: &wsl.ExitError{42}},
+		"timeout exit code":        {distro: &realDistro, cmd: "exit 42", timeout: 2 * time.Second, wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
 		"timeout before execution": {distro: &realDistro, cmd: "exit 0", timeout: time.Nanosecond, wantErrOn: AfterStart},
 		"timeout during execution": {distro: &realDistro, cmd: "sleep 3", timeout: 2 * time.Second, wantErrOn: AfterWait},
 
 		// Cancel context
 		"cancel success":          {distro: &realDistro, cmd: "exit 0", cancelOn: AfterWait},
-		"cancel exit code":        {distro: &realDistro, cmd: "exit 42", cancelOn: AfterWait, wantErrOn: AfterWait, wantExitError: &wsl.ExitError{42}},
+		"cancel exit code":        {distro: &realDistro, cmd: "exit 42", cancelOn: AfterWait, wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
 		"cancel before execution": {distro: &realDistro, cmd: "exit 0", cancelOn: BeforeStart, wantErrOn: AfterStart},
 		"cancel during execution": {distro: &realDistro, cmd: "sleep 3", cancelOn: AfterStart, wantErrOn: AfterWait},
 	}
@@ -270,7 +270,7 @@ func TestCommandStartWait(t *testing.T) {
 	}
 }
 
-func TestOutPipes(t *testing.T) {
+func TestCommandOutPipes(t *testing.T) {
 	d := newTestDistro(t, jammyRootFs)
 
 	testCases := map[string]struct {
@@ -303,6 +303,59 @@ func TestOutPipes(t *testing.T) {
 
 			require.NoError(t, err, "Did not expect read from pipe to return an error")
 			require.Equal(t, tc.expectRead, buff.String())
+		})
+	}
+}
+
+func TestCommandOutput(t *testing.T) {
+	realDistro := newTestDistro(t, jammyRootFs)
+	fakeDistro := wsl.Distro{Name: UniqueDistroName(t)}
+	wrongDistro := wsl.Distro{Name: UniqueDistroName(t) + "--IHaveA\x00NullChar!"}
+
+	testCases := map[string]struct {
+		cmd           string
+		distro        *wsl.Distro
+		wantStdout    string
+		wantError     bool
+		wantExitError bool
+		// Only relevant if wantExitError==true
+		wantExitCode uint32
+		wantStderr   string
+	}{
+		"happy path":                                   {cmd: "exit 0", distro: &realDistro},
+		"happy path with stdout":                       {cmd: "echo Hello", distro: &realDistro, wantStdout: "Hello\n"},
+		"unregistered distro":                          {cmd: "exit 0", distro: &fakeDistro, wantError: true},
+		"null char in distro name":                     {cmd: "exit 0", distro: &wrongDistro, wantError: true},
+		"non-zero return value":                        {cmd: "exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42},
+		"non-zero return value with stderr":            {cmd: "echo 'Error!' >&2 && exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42, wantStderr: "Error!\n"},
+		"non-zero return value with stdout and stderr": {cmd: "echo Hello && echo 'Error!' >&2 && exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42, wantStdout: "Hello\n", wantStderr: "Error!\n"},
+	}
+
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			stdout, err := tc.distro.Command(ctx, tc.cmd).Output()
+
+			if tc.wantError {
+				require.Errorf(t, err, "Unexpected success calling Output(). Stdout:\n%s", stdout)
+			} else {
+				require.NoErrorf(t, err, "Unexpected failure calling Output(). Stdout:\n%s", stdout)
+			}
+
+			if tc.wantStdout != "" {
+				require.Equal(t, tc.wantStdout, string(stdout), "Unexpected contents in stdout")
+			}
+
+			if !tc.wantExitError {
+				return // Success
+			}
+
+			require.ErrorIsf(t, err, wsl.ExitError{}, "Unexpected error type. Expected an ExitCode.")
+			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitCode, "Unexpected value for ExitError.Code.") // nolint: forcetypeassert, errorlint
+
+			require.Equal(t, tc.wantStderr, string(err.(*wsl.ExitError).Stderr), "Unexpected contents in stderr")
 		})
 	}
 }

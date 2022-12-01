@@ -3,12 +3,15 @@ package wsl
 // This file contains utilities to launch commands into WSL distros.
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/0xrawsec/golang-utils/log"
@@ -58,7 +61,8 @@ type Cmd struct {
 // ExitError represents a non-zero exit status from a WSL process.
 // Linux's exit errors range from 0 to 255, larger numbers correspond to Windows-side errors.
 type ExitError struct {
-	Code uint32
+	Code   uint32
+	Stderr []byte
 }
 
 func (m ExitError) Error() string {
@@ -200,6 +204,30 @@ func (c *Cmd) Start() (err error) {
 	}
 
 	return nil
+}
+
+// Output runs the command and returns its standard output.
+// Any returned error will usually be of type *ExitError.
+// If c.Stderr was nil, Output populates ExitError.Stderr.
+func (c *Cmd) Output() ([]byte, error) {
+	if c.Stdout != nil {
+		return nil, errors.New("wsl: Stdout already set")
+	}
+	var stdout bytes.Buffer
+	c.Stdout = &stdout
+
+	captureErr := c.Stderr == nil
+	if captureErr {
+		c.Stderr = &prefixSuffixSaver{N: 32 << 10}
+	}
+
+	err := c.Run()
+	if err != nil && captureErr {
+		if ee, ok := err.(*ExitError); ok {
+			ee.Stderr = c.Stderr.(*prefixSuffixSaver).Bytes()
+		}
+	}
+	return stdout.Bytes(), err
 }
 
 func (c *Cmd) stdin() error {
@@ -353,6 +381,13 @@ func (c *Cmd) waitProcess() (uint32, error) {
 		return WindowsError, fmt.Errorf("failed syscall to WaitForSingleObject, non-zero exit status %d", event)
 	}
 
+	// NOTE(brainman): It seems that sometimes process is not dead
+	// when WaitForSingleObject returns. But we do not know any
+	// other way to wait for it. Sleeping for a while seems to do
+	// the trick sometimes.
+	// See https://golang.org/issue/25965 for details.
+	time.Sleep(5 * time.Millisecond)
+
 	status, statusError := c.status()
 	ok := statusError == nil && status == 0
 
@@ -367,6 +402,8 @@ func (c *Cmd) waitProcess() (uint32, error) {
 // The returned error is nil if the command runs and exits with a zero exit status.
 //
 // If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
+//
+// Taken from exec/exec.go
 func (c *Cmd) Run() error {
 	if err := c.Start(); err != nil {
 		return err
@@ -397,4 +434,89 @@ func (c *Cmd) kill() error {
 		c.exitStatus = &status
 	}
 	return syscall.TerminateProcess(c.handle, ActiveProcess)
+}
+
+// prefixSuffixSaver is an io.Writer which retains the first N bytes
+// and the last N bytes written to it. The Bytes() methods reconstructs
+// it with a pretty error message.
+//
+// Taken from exec/exec.go
+type prefixSuffixSaver struct {
+	N         int // max size of prefix or suffix
+	prefix    []byte
+	suffix    []byte // ring buffer once len(suffix) == N
+	suffixOff int    // offset to write into suffix
+	skipped   int64
+
+	// TODO(bradfitz): we could keep one large []byte and use part of it for
+	// the prefix, reserve space for the '... Omitting N bytes ...' message,
+	// then the ring buffer suffix, and just rearrange the ring buffer
+	// suffix when Bytes() is called, but it doesn't seem worth it for
+	// now just for error messages. It's only ~64KB anyway.
+}
+
+func (w *prefixSuffixSaver) Write(p []byte) (n int, err error) {
+	lenp := len(p)
+	p = w.fill(&w.prefix, p)
+
+	// Only keep the last w.N bytes of suffix data.
+	if overage := len(p) - w.N; overage > 0 {
+		p = p[overage:]
+		w.skipped += int64(overage)
+	}
+	p = w.fill(&w.suffix, p)
+
+	// w.suffix is full now if p is non-empty. Overwrite it in a circle.
+	for len(p) > 0 { // 0, 1, or 2 iterations.
+		n := copy(w.suffix[w.suffixOff:], p)
+		p = p[n:]
+		w.skipped += int64(n)
+		w.suffixOff += n
+		if w.suffixOff == w.N {
+			w.suffixOff = 0
+		}
+	}
+	return lenp, nil
+}
+
+// fill appends up to len(p) bytes of p to *dst, such that *dst does not
+// grow larger than w.N. It returns the un-appended suffix of p.
+//
+// Taken from exec/exec.go
+func (w *prefixSuffixSaver) fill(dst *[]byte, p []byte) (pRemain []byte) {
+	if remain := w.N - len(*dst); remain > 0 {
+		add := minInt(len(p), remain)
+		*dst = append(*dst, p[:add]...)
+		p = p[add:]
+	}
+	return p
+}
+
+// Bytes returns the contents of the buffer.
+//
+// Taken from exec/exec.go
+func (w *prefixSuffixSaver) Bytes() []byte {
+	if w.suffix == nil {
+		return w.prefix
+	}
+	if w.skipped == 0 {
+		return append(w.prefix, w.suffix...)
+	}
+	var buf bytes.Buffer
+	buf.Grow(len(w.prefix) + len(w.suffix) + 50)
+	buf.Write(w.prefix)
+	buf.WriteString("\n... omitting ")
+	buf.WriteString(strconv.FormatInt(w.skipped, 10))
+	buf.WriteString(" bytes ...\n")
+	buf.Write(w.suffix[w.suffixOff:])
+	buf.Write(w.suffix[:w.suffixOff])
+	return buf.Bytes()
+}
+
+// Taken from exec/exec.go
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

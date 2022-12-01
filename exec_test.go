@@ -1,6 +1,7 @@
 package wsl_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -48,9 +49,7 @@ func TestCommandRun(t *testing.T) {
 	fakeDistro := wsl.Distro{Name: UniqueDistroName(t)}
 
 	// Poking distro to wake it up
-	cmd := realDistro.Command(context.Background(), "exit 0")
-	cmd.Stderr = 0
-	err := cmd.Run()
+	err := realDistro.Command(context.Background(), "exit 0").Run()
 	require.NoError(t, err)
 
 	// Enum with various times in the execution
@@ -112,7 +111,6 @@ func TestCommandRun(t *testing.T) {
 			}
 
 			cmd := d.Command(ctx, tc.cmd)
-			cmd.Stderr = 0
 
 			switch tc.cancelOn {
 			case CancelBeforeRun:
@@ -251,7 +249,6 @@ func TestCommandStartWait(t *testing.T) {
 			}
 
 			cmd.Stdin = 0
-			cmd.Stderr = 0
 			err := cmd.Start()
 
 			// AFTER_START block
@@ -268,9 +265,45 @@ func TestCommandStartWait(t *testing.T) {
 			err = cmd.Wait()
 
 			// AFTER_WAIT block
-			if requireErrors(t, tc, AfterWait, err) {
-				return
-			}
+			requireErrors(t, tc, AfterWait, err)
 		})
 	}
+}
+
+func TestOutPipes(t *testing.T) {
+	d := newTestDistro(t, jammyRootFs)
+
+	testCases := map[string]struct {
+		stdout     bool
+		stderr     bool
+		cmd        string
+		expectRead string
+	}{
+		"all discarded":           {},
+		"piped stdout":            {stdout: true, expectRead: "Hello stdout\n"},
+		"piped stderr":            {stderr: true, expectRead: "Hello stderr\n"},
+		"piped stdout and stderr": {stdout: true, stderr: true, expectRead: "Hello stdout\nHello stderr\n"},
+	}
+
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			cmd := d.Command(context.Background(), "echo 'Hello stdout' >& 1 && echo 'Hello stderr' >& 2")
+
+			var buff bytes.Buffer
+			if tc.stdout {
+				cmd.Stdout = &buff
+			}
+			if tc.stderr {
+				cmd.Stderr = &buff
+			}
+
+			err := cmd.Run()
+			require.NoError(t, err, "Did not expect an error when launching command")
+
+			require.NoError(t, err, "Did not expect read from pipe to return an error")
+			require.Equal(t, tc.expectRead, buff.String())
+		})
+	}
+
 }

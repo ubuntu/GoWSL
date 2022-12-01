@@ -25,7 +25,7 @@ type Cmd struct {
 	// Public parameters
 	Stdin  syscall.Handle
 	Stdout io.Writer
-	Stderr syscall.Handle
+	Stderr io.Writer
 	UseCWD bool
 
 	// Immutable parameters
@@ -41,6 +41,7 @@ type Cmd struct {
 	// File descriptors for pipes. These are analogous to (*exec.Cmd).childFiles[:3]
 	// stdinF  *os.File // File for stdin
 	stdoutW *os.File // File for stdout
+	stderrW *os.File // File for stderr
 
 	// Book-keeping
 	handle     syscall.Handle
@@ -81,7 +82,7 @@ func (d *Distro) Command(ctx context.Context, cmd string) *Cmd {
 	return &Cmd{
 		Stdin:   0,
 		Stdout:  nil,
-		Stderr:  0,
+		Stderr:  nil,
 		UseCWD:  false,
 		distro:  d,
 		handle:  0,
@@ -152,7 +153,7 @@ func (c *Cmd) Start() (err error) {
 		uintptr(useCwd),
 		uintptr(c.Stdin),
 		c.stdoutW.Fd(),
-		uintptr(c.Stderr),
+		c.stderrW.Fd(),
 		uintptr(unsafe.Pointer(&c.handle)))
 
 	if r1 != 0 {
@@ -211,8 +212,26 @@ func (c *Cmd) stdout() error {
 }
 
 func (c *Cmd) stderr() error {
-	// TODO
-	return nil
+	// Case where Stdout and Stderr are the same
+	if c.Stderr != nil && interfaceEqual(c.Stdout, c.Stderr) {
+		c.stderrW = c.stdoutW
+		return nil
+	}
+	// Different stdout and stderr
+	w, e := c.writerDescriptor(c.Stderr)
+	if e == nil {
+		c.stderrW = w
+	}
+	return e
+}
+
+// interfaceEqual protects against panics from doing equality tests on
+// two interfaces with non-comparable underlying types.
+func interfaceEqual(a, b any) bool {
+	defer func() {
+		_ = recover()
+	}()
+	return a == b
 }
 
 func (c *Cmd) closeDescriptors(closers []io.Closer) {

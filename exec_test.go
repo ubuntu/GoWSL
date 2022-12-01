@@ -73,9 +73,10 @@ func TestCommandRun(t *testing.T) {
 		wantErr       bool
 		wantExitError *wsl.ExitError
 	}{
-		"success":       {cmd: "exit 0"},
-		"windows error": {cmd: "exit 0", fakeDistro: true, wantErr: true},
-		"linux error":   {cmd: "exit 42", wantErr: true, wantExitError: &wsl.ExitError{Code: 42}},
+		"success":                      {cmd: "exit 0"},
+		"windows error":                {cmd: "exit 0", fakeDistro: true, wantErr: true},
+		"linux error":                  {cmd: "exit 42", wantErr: true, wantExitError: &wsl.ExitError{Code: 42}},
+		"command with null char error": {cmd: "echo \x00", fakeDistro: true, wantErr: true},
 
 		// timeout cases
 		"success with timeout long enough":       {cmd: "exit 0", timeout: 6 * time.Second},

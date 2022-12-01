@@ -33,10 +33,10 @@ type Cmd struct {
 	command string
 
 	// Pipes
-	closeAfterStart []io.Closer
-	closeAfterWait  []io.Closer
-	pipeGoroutines  []func() error
-	errch           chan error // one send per goroutine
+	closeAfterStart []io.Closer    // IO closers to be invoked after Launching the command
+	closeAfterWait  []io.Closer    // IO closers to be invoked after Waiting for the command to end
+	goroutine       []func() error // Goroutines that monitor Stdout/Stderr/Stdin and copy them asyncrounously
+	errch           chan error     // The gouroutines will send any error down this chanel
 
 	// Book-keeping
 	handle     syscall.Handle
@@ -85,7 +85,7 @@ func (d *Distro) Command(ctx context.Context, cmd string) *Cmd {
 	}
 }
 
-// Start starts the specified WslProcess but does not wait for it to complete.
+// Start starts the specified command but does not wait for it to complete.
 //
 // The Wait method will return the exit code and release associated resources
 // once the command exits.
@@ -151,10 +151,12 @@ func (c *Cmd) Start() (err error) {
 	}
 
 	c.closeDescriptors(c.closeAfterStart)
-	// Don't allocate the channel unless there are goroutines to fire.
-	if len(c.pipeGoroutines) > 0 {
-		c.errch = make(chan error, len(c.pipeGoroutines))
-		for _, fn := range c.pipeGoroutines {
+
+	// Allocating goroutines that will monitor the pipes to copy them, and collect
+	// their errors into c.errch
+	if len(c.goroutine) > 0 {
+		c.errch = make(chan error, len(c.goroutine))
+		for _, fn := range c.goroutine {
 			go func(fn func() error) {
 				c.errch <- fn()
 			}(fn)
@@ -163,7 +165,6 @@ func (c *Cmd) Start() (err error) {
 
 	if c.ctx != nil {
 		c.waitDone = make(chan struct{})
-		// This goroutine monitors the status of the context to kill the process if needed
 		go func() {
 			select {
 			case <-c.waitDone:
@@ -205,26 +206,38 @@ func (c *Cmd) writerDescriptor(writer io.Writer) (f *os.File, err error) {
 		return f, nil
 	}
 
-	pipeRead, pipeWrite, err := os.Pipe()
+	pr, pw, err := os.Pipe()
 	if err != nil {
 		return
 	}
 
-	c.closeAfterStart = append(c.closeAfterStart, pipeWrite)
-	c.closeAfterWait = append(c.closeAfterWait, pipeRead)
-	c.pipeGoroutines = append(c.pipeGoroutines, func() error {
-		_, err := io.Copy(writer, pipeRead)
-		pipeRead.Close() // in case io.Copy stopped due to write error
+	c.closeAfterStart = append(c.closeAfterStart, pw)
+	c.closeAfterWait = append(c.closeAfterWait, pr)
+	c.goroutine = append(c.goroutine, func() error {
+		_, err := io.Copy(writer, pr)
+		pr.Close() // in case io.Copy stopped due to write error
 		return err
 	})
-	return pipeWrite, nil
+	return pw, nil
 }
 
-// Wait blocks execution until the process finishes and returns the process exit status.
+// Wait waits for the command to exit and waits for any copying to
+// stdin or copying from stdout or stderr to complete.
 //
-// The returned error is nil if the command runs and exits with a zero exit status.
+// The command must have been started by Start.
 //
-// If the command fails to run or doesn't complete successfully, the error is of type ExitError.
+// The returned error is nil if the command runs, has no problems
+// copying stdin, stdout, and stderr, and exits with a zero exit
+// status.
+//
+// If the command fails to run or doesn't complete successfully, the
+// error is of type ExitError. Other error types may be
+// returned for I/O problems.
+//
+// If any of c.Stdin, c.Stdout or c.Stderr are not an *os.File, Wait also waits
+// for the respective I/O loop copying to or from the process to complete.
+//
+// Wait releases any resources associated with the Cmd.
 func (c *Cmd) Wait() (err error) {
 	defer func() {
 		if err == nil {
@@ -249,8 +262,8 @@ func (c *Cmd) Wait() (err error) {
 
 	// Collecting errors from pipe redirections
 	var copyError error
-	for range c.pipeGoroutines {
-		if err := <-c.errch; err != nil && copyError == nil {
+	for range c.goroutine {
+		if e := <-c.errch; e != nil && copyError == nil {
 			copyError = err
 		}
 	}

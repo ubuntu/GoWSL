@@ -40,9 +40,10 @@ type Cmd struct {
 
 	// Book-keeping
 	handle     syscall.Handle
+	finished   bool
 	ctx        context.Context
 	waitDone   chan struct{}
-	exitStatus error
+	exitStatus *uint32
 }
 
 // ExitError represents a non-zero exit status from a WSL process.
@@ -242,43 +243,72 @@ func (c *Cmd) writerDescriptor(writer io.Writer) (f *os.File, err error) {
 // for the respective I/O loop copying to or from the process to complete.
 //
 // Wait releases any resources associated with the Cmd.
-func (c *Cmd) Wait() (err error) {
-	defer func() {
-		if err == nil {
-			return
-		}
-		if errors.Is(err, ExitError{}) {
-			return
-		}
-		err = fmt.Errorf("error during Distro.Wait: %v", err)
-	}()
-
-	defer c.close()
-	r1, err := syscall.WaitForSingleObject(c.handle, syscall.INFINITE)
-
-	if r1 != 0 {
-		return fmt.Errorf("failed syscall to WaitForSingleObject: %v", err)
+func (c *Cmd) Wait() error {
+	if c.handle == 0 {
+		return errors.New("in Distro.Wait: not started")
 	}
+	if c.finished {
+		return errors.New("in Distro.Wait: already called")
+	}
+	c.finished = true
 
+	status, waitError := c.waitProcess()
+	// Will deal with waitError after releasing resources
+
+	// Releasing goroutines in charge of listening to context cancellation
 	if c.waitDone != nil {
 		close(c.waitDone)
 	}
+	c.exitStatus = &status
 
-	// Collecting errors from pipe redirections
+	// Releasing goroutines in charge of pipe redirection. Collect
+	// their errors.
 	var copyError error
 	for range c.goroutine {
-		if e := <-c.errch; e != nil && copyError == nil {
+		if err := <-c.errch; err != nil && copyError == nil {
 			copyError = err
 		}
 	}
 
+	// Releasing pipes
 	c.closeDescriptors(c.closeAfterWait)
 
-	if err := c.status(); err != nil {
-		return err
+	// Reporting the errors in order of importance.
+	if waitError != nil {
+		return waitError
 	}
 
+	// Custom errors for particular exit status
+	if status == WindowsError {
+		return errors.New("command failed due to Windows-side error")
+	}
+	if status == ActiveProcess { // Process was most likely interrupted by context
+		if err := c.ctx.Err(); err != nil {
+			return err
+		}
+	}
+	if status != 0 {
+		return &ExitError{Code: status}
+	}
 	return copyError
+}
+
+func (c *Cmd) waitProcess() (uint32, error) {
+	event, statusError := syscall.WaitForSingleObject(c.handle, syscall.INFINITE)
+	if statusError != nil {
+		return WindowsError, fmt.Errorf("failed syscall to WaitForSingleObject: %v", statusError)
+	}
+	if event != syscall.WAIT_OBJECT_0 {
+		return WindowsError, fmt.Errorf("failed syscall to WaitForSingleObject, non-zero exit status %d", event)
+	}
+
+	status, statusError := c.status()
+	ok := statusError == nil && status == 0
+
+	if err := syscall.CloseHandle(c.handle); !ok && err != nil {
+		return WindowsError, err
+	}
+	return status, statusError
 }
 
 // Run starts the specified WslProcess and waits for it to complete.
@@ -293,56 +323,27 @@ func (c *Cmd) Run() error {
 	return c.Wait()
 }
 
-// close closes a WslProcess. If it was still running, it is terminated,
-// although its Linux counterpart may not.
-func (c *Cmd) close() error {
-	e := syscall.CloseHandle(c.handle)
-	if e != nil {
-		c.handle = 0
-	}
-	return e
-}
-
 // status querries Windows for the process' status.
-func (c *Cmd) status() error {
+func (c *Cmd) status() (exit uint32, err error) {
+	// Retrieving from cache in case the process has been closed
 	if c.exitStatus != nil {
-		return c.exitStatus
+		return *c.exitStatus, nil
 	}
 
-	var exit uint32
-	err := syscall.GetExitCodeProcess(c.handle, &exit)
+	err = syscall.GetExitCodeProcess(c.handle, &exit)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve exit status: %v", err)
+		return WindowsError, fmt.Errorf("failed to retrieve exit status: %v", err)
 	}
-	if exit == WindowsError {
-		return errors.New("failed to Launch Linux command due to Windows-side error")
-	}
-	if exit != 0 {
-		return &ExitError{Code: exit}
-	}
-	return nil
+	return exit, nil
 }
 
 // kill gets the exit status before closing the process, without checking
 // if it has finished or not.
 func (c *Cmd) kill() error {
-	// If the exit code is ActiveProcess, we write a more useful error message
-	// indicating it was interrupted.
-	c.exitStatus = func() error {
-		e := c.status()
-
-		if e == nil {
-			return nil
-		}
-		var asExitError *ExitError
-		if !errors.As(e, &asExitError) {
-			return e
-		}
-		if asExitError.Code != ActiveProcess {
-			return e
-		}
-		return errors.New("process was closed before finishing")
-	}()
-
+	status, err := c.status()
+	c.exitStatus = nil
+	if err == nil {
+		c.exitStatus = &status
+	}
 	return syscall.TerminateProcess(c.handle, ActiveProcess)
 }

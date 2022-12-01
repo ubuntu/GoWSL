@@ -91,14 +91,14 @@ func (d *Distro) Command(ctx context.Context, cmd string) *Cmd {
 // once the command exits.
 func (c *Cmd) Start() (err error) {
 	defer func() {
-		if err != nil {
-			err = fmt.Errorf("error in distro %q during Start: %v", c.distro.Name, err)
+		if err == nil {
+			return
+		}
+		err = fmt.Errorf("wsl: %v", err)
+		if c.handle == 0 {
+			return
 		}
 	}()
-
-	if c.handle != 0 {
-		return errors.New("already started")
-	}
 
 	distroUTF16, err := syscall.UTF16PtrFromString(c.distro.Name)
 	if err != nil {
@@ -113,6 +113,10 @@ func (c *Cmd) Start() (err error) {
 	var useCwd wBOOL = 0
 	if c.UseCWD {
 		useCwd = 1
+	}
+
+	if c.handle != 0 {
+		return errors.New("already started")
 	}
 
 	if c.ctx != nil {

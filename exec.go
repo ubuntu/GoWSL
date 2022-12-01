@@ -118,7 +118,7 @@ func (c *Cmd) Start() (err error) {
 		return fmt.Errorf("failed to convert command '%s' to UTF16", c.command)
 	}
 
-	var useCwd wBOOL = 0
+	var useCwd wBOOL
 	if c.UseCWD {
 		useCwd = 1
 	}
@@ -240,7 +240,7 @@ func (c *Cmd) closeDescriptors(closers []io.Closer) {
 	}
 }
 
-// Adapted from exec/exec.go
+// Adapted from exec/exec.go.
 func (c *Cmd) writerDescriptor(writer io.Writer) (f *os.File, err error) {
 	if writer == nil {
 		f, err = os.OpenFile(os.DevNull, os.O_WRONLY, 0)

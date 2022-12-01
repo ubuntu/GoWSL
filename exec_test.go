@@ -305,5 +305,4 @@ func TestOutPipes(t *testing.T) {
 			require.Equal(t, tc.expectRead, buff.String())
 		})
 	}
-
 }

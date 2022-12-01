@@ -20,17 +20,19 @@ const (
 	ActiveProcess uint32 = 259
 )
 
-// Cmd is a wrapper around the Windows process spawned by WslLaunch.
+// Cmd is a wrapper around the Windows process spawned by WslLaunch. It is not thread-safe.
+//
+// A Cmd cannot be reused after calling its Run method.
 type Cmd struct {
 	// Public parameters
 	Stdin  syscall.Handle
-	Stdout io.Writer
-	Stderr io.Writer
-	UseCWD bool
+	Stdout io.Writer // Writer to write stdout into
+	Stderr io.Writer // Writer to write stdout into
+	UseCWD bool      // Whether WSL is launched in the current working directory (true) or the home directory (false)
 
 	// Immutable parameters
-	distro  *Distro
-	command string
+	distro  *Distro // The distro that the command will be launched into.
+	command string  // The command to be launched
 
 	// Pipes
 	closeAfterStart []io.Closer    // IO closers to be invoked after Launching the command
@@ -40,15 +42,17 @@ type Cmd struct {
 
 	// File descriptors for pipes. These are analogous to (*exec.Cmd).childFiles[:3]
 	// stdinF  *os.File // File for stdin
-	stdoutW *os.File // File for stdout
-	stderrW *os.File // File for stderr
+	stdoutW *os.File // File that acts as a writer for WSL to write stdout into
+	stderrW *os.File // File that acts as a writer for WSL to write stderr into
 
 	// Book-keeping
-	handle     syscall.Handle
-	finished   bool
-	ctx        context.Context
-	waitDone   chan struct{}
-	exitStatus *uint32
+	handle     syscall.Handle // The windows handle to the WSL process
+	finished   bool           // Flag to fail nicely when Wait is invoked twicw
+	exitStatus *uint32        // Exit status of the process. Cached because it cannot be read after the preocess is closed.
+
+	// Context management
+	ctx      context.Context // Context to kill the process before it finishes
+	waitDone chan struct{}   // This chanel prevents the context from attempting to kill the process when it is closed already
 }
 
 // ExitError represents a non-zero exit status from a WSL process.
@@ -240,7 +244,10 @@ func (c *Cmd) closeDescriptors(closers []io.Closer) {
 	}
 }
 
-// Adapted from exec/exec.go.
+// writerDescriptor connects an arbitrary writer to an os pipe's reader,
+// and returns this pipe's writer as a file.
+//
+// Taken from exec/exec.go.
 func (c *Cmd) writerDescriptor(writer io.Writer) (f *os.File, err error) {
 	if writer == nil {
 		f, err = os.OpenFile(os.DevNull, os.O_WRONLY, 0)

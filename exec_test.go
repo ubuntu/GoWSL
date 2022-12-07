@@ -263,7 +263,7 @@ func TestCommandStartWait(t *testing.T) {
 
 			cmd := tc.distro.Command(ctx, tc.cmd)
 
-			// BEFORE_START block
+			// BeforeStart block
 			if tc.cancelOn == BeforeStart {
 				cancel()
 			}
@@ -291,7 +291,7 @@ func TestCommandStartWait(t *testing.T) {
 			cmd.Stdin = 0
 			err = cmd.Start()
 
-			// AFTER_START block
+			// AfterStart block
 			if tc.cancelOn == AfterStart {
 				cancel()
 			}
@@ -326,7 +326,7 @@ func TestCommandStartWait(t *testing.T) {
 
 			err = cmd.Wait()
 
-			// AFTER_WAIT block
+			// AfterWait block
 			if requireErrors(t, tc, AfterWait, err) {
 				return
 			}

@@ -65,33 +65,32 @@ func TestCommandRun(t *testing.T) {
 	)
 
 	testCases := map[string]struct {
-		cmd     string
-		timeout time.Duration
-
+		cmd        string
+		timeout    time.Duration
 		fakeDistro bool
 		cancelOn   when
 
-		wantErr       bool
+		errWanted     bool
 		wantExitError *wsl.ExitError
 	}{
 		"success":                      {cmd: "exit 0"},
-		"windows error":                {cmd: "exit 0", fakeDistro: true, wantErr: true},
-		"linux error":                  {cmd: "exit 42", wantErr: true, wantExitError: &wsl.ExitError{Code: 42}},
-		"command with null char error": {cmd: "echo \x00", fakeDistro: true, wantErr: true},
+		"windows error":                {cmd: "exit 0", fakeDistro: true, errWanted: true},
+		"linux error":                  {cmd: "exit 42", errWanted: true, wantExitError: &wsl.ExitError{Code: 42}},
+		"command with null char error": {cmd: "echo \x00", fakeDistro: true, errWanted: true},
 
 		// timeout cases
 		"success with timeout long enough":       {cmd: "exit 0", timeout: 6 * time.Second},
-		"linux error with timeout long enough":   {cmd: "exit 42", timeout: 6 * time.Second, wantErr: true, wantExitError: &wsl.ExitError{Code: 42}},
-		"windows error with timeout long enough": {cmd: "exit 0", fakeDistro: true, wantErr: true},
-		"timeout before Run":                     {cmd: "exit 0", timeout: 1 * time.Nanosecond, wantErr: true},
-		"timeout during Run":                     {cmd: "sleep 3 && exit 0", timeout: 2 * time.Second, wantErr: true},
+		"linux error with timeout long enough":   {cmd: "exit 42", timeout: 6 * time.Second, errWanted: true, wantExitError: &wsl.ExitError{Code: 42}},
+		"windows error with timeout long enough": {cmd: "exit 0", fakeDistro: true, errWanted: true},
+		"timeout before Run":                     {cmd: "exit 0", timeout: 1 * time.Nanosecond, errWanted: true},
+		"timeout during Run":                     {cmd: "sleep 3 && exit 0", timeout: 2 * time.Second, errWanted: true},
 
 		// cancel cases
 		"success with no cancel":  {cmd: "exit 0", cancelOn: CancelAfterRun},
-		"linux error no cancel":   {cmd: "exit 42", cancelOn: CancelAfterRun, wantErr: true, wantExitError: &wsl.ExitError{Code: 42}},
-		"windows error no cancel": {cmd: "exit 42", cancelOn: CancelAfterRun, fakeDistro: true, wantErr: true},
-		"cancel before Run":       {cmd: "exit 0", cancelOn: CancelBeforeRun, wantErr: true},
-		"cancel during Run":       {cmd: "sleep 5 && exit 0", cancelOn: CancelDuringRun, wantErr: true},
+		"linux error no cancel":   {cmd: "exit 42", cancelOn: CancelAfterRun, errWanted: true, wantExitError: &wsl.ExitError{Code: 42}},
+		"windows error no cancel": {cmd: "exit 42", cancelOn: CancelAfterRun, fakeDistro: true, errWanted: true},
+		"cancel before Run":       {cmd: "exit 0", cancelOn: CancelBeforeRun, errWanted: true},
+		"cancel during Run":       {cmd: "sleep 5 && exit 0", cancelOn: CancelDuringRun, errWanted: true},
 	}
 
 	for name, tc := range testCases {
@@ -128,7 +127,7 @@ func TestCommandRun(t *testing.T) {
 
 			err := cmd.Run()
 
-			if !tc.wantErr {
+			if !tc.errWanted {
 				require.NoError(t, err, "did not expect Run() to return an error")
 				return
 			}
@@ -341,15 +340,16 @@ func TestCommandOutPipes(t *testing.T) {
 	d := newTestDistro(t, jammyRootFs)
 
 	testCases := map[string]struct {
-		stdout     bool
-		stderr     bool
-		cmd        string
-		expectRead string
+		stdout bool
+		stderr bool
+		cmd    string
+
+		wantRead string
 	}{
 		"all discarded":           {},
-		"piped stdout":            {stdout: true, expectRead: "Hello stdout\n"},
-		"piped stderr":            {stderr: true, expectRead: "Hello stderr\n"},
-		"piped stdout and stderr": {stdout: true, stderr: true, expectRead: "Hello stdout\nHello stderr\n"},
+		"piped stdout":            {stdout: true, wantRead: "Hello stdout\n"},
+		"piped stderr":            {stderr: true, wantRead: "Hello stderr\n"},
+		"piped stdout and stderr": {stdout: true, stderr: true, wantRead: "Hello stdout\nHello stderr\n"},
 	}
 
 	for name, tc := range testCases {
@@ -369,7 +369,7 @@ func TestCommandOutPipes(t *testing.T) {
 			require.NoError(t, err, "Did not expect an error when launching command")
 
 			require.NoError(t, err, "Did not expect read from pipe to return an error")
-			require.Equal(t, tc.expectRead, buff.String())
+			require.Equal(t, tc.wantRead, buff.String())
 		})
 	}
 }
@@ -380,24 +380,25 @@ func TestCommandOutput(t *testing.T) {
 	wrongDistro := wsl.Distro{Name: UniqueDistroName(t) + "--IHaveA\x00NullChar!"}
 
 	testCases := map[string]struct {
-		cmd           string
-		distro        *wsl.Distro
-		presetStdout  io.Writer
-		wantStdout    string
-		wantError     bool
-		wantExitError bool
-		// Only relevant if wantExitError==true
+		cmd          string
+		distro       *wsl.Distro
+		presetStdout io.Writer
+
+		wantStdout      string
+		errorWanted     bool
+		exitErrorWanted bool
+		// Only relevant if exitErrorWanted==true
 		wantExitCode uint32
 		wantStderr   string
 	}{
 		"happy path":                                   {cmd: "exit 0", distro: &realDistro},
 		"happy path with stdout":                       {cmd: "echo Hello", distro: &realDistro, wantStdout: "Hello\n"},
-		"unregistered distro":                          {cmd: "exit 0", distro: &fakeDistro, wantError: true},
-		"null char in distro name":                     {cmd: "exit 0", distro: &wrongDistro, wantError: true},
-		"non-zero return value":                        {cmd: "exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42},
-		"non-zero return value with stderr":            {cmd: "echo 'Error!' >&2 && exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42, wantStderr: "Error!\n"},
-		"non-zero return value with stdout and stderr": {cmd: "echo Hello && echo 'Error!' >&2 && exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42, wantStdout: "Hello\n", wantStderr: "Error!\n"},
-		"error stdout already set":                     {cmd: "exit 0", distro: &realDistro, presetStdout: os.Stdout, wantError: true},
+		"unregistered distro":                          {cmd: "exit 0", distro: &fakeDistro, errorWanted: true},
+		"null char in distro name":                     {cmd: "exit 0", distro: &wrongDistro, errorWanted: true},
+		"non-zero return value":                        {cmd: "exit 42", distro: &realDistro, errorWanted: true, exitErrorWanted: true, wantExitCode: 42},
+		"non-zero return value with stderr":            {cmd: "echo 'Error!' >&2 && exit 42", distro: &realDistro, errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantStderr: "Error!\n"},
+		"non-zero return value with stdout and stderr": {cmd: "echo Hello && echo 'Error!' >&2 && exit 42", distro: &realDistro, errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantStdout: "Hello\n", wantStderr: "Error!\n"},
+		"error stdout already set":                     {cmd: "exit 0", distro: &realDistro, presetStdout: os.Stdout, errorWanted: true},
 	}
 
 	for name, tc := range testCases {
@@ -409,7 +410,7 @@ func TestCommandOutput(t *testing.T) {
 			cmd.Stdout = tc.presetStdout
 			stdout, err := cmd.Output()
 
-			if tc.wantError {
+			if tc.errorWanted {
 				require.Errorf(t, err, "Unexpected success calling Output(). Stdout:\n%s", stdout)
 			} else {
 				require.NoErrorf(t, err, "Unexpected failure calling Output(). Stdout:\n%s", stdout)
@@ -419,7 +420,7 @@ func TestCommandOutput(t *testing.T) {
 				require.Equal(t, tc.wantStdout, string(stdout), "Unexpected contents in stdout")
 			}
 
-			if !tc.wantExitError {
+			if !tc.exitErrorWanted {
 				return // Success
 			}
 
@@ -442,21 +443,21 @@ func TestCommandCombinedOutput(t *testing.T) {
 		presetStdout io.Writer
 		presetStderr io.Writer
 
-		wantOutput    string
-		wantError     bool
-		wantExitError bool
+		wantOutput      string
+		errorWanted     bool
+		exitErrorWanted bool
 		// Only relevant if wantExitError==true
 		wantExitCode uint32
 	}{
 		"happy path":                                   {cmd: "exit 0", distro: &realDistro},
 		"happy path with stdout":                       {cmd: "echo Hello", distro: &realDistro, wantOutput: "Hello\n"},
-		"unregistered distro":                          {cmd: "exit 0", distro: &fakeDistro, wantError: true},
-		"null char in distro name":                     {cmd: "exit 0", distro: &wrongDistro, wantError: true},
-		"non-zero return value":                        {cmd: "exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42},
-		"non-zero return value with stderr":            {cmd: "echo 'Error!' >&2 && exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42, wantOutput: "Error!\n"},
-		"non-zero return value with stdout and stderr": {cmd: "echo Hello && echo 'Error!' >&2 && exit 42", distro: &realDistro, wantError: true, wantExitError: true, wantExitCode: 42, wantOutput: "Hello\nError!\n"},
-		"error stdout already set":                     {cmd: "exit 0", distro: &realDistro, presetStdout: os.Stdout, wantError: true},
-		"error stderr already set":                     {cmd: "exit 0", distro: &realDistro, presetStderr: os.Stderr, wantError: true},
+		"unregistered distro":                          {cmd: "exit 0", distro: &fakeDistro, errorWanted: true},
+		"null char in distro name":                     {cmd: "exit 0", distro: &wrongDistro, errorWanted: true},
+		"non-zero return value":                        {cmd: "exit 42", distro: &realDistro, errorWanted: true, exitErrorWanted: true, wantExitCode: 42},
+		"non-zero return value with stderr":            {cmd: "echo 'Error!' >&2 && exit 42", distro: &realDistro, errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantOutput: "Error!\n"},
+		"non-zero return value with stdout and stderr": {cmd: "echo Hello && echo 'Error!' >&2 && exit 42", distro: &realDistro, errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantOutput: "Hello\nError!\n"},
+		"error stdout already set":                     {cmd: "exit 0", distro: &realDistro, presetStdout: os.Stdout, errorWanted: true},
+		"error stderr already set":                     {cmd: "exit 0", distro: &realDistro, presetStderr: os.Stderr, errorWanted: true},
 	}
 
 	for name, tc := range testCases {
@@ -470,7 +471,7 @@ func TestCommandCombinedOutput(t *testing.T) {
 			cmd.Stderr = tc.presetStderr
 			output, err := cmd.CombinedOutput()
 
-			if tc.wantError {
+			if tc.errorWanted {
 				require.Errorf(t, err, "Unexpected success calling CombinedOutput(). Stdout:\n%s", output)
 			} else {
 				require.NoErrorf(t, err, "Unexpected failure calling CombinedOutput(). Stdout:\n%s", output)
@@ -482,7 +483,7 @@ func TestCommandCombinedOutput(t *testing.T) {
 				require.Equal(t, tc.wantOutput, string(output), "Unexpected contents in stdout")
 			}
 
-			if !tc.wantExitError {
+			if !tc.exitErrorWanted {
 				return // Success
 			}
 

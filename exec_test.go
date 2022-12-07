@@ -179,10 +179,11 @@ func TestCommandStartWait(t *testing.T) {
 	type testCase struct {
 		distro     *wsl.Distro
 		cmd        string
-		cancelOn   when
-		timeout    time.Duration
 		stdoutPipe bool
 		stderrPipe bool
+
+		cancelOn when
+		timeout  time.Duration
 
 		wantStdout    string
 		wantStderr    string
@@ -340,9 +341,9 @@ func TestCommandOutPipes(t *testing.T) {
 	d := newTestDistro(t, jammyRootFs)
 
 	testCases := map[string]struct {
+		cmd    string
 		stdout bool
 		stderr bool
-		cmd    string
 
 		wantRead string
 	}{
@@ -380,8 +381,8 @@ func TestCommandOutput(t *testing.T) {
 	wrongDistro := wsl.Distro{Name: UniqueDistroName(t) + "--IHaveA\x00NullChar!"}
 
 	testCases := map[string]struct {
-		cmd          string
 		distro       *wsl.Distro
+		cmd          string
 		presetStdout io.Writer
 
 		wantStdout      string
@@ -391,14 +392,14 @@ func TestCommandOutput(t *testing.T) {
 		wantExitCode uint32
 		wantStderr   string
 	}{
-		"happy path":                                   {cmd: "exit 0", distro: &realDistro},
-		"happy path with stdout":                       {cmd: "echo Hello", distro: &realDistro, wantStdout: "Hello\n"},
-		"unregistered distro":                          {cmd: "exit 0", distro: &fakeDistro, errorWanted: true},
-		"null char in distro name":                     {cmd: "exit 0", distro: &wrongDistro, errorWanted: true},
-		"non-zero return value":                        {cmd: "exit 42", distro: &realDistro, errorWanted: true, exitErrorWanted: true, wantExitCode: 42},
-		"non-zero return value with stderr":            {cmd: "echo 'Error!' >&2 && exit 42", distro: &realDistro, errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantStderr: "Error!\n"},
-		"non-zero return value with stdout and stderr": {cmd: "echo Hello && echo 'Error!' >&2 && exit 42", distro: &realDistro, errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantStdout: "Hello\n", wantStderr: "Error!\n"},
-		"error stdout already set":                     {cmd: "exit 0", distro: &realDistro, presetStdout: os.Stdout, errorWanted: true},
+		"happy path":                                   {distro: &realDistro, cmd: "exit 0"},
+		"happy path with stdout":                       {distro: &realDistro, cmd: "echo Hello", wantStdout: "Hello\n"},
+		"unregistered distro":                          {distro: &fakeDistro, cmd: "exit 0", errorWanted: true},
+		"null char in distro name":                     {distro: &wrongDistro, cmd: "exit 0", errorWanted: true},
+		"non-zero return value":                        {distro: &realDistro, cmd: "exit 42", errorWanted: true, exitErrorWanted: true, wantExitCode: 42},
+		"non-zero return value with stderr":            {distro: &realDistro, cmd: "echo 'Error!' >&2 && exit 42", errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantStderr: "Error!\n"},
+		"non-zero return value with stdout and stderr": {distro: &realDistro, cmd: "echo Hello && echo 'Error!' >&2 && exit 42", errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantStdout: "Hello\n", wantStderr: "Error!\n"},
+		"error stdout already set":                     {distro: &realDistro, cmd: "exit 0", presetStdout: os.Stdout, errorWanted: true},
 	}
 
 	for name, tc := range testCases {
@@ -438,8 +439,8 @@ func TestCommandCombinedOutput(t *testing.T) {
 	wrongDistro := wsl.Distro{Name: UniqueDistroName(t) + "--IHaveA\x00NullChar!"}
 
 	testCases := map[string]struct {
-		cmd          string
 		distro       *wsl.Distro
+		cmd          string
 		presetStdout io.Writer
 		presetStderr io.Writer
 
@@ -449,15 +450,15 @@ func TestCommandCombinedOutput(t *testing.T) {
 		// Only relevant if wantExitError==true
 		wantExitCode uint32
 	}{
-		"happy path":                                   {cmd: "exit 0", distro: &realDistro},
-		"happy path with stdout":                       {cmd: "echo Hello", distro: &realDistro, wantOutput: "Hello\n"},
-		"unregistered distro":                          {cmd: "exit 0", distro: &fakeDistro, errorWanted: true},
-		"null char in distro name":                     {cmd: "exit 0", distro: &wrongDistro, errorWanted: true},
-		"non-zero return value":                        {cmd: "exit 42", distro: &realDistro, errorWanted: true, exitErrorWanted: true, wantExitCode: 42},
-		"non-zero return value with stderr":            {cmd: "echo 'Error!' >&2 && exit 42", distro: &realDistro, errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantOutput: "Error!\n"},
-		"non-zero return value with stdout and stderr": {cmd: "echo Hello && echo 'Error!' >&2 && exit 42", distro: &realDistro, errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantOutput: "Hello\nError!\n"},
-		"error stdout already set":                     {cmd: "exit 0", distro: &realDistro, presetStdout: os.Stdout, errorWanted: true},
-		"error stderr already set":                     {cmd: "exit 0", distro: &realDistro, presetStderr: os.Stderr, errorWanted: true},
+		"happy path":                                   {distro: &realDistro, cmd: "exit 0"},
+		"happy path with stdout":                       {distro: &realDistro, cmd: "echo Hello", wantOutput: "Hello\n"},
+		"unregistered distro":                          {distro: &fakeDistro, cmd: "exit 0", errorWanted: true},
+		"null char in distro name":                     {distro: &wrongDistro, cmd: "exit 0", errorWanted: true},
+		"non-zero return value":                        {distro: &realDistro, cmd: "exit 42", errorWanted: true, exitErrorWanted: true, wantExitCode: 42},
+		"non-zero return value with stderr":            {distro: &realDistro, cmd: "echo 'Error!' >&2 && exit 42", errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantOutput: "Error!\n"},
+		"non-zero return value with stdout and stderr": {distro: &realDistro, cmd: "echo Hello && echo 'Error!' >&2 && exit 42", errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantOutput: "Hello\nError!\n"},
+		"error stdout already set":                     {distro: &realDistro, cmd: "exit 0", presetStdout: os.Stdout, errorWanted: true},
+		"error stderr already set":                     {distro: &realDistro, cmd: "exit 0", presetStderr: os.Stderr, errorWanted: true},
 	}
 
 	for name, tc := range testCases {

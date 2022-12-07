@@ -123,7 +123,7 @@ func (c *Cmd) Start() (err error) {
 
 	commandUTF16, err := syscall.UTF16PtrFromString(c.command)
 	if err != nil {
-		return fmt.Errorf("failed to convert command '%s' to UTF16", c.command)
+		return fmt.Errorf("failed to convert command %q to UTF16", c.command)
 	}
 
 	var useCwd wBOOL

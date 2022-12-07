@@ -209,6 +209,8 @@ func (c *Cmd) Start() (err error) {
 // Output runs the command and returns its standard output.
 // Any returned error will usually be of type *ExitError.
 // If c.Stderr was nil, Output populates ExitError.Stderr.
+//
+// Taken from exec/exec.go.
 func (c *Cmd) Output() ([]byte, error) {
 	if c.Stdout != nil {
 		return nil, errors.New("wsl: Stdout already set")
@@ -305,6 +307,7 @@ func (c *Cmd) stdin() error {
 	return nil
 }
 
+// Based on exec/exec.go.
 func (c *Cmd) stdout() error {
 	w, e := c.writerDescriptor(c.Stdout)
 	if e == nil {
@@ -313,6 +316,7 @@ func (c *Cmd) stdout() error {
 	return e
 }
 
+// Based on exec/exec.go.
 func (c *Cmd) stderr() error {
 	// Case where Stdout and Stderr are the same
 	if c.Stderr != nil && interfaceEqual(c.Stdout, c.Stderr) {
@@ -329,6 +333,8 @@ func (c *Cmd) stderr() error {
 
 // interfaceEqual protects against panics from doing equality tests on
 // two interfaces with non-comparable underlying types.
+//
+// Taken from exec/exec.go.
 func interfaceEqual(a, b any) bool {
 	defer func() {
 		_ = recover()

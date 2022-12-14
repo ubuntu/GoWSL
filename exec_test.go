@@ -203,12 +203,12 @@ func TestCommandStartWait(t *testing.T) {
 		"success with stdout":       {distro: &realDistro, cmd: "echo 'Hello!'", stdoutPipe: true, wantStdout: "Hello!\n"},
 		"success with empty stderr": {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
 		"success with stderr":       {distro: &realDistro, cmd: "echo 'Error!' 1>&2", stderrPipe: true, wantStderr: "Error!\n"},
-		"success with both pipes":   {distro: &realDistro, cmd: "echo 'Hello!' && echo 'Error!' 1>&2", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n"},
+		"success with both pipes":   {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n"},
 
 		// Pipe failure
-		"failure exit code with stdout": {distro: &realDistro, cmd: "echo 'Hello!' && echo 'Error!' 1>&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
-		"failure exit code with stderr": {distro: &realDistro, cmd: "echo 'Hello!' && echo 'Error!' 1>&2 && exit 42", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
-		"failure exit code both pipes":  {distro: &realDistro, cmd: "echo 'Hello!' && echo 'Error!' 1>&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
+		"failure exit code with stdout": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
+		"failure exit code with stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2 && exit 42", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
+		"failure exit code both pipes":  {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
 
 		// Timeout context
 		"timeout success":          {distro: &realDistro, cmd: "exit 0", timeout: 2 * time.Second},
@@ -398,7 +398,7 @@ func TestCommandOutput(t *testing.T) {
 		"null char in distro name":                     {distro: &wrongDistro, cmd: "exit 0", errorWanted: true},
 		"non-zero return value":                        {distro: &realDistro, cmd: "exit 42", errorWanted: true, exitErrorWanted: true, wantExitCode: 42},
 		"non-zero return value with stderr":            {distro: &realDistro, cmd: "echo 'Error!' >&2 && exit 42", errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantStderr: "Error!\n"},
-		"non-zero return value with stdout and stderr": {distro: &realDistro, cmd: "echo Hello && echo 'Error!' >&2 && exit 42", errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantStdout: "Hello\n", wantStderr: "Error!\n"},
+		"non-zero return value with stdout and stderr": {distro: &realDistro, cmd: "echo Hello && sleep 1 && echo 'Error!' >&2 && exit 42", errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantStdout: "Hello\n", wantStderr: "Error!\n"},
 		"error stdout already set":                     {distro: &realDistro, cmd: "exit 0", presetStdout: os.Stdout, errorWanted: true},
 	}
 
@@ -456,7 +456,7 @@ func TestCommandCombinedOutput(t *testing.T) {
 		"null char in distro name":                     {distro: &wrongDistro, cmd: "exit 0", errorWanted: true},
 		"non-zero return value":                        {distro: &realDistro, cmd: "exit 42", errorWanted: true, exitErrorWanted: true, wantExitCode: 42},
 		"non-zero return value with stderr":            {distro: &realDistro, cmd: "echo 'Error!' >&2 && exit 42", errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantOutput: "Error!\n"},
-		"non-zero return value with stdout and stderr": {distro: &realDistro, cmd: "echo Hello && echo 'Error!' >&2 && exit 42", errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantOutput: "Hello\nError!\n"},
+		"non-zero return value with stdout and stderr": {distro: &realDistro, cmd: "echo Hello && sleep 1 && echo 'Error!' >&2 && exit 42", errorWanted: true, exitErrorWanted: true, wantExitCode: 42, wantOutput: "Hello\nError!\n"},
 		"error stdout already set":                     {distro: &realDistro, cmd: "exit 0", presetStdout: os.Stdout, errorWanted: true},
 		"error stderr already set":                     {distro: &realDistro, cmd: "exit 0", presetStderr: os.Stderr, errorWanted: true},
 	}

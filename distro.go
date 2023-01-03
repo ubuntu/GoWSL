@@ -1,4 +1,7 @@
-// Package wsl TODO: Package comment
+// Package wsl wraps around the wslApi.dll (and sometimes wsl.exe) for
+// safe and idiomatic use within Go projects.
+//
+// This package is not thread safe.
 package wsl
 
 // This file contains utilities to interact with a Distro and its configuration
@@ -42,15 +45,15 @@ const (
 	flag_APPEND_NT_PATH        wslFlags = 0x2 // nolint: revive
 	flag_ENABLE_DRIVE_MOUNTING wslFlags = 0x4 // nolint: revive
 
-	// Per conversation at https://github.com/microsoft/WSL-DistroLauncher/issues/96
-	// the information about version 1 or 2 is on the 4th bit of the flags, which is not
-	// currently referenced by the API nor docs.
+	// Per the conversation at https://github.com/microsoft/WSL-DistroLauncher/issues/96
+	// the information about version 1 or 2 is on the 4th bit of the flags, which is
+	// currently referenced neither by the API nor the documentation.
 	flag_undocumented_WSL_VERSION wslFlags = 0x8 // nolint: revive
 )
 
 // Configuration is the configuration of the distro.
 type Configuration struct {
-	Version                     uint8             // Type of filesystem used (lxfs vs. wslfs, relevnt only to WSL1)
+	Version                     uint8             // Type of filesystem used (lxfs vs. wslfs, relevant only to WSL1)
 	DefaultUID                  uint32            // User ID of default user
 	InteropEnabled              bool              // Whether interop with windows is enabled
 	PathAppended                bool              // Whether Windows paths are appended
@@ -59,7 +62,7 @@ type Configuration struct {
 	DefaultEnvironmentVariables map[string]string // Environment variables passed to the distro by default
 }
 
-// DefaultUID sets the user you log in as when you run a command.
+// DefaultUID sets the user to the one specified.
 func (d *Distro) DefaultUID(uid uint32) error {
 	conf, err := d.GetConfiguration()
 	if err != nil {
@@ -70,6 +73,7 @@ func (d *Distro) DefaultUID(uid uint32) error {
 }
 
 // InteropEnabled sets the ENABLE_INTEROP flag to the provided value.
+// Enabling allows you to launch Windows executables from WSL.
 func (d *Distro) InteropEnabled(value bool) error {
 	conf, err := d.GetConfiguration()
 	if err != nil {
@@ -80,6 +84,8 @@ func (d *Distro) InteropEnabled(value bool) error {
 }
 
 // PathAppended sets the APPEND_NT_PATH flag to the provided value.
+// Enabling it allows WSL to append /mnt/c/... (or wherever your mount
+// point is) in front of Windows executables.
 func (d *Distro) PathAppended(value bool) error {
 	conf, err := d.GetConfiguration()
 	if err != nil {
@@ -90,6 +96,7 @@ func (d *Distro) PathAppended(value bool) error {
 }
 
 // DriveMountingEnabled sets the ENABLE_DRIVE_MOUNTING flag to the provided value.
+// Enabling it mounts the windows filesystem into WSL's.
 func (d *Distro) DriveMountingEnabled(value bool) error {
 	conf, err := d.GetConfiguration()
 	if err != nil {
@@ -100,6 +107,7 @@ func (d *Distro) DriveMountingEnabled(value bool) error {
 }
 
 // GetConfiguration is a wrapper around Win32's WslGetDistributionConfiguration.
+// It returns a configuration object with information about the distro.
 func (d Distro) GetConfiguration() (c Configuration, e error) {
 	defer func() {
 		if e != nil {
@@ -137,7 +145,7 @@ func (d Distro) GetConfiguration() (c Configuration, e error) {
 	return conf, nil
 }
 
-// String deserializes a Configuration object as a yaml string.
+// String deserializes a distro and its configuration as a yaml string.
 func (d Distro) String() string {
 	c, err := d.GetConfiguration()
 	if err != nil {
@@ -299,7 +307,8 @@ func processEnvVariables(cStringArray **char, len uint64) map[string]string {
 }
 
 // stringCtoGo converts a null-terminated *char into a string
-// maxlen is the max distance that will searched. It is meant to mitigate buffer overflow.
+// maxlen is the max distance that will searched. It is meant
+// to prevent or mitigate buffer overflows.
 func stringCtoGo(cString *char, maxlen uint64) (goString string) {
 	size := strnlen(cString, maxlen)
 	return string(unsafe.Slice(cString, size))
@@ -307,7 +316,8 @@ func stringCtoGo(cString *char, maxlen uint64) (goString string) {
 
 // strnlen finds the null terminator to determine *char length.
 // The null terminator itself is not counted towards the length.
-// maxlen is the max distance that will searched. It is meant to mitigate buffer overflow.
+// maxlen is the max distance that will searched. It is meant to
+// prevent or mitigate buffer overflows.
 func strnlen(ptr *char, maxlen uint64) (length uint64) {
 	length = 0
 	for ; *ptr != 0 && length <= maxlen; ptr = charNext(ptr) {

@@ -24,7 +24,9 @@ const (
 	ActiveProcess uint32 = 259
 )
 
-// Cmd is a wrapper around the Windows process spawned by WslLaunch. It is not thread-safe.
+// Cmd is a wrapper around the Windows process spawned by WslLaunch.
+// Its interface is the same as the standard library's exec (except
+// for func Command) and its implementation is very similar.
 //
 // A Cmd cannot be reused after calling its Run method.
 type Cmd struct {

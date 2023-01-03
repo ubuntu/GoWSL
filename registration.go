@@ -13,6 +13,8 @@ import (
 )
 
 // Register is a wrapper around Win32's WslRegisterDistribution.
+// It creates a new distro with a copy of the given tarball as
+// its filesystem.
 func (d *Distro) Register(rootFsPath string) (e error) {
 	defer func() {
 		if e != nil {
@@ -59,7 +61,7 @@ func RegisteredDistros() ([]Distro, error) {
 	return registeredDistros()
 }
 
-// IsRegistered returns whether an distro is registered in WSL or not.
+// IsRegistered returns a boolean indicating whether a distro is registered or not.
 func (d Distro) IsRegistered() (registered bool, e error) {
 	defer func() {
 		if e != nil {
@@ -82,6 +84,7 @@ func (d Distro) IsRegistered() (registered bool, e error) {
 }
 
 // Unregister is a wrapper around Win32's WslUnregisterDistribution.
+// It irreparably destroys a distro and its filesystem.
 func (d *Distro) Unregister() (e error) {
 	defer func() {
 		if e != nil {
@@ -110,7 +113,8 @@ func (d *Distro) Unregister() (e error) {
 	return nil
 }
 
-// WslRegisterDistribuion is a bit picky with the format.
+// fixPath deals with the fact that WslRegisterDistribuion is
+// a bit picky with the path format.
 func fixPath(relative string) (string, error) {
 	abs, err := filepath.Abs(filepath.FromSlash(relative))
 	if err != nil {

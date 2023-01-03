@@ -1,6 +1,6 @@
 package wsl_test
 
-// This file conatains testing functionality
+// This file contains testing functionality
 
 import (
 	"context"

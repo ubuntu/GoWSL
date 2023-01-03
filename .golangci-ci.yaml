@@ -19,6 +19,7 @@ linters:
     - gosec
     # - ifshort # Deprecated
     - misspell
+    - nolintlint
     - revive
     - thelper
     - tparallel

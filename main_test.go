@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 func uniqueID() string {
 	rand.Seed(time.Now().UnixNano())
 	// No need for this to be cryptographically secure
-	return fmt.Sprintf("%d", rand.Intn(100_000_000)) // nolint:gosec
+	return fmt.Sprintf("%d", rand.Intn(100_000_000)) //nolint:gosec
 }
 
 // sanitizeDistroName sanitizes the name of the disto as much as possible.
@@ -118,7 +118,7 @@ func powershellInstallDistro(t *testing.T, distroName string, rootfs string) {
 		ctx, cancel := context.WithTimeout(context.Background(), gracefulTimeout)
 		defer cancel()
 		cmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --import %s %s %s", distroName, t.TempDir(), rootfs)
-		o, e := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd).CombinedOutput() // nolint:gosec
+		o, e := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd).CombinedOutput() //nolint:gosec
 
 		cmdOut <- combinedOutput{output: string(o), err: e}
 		close(cmdOut)
@@ -169,7 +169,7 @@ func CleanUpWslInstance(distro wsl.Distro) error {
 		return nil
 	}
 	cmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --unregister %s", distro.Name)
-	_, err := exec.Command("powershell.exe", "-command", cmd).CombinedOutput() // nolint: gosec
+	_, err := exec.Command("powershell.exe", "-command", cmd).CombinedOutput() //nolint: gosec
 	if err != nil {
 		return fmt.Errorf("failed to clean up test WSL distro %q: %v", distro.Name, err)
 	}

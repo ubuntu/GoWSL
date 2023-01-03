@@ -40,15 +40,15 @@ type wslFlags int
 
 // Allowing underscores in names to keep it as close to Windows as possible.
 const (
-	flag_NONE                  wslFlags = 0x0 // nolint: revive
-	flag_ENABLE_INTEROP        wslFlags = 0x1 // nolint: revive
-	flag_APPEND_NT_PATH        wslFlags = 0x2 // nolint: revive
-	flag_ENABLE_DRIVE_MOUNTING wslFlags = 0x4 // nolint: revive
+	flag_NONE                  wslFlags = 0x0 //nolint: revive
+	flag_ENABLE_INTEROP        wslFlags = 0x1 //nolint: revive
+	flag_APPEND_NT_PATH        wslFlags = 0x2 //nolint: revive
+	flag_ENABLE_DRIVE_MOUNTING wslFlags = 0x4 //nolint: revive
 
 	// Per the conversation at https://github.com/microsoft/WSL-DistroLauncher/issues/96
 	// the information about version 1 or 2 is on the 4th bit of the flags, which is
 	// currently referenced neither by the API nor the documentation.
-	flag_undocumented_WSL_VERSION wslFlags = 0x8 // nolint: revive
+	flag_undocumented_WSL_VERSION wslFlags = 0x8 //nolint: revive
 )
 
 // Configuration is the configuration of the distro.

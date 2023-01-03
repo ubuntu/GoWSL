@@ -74,7 +74,7 @@ func (m ExitError) Error() string {
 
 // Is ensures ExitErrors can be matched with errors.Is().
 func (m ExitError) Is(target error) bool {
-	_, ok := target.(ExitError) // nolint: errorlint
+	_, ok := target.(ExitError) //nolint: errorlint
 	return ok
 }
 
@@ -228,8 +228,8 @@ func (c *Cmd) Output() ([]byte, error) {
 
 	err := c.Run()
 	if err != nil && captureErr {
-		if ee, ok := err.(*ExitError); ok { // nolint: errorlint, forcetypeassert
-			ee.Stderr = c.Stderr.(*prefixSuffixSaver).Bytes() // nolint: errorlint, forcetypeassert
+		if ee, ok := err.(*ExitError); ok { //nolint: errorlint
+			ee.Stderr = c.Stderr.(*prefixSuffixSaver).Bytes() //nolint: forcetypeassert
 		}
 	}
 	return stdout.Bytes(), err

@@ -237,7 +237,7 @@ func TestCommandStartWait(t *testing.T) {
 
 		if tc.wantExitError != nil {
 			require.ErrorIsf(t, err, wsl.ExitError{}, "Unexpected error type at time %s. Expected an ExitCode.", whenToString(now))
-			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitError.Code, "Unexpected value for ExitError.Code at time %s", whenToString(now)) // nolint: forcetypeassert, errorlint
+			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitError.Code, "Unexpected value for ExitError.Code at time %s", whenToString(now)) //nolint: forcetypeassert, errorlint
 			return true
 		}
 
@@ -425,9 +425,9 @@ func TestCommandOutput(t *testing.T) {
 			}
 
 			require.ErrorIsf(t, err, wsl.ExitError{}, "Unexpected error type. Expected an ExitCode.")
-			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitCode, "Unexpected value for ExitError.Code.") // nolint: forcetypeassert, errorlint
+			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitCode, "Unexpected value for ExitError.Code.") //nolint: forcetypeassert, errorlint
 
-			require.Equal(t, tc.wantStderr, string(err.(*wsl.ExitError).Stderr), "Unexpected contents in stderr") // nolint: forcetypeassert, errorlint
+			require.Equal(t, tc.wantStderr, string(err.(*wsl.ExitError).Stderr), "Unexpected contents in stderr") //nolint: forcetypeassert, errorlint
 		})
 	}
 }
@@ -489,7 +489,7 @@ func TestCommandCombinedOutput(t *testing.T) {
 			}
 
 			require.ErrorIsf(t, err, wsl.ExitError{}, "Unexpected error type. Expected an ExitCode.")
-			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitCode, "Unexpected value for ExitError.Code.") // nolint: forcetypeassert, errorlint
+			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitCode, "Unexpected value for ExitError.Code.") //nolint: forcetypeassert, errorlint
 		})
 	}
 }
@@ -563,7 +563,7 @@ print("Your text was", v)
 			// - In the happy path (all checks pass) we'll have waited on the command already, so
 			//   this second wait is superfluous.
 			// - If a check fails, we don't really care about any subsequent errors like this one.
-			defer cmd.Wait() // nolint: errcheck
+			defer cmd.Wait() //nolint: errcheck
 
 			buffer := make([]byte, 1024)
 
@@ -586,7 +586,7 @@ print("Your text was", v)
 
 			// Finishing
 			if tc.closeBeforeWait && tc.readFrom == readFromPipe {
-				err = stdin.(io.WriteCloser).Close() // nolint: forcetypeassert
+				err = stdin.(io.WriteCloser).Close() //nolint: forcetypeassert
 				require.NoError(t, err, "Failed to close stdin pipe prematurely")
 			}
 
@@ -594,7 +594,7 @@ print("Your text was", v)
 			require.NoError(t, err, "Unexpected error on command wait")
 
 			if tc.readFrom == readFromPipe {
-				err = stdin.(io.WriteCloser).Close() // nolint: forcetypeassert
+				err = stdin.(io.WriteCloser).Close() //nolint: forcetypeassert
 				require.NoError(t, err, "Failed to close stdin pipe multiple times")
 			}
 		})

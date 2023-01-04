@@ -367,9 +367,8 @@ func TestCommandOutPipes(t *testing.T) {
 			}
 
 			err := cmd.Run()
-			require.NoError(t, err, "Did not expect an error when launching command")
+			require.NoError(t, err, "Did not expect an error during (*Cmd).Run")
 
-			require.NoError(t, err, "Did not expect read from pipe to return an error")
 			require.Equal(t, tc.wantRead, buff.String())
 		})
 	}

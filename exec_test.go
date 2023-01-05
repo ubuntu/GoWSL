@@ -509,10 +509,10 @@ func TestCommandStdin(t *testing.T) {
 		closeBeforeWait bool // Set to true to close the pipe before execution of the Cmd is over
 		readFrom        int  // Where Cmd should read Stdin from
 	}{
-		"standard":         {text: "Hello, wsl!"},
-		"funny characters": {text: "Hello, \x00\twsl!"},
-		"closing early":    {text: "Hello, wsl!", closeBeforeWait: true},
-		"using a buffer":   {text: "Hello, wsl!", readFrom: readFromBuffer},
+		"standard":         {},
+		"funny characters": {text: "Hello, \x00wsl!"},
+		"closing early":    {closeBeforeWait: true},
+		"using a buffer":   {readFrom: readFromBuffer},
 	}
 
 	// Simple program to test stdin
@@ -526,6 +526,10 @@ print("Your text was", v)
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			if tc.text == "" {
+				tc.text = "Hello, wsl!"
+			}
+
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
 

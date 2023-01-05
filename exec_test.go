@@ -509,7 +509,7 @@ func TestCommandStdin(t *testing.T) {
 		closeBeforeWait bool // Set to true to close the pipe before execution of the Cmd is over
 		readFrom        int  // Where Cmd should read Stdin from
 	}{
-		"standard":         {},
+		"from pipe":        {},
 		"funny characters": {text: "Hello, \x00wsl!"},
 		"closing early":    {closeBeforeWait: true},
 		"using a buffer":   {readFrom: readFromBuffer},

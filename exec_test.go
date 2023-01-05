@@ -498,7 +498,7 @@ func TestCommandStdin(t *testing.T) {
 	d := newTestDistro(t, jammyRootFs)
 
 	const (
-		readFromPipe int = iota + 1
+		readFromPipe int = iota
 		readFromBuffer
 	)
 
@@ -509,9 +509,9 @@ func TestCommandStdin(t *testing.T) {
 		closeBeforeWait bool // Set to true to close the pipe before execution of the Cmd is over
 		readFrom        int  // Where Cmd should read Stdin from
 	}{
-		"standard":         {text: "Hello, wsl!", readFrom: readFromPipe},
-		"funny characters": {text: "Hello, \x00\twsl!", readFrom: readFromPipe},
-		"closing early":    {text: "Hello, wsl!", closeBeforeWait: true, readFrom: readFromPipe},
+		"standard":         {text: "Hello, wsl!"},
+		"funny characters": {text: "Hello, \x00\twsl!"},
+		"closing early":    {text: "Hello, wsl!", closeBeforeWait: true},
 		"using a buffer":   {text: "Hello, wsl!", readFrom: readFromBuffer},
 	}
 

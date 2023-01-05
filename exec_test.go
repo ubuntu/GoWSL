@@ -591,7 +591,7 @@ print("Your text was", v)
 			}
 
 			err = cmd.Wait()
-			require.NoError(t, err, "Unexpected error on comand wait")
+			require.NoError(t, err, "Unexpected error on command wait")
 
 			if tc.readFrom == readFromPipe {
 				err = stdin.(io.WriteCloser).Close() // nolint: forcetypeassert

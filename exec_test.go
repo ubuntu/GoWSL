@@ -559,10 +559,11 @@ print("Your text was", v)
 			err = cmd.Start()
 			require.NoError(t, err, "Unexpected error calling (*Cmd).Start")
 
+			// We ignore the error because:
+			// - In the happy path (all checks pass) we'll have waited on the command already, so
+			//   this second wait is superfluous.
+			// - If a check fails, we don't really care about any subsequent errors like this one.
 			defer cmd.Wait() // nolint: errcheck
-			// We know it's going to fail in normal execution. It's here to close
-			// the process when a require check fails, at which point the test has
-			// failed already, hence no need to make more checks.
 
 			buffer := make([]byte, 1024)
 

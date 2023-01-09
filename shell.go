@@ -46,6 +46,14 @@ func (d *Distro) Shell(opts ...func(*shellOptions)) (err error) {
 		err = fmt.Errorf("error in Shell with distro %q: %v", d.Name, err)
 	}()
 
+	r, err := d.IsRegistered()
+	if err != nil {
+		return err
+	}
+	if !r {
+		return errors.New("distro is not registered")
+	}
+
 	options := shellOptions{
 		command: "",
 		useCWD:  false,

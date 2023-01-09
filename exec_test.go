@@ -194,7 +194,7 @@ func TestCommandStartWait(t *testing.T) {
 	testCases := map[string]testCase{
 		// Background context
 		"success":                     {distro: &realDistro, cmd: "exit 0"},
-		"failure fake distro":         {distro: &fakeDistro, cmd: "exit 0", wantErrOn: AfterWait},
+		"failure fake distro":         {distro: &fakeDistro, cmd: "exit 0", wantErrOn: AfterStart},
 		"failure null char in distro": {distro: &wrongDistro, cmd: "exit 0", wantErrOn: AfterStart},
 		"failure exit code":           {distro: &realDistro, cmd: "exit 42", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
 

@@ -5,7 +5,7 @@ This module ofers an idiomatic interface between your Go code and the Windows Su
 We aim not to extend the aforementioned API, but rather to provide a safe, idomatic, and easy-to-use wrapper around it. The goal is to enable the development of applications that build on top of it. 
 
 ## Requirements
-- WSL must be installed ([documentation](https://learn.microsoft.com/en-us/windows/wsl/install)) and enabled.
+- Windows Subsystem for Linux must be installed ([documentation](https://learn.microsoft.com/en-us/windows/wsl/install)) and enabled.
 - Go version must be equal to or above 1.18.
 
 ## Development

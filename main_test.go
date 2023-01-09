@@ -227,6 +227,11 @@ func defaultDistro() (string, error) {
 		}
 		return data[1], nil
 	}
+
+	if err := s.Err(); err != nil {
+		return "", err
+	}
+
 	return "", fmt.Errorf("failed to find default distro in 'wsl.exe --list --verbose' output:\n%s", string(out))
 }
 

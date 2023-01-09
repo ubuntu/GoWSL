@@ -74,7 +74,7 @@ func isTestLinuxProcessAlive(d *wsl.Distro) bool {
 
 func TestDefaultDistro(t *testing.T) {
 	want := newTestDistro(t, emptyRootFs)
-	out, err := exec.Command("wsl.exe", "--set-default", want.Name).CombinedOutput()
+	out, err := exec.Command("wsl.exe", "--set-default", want.Name).CombinedOutput() //nolint: gosec
 	require.NoError(t, err, string(out))
 
 	got, err := wsl.DefaultDistro()
@@ -107,7 +107,6 @@ func TestDistroSetAsDefault(t *testing.T) {
 			require.NoError(t, err, "unexpected error getting default distro")
 			require.Equal(t, tc.distro.Name, got)
 		})
-
 	}
 }
 

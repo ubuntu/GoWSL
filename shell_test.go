@@ -66,7 +66,7 @@ func TestShell(t *testing.T) {
 					t.Logf("Command timed out")
 					err := d.Terminate()
 					if err != nil {
-						t.Logf("Failed to terminate the distro: %v", err)
+						t.Log(err)
 					}
 					<-done
 				}

@@ -18,7 +18,11 @@ import (
 // It is analogous to
 //  `wsl.exe --shutdown
 func shutdown() error {
-	return exec.Command("wsl.exe", "--shutdown").Run()
+	out, err := exec.Command("wsl.exe", "--shutdown").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error shutting WSL down: %v: %s", err, out)
+	}
+	return nil
 }
 
 // terminate shuts down a particular distro
@@ -26,7 +30,11 @@ func shutdown() error {
 // It is analogous to
 //  `wsl.exe --terminate <distroName>`
 func terminate(distroName string) error {
-	return exec.Command("wsl.exe", "--terminate", distroName).Run()
+	out, err := exec.Command("wsl.exe", "--terminate", distroName).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error terminating distro %q: %v: %s", distroName, err, out)
+	}
+	return nil
 }
 
 // registeredDistros returns a slice of the registered distros.

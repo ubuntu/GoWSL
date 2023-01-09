@@ -246,8 +246,10 @@ func backUpDefaultDistro() (func(), error) {
 		return func() {}, nil // No distros registered: no backup needed
 	}
 	restore := func() {
-		exec.Command("wsl.exe", "--set-default", distro).Run() //nolint: errcheck, gosec
-		// Not checking error because it is irreparable anyways
+		out, err := exec.Command("wsl.exe", "--set-default", distro).CombinedOutput() //nolint: gosec
+		if err != nil {
+			log.Warnf("failed to set distro %q back as default: %v. Output: %s", distro, err, out)
+		}
 	}
 	return restore, nil
 }

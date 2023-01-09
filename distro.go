@@ -34,6 +34,19 @@ func Shutdown() error {
 	return shutdown()
 }
 
+// SetAsDefault sets a particular distribution as the default one.
+// Equivalent to:
+//   wsl --set-default <distro>
+func (d Distro) SetAsDefault() error {
+	return setAsDefault(d.Name)
+}
+
+// DefaultDistro gets the current default distribution.
+func DefaultDistro() (Distro, error) {
+	n, e := defaultDistro()
+	return Distro{Name: n}, e
+}
+
 // Windows' WSL_DISTRIBUTION_FLAGS
 // https://learn.microsoft.com/en-us/windows/win32/api/wslapi/ne-wslapi-wsl_distribution_flags
 type wslFlags int

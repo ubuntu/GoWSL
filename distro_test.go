@@ -72,6 +72,45 @@ func isTestLinuxProcessAlive(d *wsl.Distro) bool {
 	return err == nil
 }
 
+func TestDefaultDistro(t *testing.T) {
+	want := newTestDistro(t, emptyRootFs)
+	out, err := exec.Command("wsl.exe", "--set-default", want.Name).CombinedOutput()
+	require.NoError(t, err, string(out))
+
+	got, err := wsl.DefaultDistro()
+	require.NoError(t, err, "unexpected error getting default distro %q", want.Name)
+	require.Equal(t, want, got, "Unexpected mismatch in default distro")
+}
+
+func TestDistroSetAsDefault(t *testing.T) {
+	realDistro := newTestDistro(t, emptyRootFs)
+	fakeDistro := wsl.Distro{Name: "This distro sure does not exist"}
+
+	testCases := map[string]struct {
+		distro  wsl.Distro
+		wantErr bool
+	}{
+		"happy path":  {distro: realDistro},
+		"fake distro": {distro: fakeDistro, wantErr: true},
+	}
+
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			err := tc.distro.SetAsDefault()
+			if tc.wantErr {
+				require.Errorf(t, err, "Unexpected success setting non-existent distro %q as default", tc.distro.Name)
+				return
+			}
+			require.NoErrorf(t, err, "Unexpected error setting %q as default", tc.distro.Name)
+			got, err := defaultDistro()
+			require.NoError(t, err, "unexpected error getting default distro")
+			require.Equal(t, tc.distro.Name, got)
+		})
+
+	}
+}
+
 func TestDistroString(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
 	fakeDistro := wsl.Distro{Name: UniqueDistroName(t)}

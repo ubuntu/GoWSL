@@ -235,7 +235,7 @@ func defaultDistro() (string, error) {
 	return "", fmt.Errorf("failed to find default distro in 'wsl.exe --list --verbose' output:\n%s", string(out))
 }
 
-// backUpDefaultDistro returns a function to restore the defaut distro so the machine is restored to
+// backUpDefaultDistro returns a function to restore the default distro so the machine is restored to
 // its pre-testing state.
 func backUpDefaultDistro() (func(), error) {
 	distro, err := defaultDistro()

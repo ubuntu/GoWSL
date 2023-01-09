@@ -1,5 +1,5 @@
 # GoWSL
-This module ofers an idiomatic interface between your Go code and the WSL API (`wslApi.dll`  and ocasionally `wsl.exe`). It offers wrappers around common actions to manage WSL distros. 
+This module ofers an idiomatic interface between your Go code and the Windows Subsystem for Linux (WSL) API (`wslApi.dll`  and ocasionally `wsl.exe`). It offers wrappers around common actions to manage WSL distros. 
 
 ## Aim
 We aim not to extend the aforementioned API, but rather to provide a safe, idomatic, and easy-to-use wrapper around it. The goal is to enable the development of applications that build on top of it. 

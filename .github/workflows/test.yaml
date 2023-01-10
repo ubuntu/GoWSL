@@ -11,8 +11,29 @@ env:
   az_resource_group: wsl
 
 jobs:
+  basic-verification:
+    # This job ensures the project compiles and the linter passes before commiting
+    # to the whole Github-Azure-WSL orchestra.
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+      - name: Build
+        shell: powershell
+        run: go build -v ./...
+      - name: Linter
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: --config=.golangci-ci.yaml
+
   vm-setup:
     runs-on: ubuntu-latest
+    needs: basic-verification
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -77,7 +98,7 @@ jobs:
 
   stop-vm:
     runs-on: ubuntu-latest
-    needs: run-tests
+    needs: [basic-verification, run-tests]
     if: always()
     # This step has an implicit dependency on vm-setup, because the runner
     # won't be started until then. Don't make the dependency explicit: it

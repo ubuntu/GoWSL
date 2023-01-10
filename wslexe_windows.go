@@ -37,6 +37,39 @@ func terminate(distroName string) error {
 	return nil
 }
 
+func export(distroName string, where string, vhd bool) error {
+	args := []string{"--export", where}
+	if vhd {
+		args = append(args, "--vhd")
+	}
+	out, err := exec.Command("wsl.exe", args...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error exporting %s: %v: %s", distroName, err, out)
+	}
+	return nil
+}
+
+func importCopy(distroName string, newVhd string, rootfs string, asVhd bool, wslVersion int) error {
+	args := []string{"--import", distroName, newVhd, rootfs, "--version", fmt.Sprint(wslVersion)}
+	if asVhd {
+		args = append(args, "--vhd")
+	}
+	out, err := exec.Command("wsl.exe", args...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error exporting %s: %v: %s", distroName, err, out)
+	}
+	return nil
+}
+
+func importInPlace(distroName string, vhd string) error {
+	args := []string{"--import-in-place", distroName, vhd}
+	out, err := exec.Command("wsl.exe", args...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error exporting %s: %v: %s", distroName, err, out)
+	}
+	return nil
+}
+
 // setAsDefault sets a particular distribution as the default one.
 //
 // It is analogous to

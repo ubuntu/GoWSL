@@ -1,0 +1,93 @@
+name: Test
+
+concurrency: azure-vm
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  az_name: wsl-ci-2
+  az_resource_group: wsl
+
+jobs:
+  vm-setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Start Azure VM
+        uses: ubuntu/WSL/.github/actions/vm-setup/@main
+        with:
+          az_name: ${{ env.az_name }}
+          az_resource_group: ${{ env.az_resource_group }}
+          az_creds: ${{ secrets.AZURE_VM_CREDS }}
+          az_vm_hostname: ${{ secrets.AZURE_VM_AUTHORITY }}
+          az_vm_username: ${{ secrets.AZURE_VM_UN }}
+          az_vm_password: ${{ secrets.AZURE_VM_UP }}
+
+  run-tests:
+    runs-on: self-hosted
+    needs: basic-verification
+    # This step has an implicit dependency on vm-setup, because the runner
+    # won't be started until then. Don't make the dependency explicit: it
+    # needs to run concurrently with vm-setup.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.18"
+      - name: Launch async rootfs download
+        shell: powershell
+        run: |
+          if( $(Test-Path -Path ".\images") ) {
+            Remove-Item ".\images" -Force -Recurse
+          }
+          New-Item -ItemType "directory" -Path ".\images" -Force
+          New-Item -ItemType "File" -Path ".\images\empty.tar.gz" -Force
+
+          Start-Process powershell.exe @'
+          Invoke-WebRequest                                                                                     `
+              -Uri "https://cloud-images.ubuntu.com/wsl/jammy/current/ubuntu-jammy-wsl-amd64-wsl.rootfs.tar.gz" `
+              -OutFile ".\images\jammy.tar.gz"                                                                  `
+              *> ".\images\download.log"
+          Write-Output "$?" > .\images\done.txt
+          '@
+      - name: Install WSL
+        uses: ubuntu/WSL/.github/actions/wsl-install/@main
+      - name: Await async rootfs download
+        shell: powershell
+        run: |
+          Write-Output "::group::Waiting for download"
+          while (! $(Test-Path -Path ".\images\done.txt") ) {
+              $progress=[math]::Round($(Get-Item -Path ".\images\jammy.tar.gz").Length/1MB)
+              Write-Output "Downloaded ${progress} MB"
+              Start-Sleep 10
+          }
+          $success=$(Get-Content -Path ".\images\done.txt")
+          Write-Output "::endgroup::"
+      - name: Test
+        uses: ubuntu/WSL/.github/actions/wsl-powershell/@main
+        with:
+          exec: |
+            go test
+            if ( ! $? ) { Exit(1) }
+
+  stop-vm:
+    runs-on: ubuntu-latest
+    needs: run-tests
+    if: always()
+    # This step has an implicit dependency on vm-setup, because the runner
+    # won't be started until then. Don't make the dependency explicit: it
+    # needs to run concurrently with vm-setup.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Stop Azure VM
+        uses: ubuntu/WSL/.github/actions/vm-stop/@main
+        with:
+          az_name: ${{ env.az_name }}
+          az_resource_group: ${{ env.az_resource_group }}
+          az_creds: ${{ secrets.AZURE_VM_CREDS }}

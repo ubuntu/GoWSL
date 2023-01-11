@@ -74,8 +74,9 @@ func isTestLinuxProcessAlive(d *wsl.Distro) bool {
 
 func TestDefaultDistro(t *testing.T) {
 	want := newTestDistro(t, emptyRootFs)
-	out, err := exec.Command("wsl.exe", "--set-default", want.Name).CombinedOutput() //nolint: gosec
-	require.NoError(t, err, string(out))
+
+	//Not linting G204: Subprocess launched with a potential tainted input or cmd arguments
+	out, err := exec.Command("wsl.exe", "--set-default", want.Name).CombinedOutput() //nolint:gosec
 
 	got, err := wsl.DefaultDistro()
 	require.NoError(t, err, "unexpected error getting default distro %q", want.Name)

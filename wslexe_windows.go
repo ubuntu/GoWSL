@@ -37,6 +37,58 @@ func terminate(distroName string) error {
 	return nil
 }
 
+// setAsDefault sets a particular distribution as the default one.
+//
+// It is analogous to
+//  `wsl.exe --set-default <distroName>`
+func setAsDefault(distroName string) error {
+	out, err := exec.Command("wsl.exe", "--set-default", distroName).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error setting %q as default: %v, output: %s", distroName, err, out)
+	}
+	return nil
+}
+
+// defaultDistro gets the name of the default distribution.
+// If no distros are installed (hence no default), an empty string is returned.
+func defaultDistro() (name string, err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		err = fmt.Errorf("failed to obtain default distro: %v", err)
+	}()
+
+	lxssKey, err := registry.OpenKey(lxssRegistry, lxssPath, registry.READ)
+	if err != nil {
+		return "", fmt.Errorf("failed to open lxss registry: %v", err)
+	}
+	defer lxssKey.Close()
+
+	lxssData, err := lxssKey.Stat()
+	if err != nil {
+		return "", fmt.Errorf("failed to stat lxss registry key: %v", err)
+	}
+
+	if lxssData.SubKeyCount < 2 {
+		// lxss contains subkeys:
+		// - AppxInstallerCache
+		// - {distro 8-4-4-4-8 code}
+		// - {distro 8-4-4-4-8 code}
+		// - ...
+		// We know there are no distros when there is one or fewer subkeys
+		return "", nil
+	}
+
+	target := "DefaultDistribution"
+	distroDir, _, err := lxssKey.GetStringValue(target)
+	if err != nil {
+		return "", fmt.Errorf("cannot find %s:%s : %v", lxssPath, target, err)
+	}
+
+	return readRegistryDistributionName(distroDir)
+}
+
 // registeredDistros returns a slice of the registered distros.
 //
 // It is analogous to

@@ -3,7 +3,10 @@ package wsl_test
 // This file contains testing functionality
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -24,9 +27,16 @@ const (
 )
 
 func TestMain(m *testing.M) {
+	restore, err := backUpDefaultDistro()
+	if err != nil {
+		log.Errorf("setup: %v", err)
+		os.Exit(1)
+	}
+	defer restore()
+
 	exitVal := m.Run()
 
-	err := wsl.Shutdown()
+	err = wsl.Shutdown()
 	if err != nil {
 		log.Warnf("cleanup: Failed to shutdown WSL")
 	}
@@ -194,4 +204,62 @@ func registeredTestWslInstances() ([]wsl.Distro, error) {
 	}
 
 	return distros, nil
+}
+
+// defaultDistro gets the default distro's name via wsl.exe to bypass wsl.DefaultDistro in order to
+// better decouple tests.
+func defaultDistro() (string, error) {
+	out, err := exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1; wsl.exe --list --verbose").CombinedOutput()
+	if err != nil {
+		if !errors.Is(err, &exec.ExitError{}) {
+			return "", fmt.Errorf("failed to find current default distro: %v", err)
+		}
+		// cannot read from err.(*exec.ExitError).StdErr because message is printed to Stdout
+		if !strings.Contains(string(out), "Windows Subsystem for Linux has no installed distributions.") {
+			return "", fmt.Errorf("failed to find current default distro: %v. Output: %s", err, out)
+		}
+		return "", nil // No distros installed: no default
+	}
+
+	s := bufio.NewScanner(bytes.NewReader(out))
+	s.Scan() // Ignore first line (table header)
+	for s.Scan() {
+		line := s.Text()
+		if !strings.HasPrefix(line, "*") {
+			continue
+		}
+		data := strings.Fields(line)
+		if len(data) < 2 {
+			return "", fmt.Errorf("failed to parse 'wsl.exe --list --verbose' output, line %q", line)
+		}
+		return data[1], nil
+	}
+
+	if err := s.Err(); err != nil {
+		return "", err
+	}
+
+	return "", fmt.Errorf("failed to find default distro in 'wsl.exe --list --verbose' output:\n%s", string(out))
+}
+
+// backUpDefaultDistro returns a function to restore the default distro so the machine is restored to
+// its pre-testing state.
+func backUpDefaultDistro() (func(), error) {
+	distro, err := defaultDistro()
+	if err != nil {
+		return nil, fmt.Errorf("failed to back up default distro: %v", err)
+	}
+	if len(distro) == 0 {
+		return func() {}, nil // No distros registered: no backup needed
+	}
+	restore := func() {
+		//nolint: gosec // G204: Subprocess launched with a potential tainted input or cmd arguments
+		// No threat of code injection, wsl.exe will only interpret this text as a distro name
+		// and throw Wsl/Service/WSL_E_DISTRO_NOT_FOUND if it does not exist.
+		out, err := exec.Command("wsl.exe", "--set-default", distro).CombinedOutput()
+		if err != nil {
+			log.Warnf("failed to set distro %q back as default: %v. Output: %s", distro, err, out)
+		}
+	}
+	return restore, nil
 }

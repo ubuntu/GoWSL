@@ -10,7 +10,7 @@ import (
 
 func TestShell(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
-	fakeDistro := wsl.Distro{Name: UniqueDistroName(t)}
+	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
 	wrongDistro := wsl.Distro{Name: "I have a \x00 null char in my name"}
 
 	cmdExit0 := "exit 0"

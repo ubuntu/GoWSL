@@ -74,8 +74,8 @@ func isTestLinuxProcessAlive(d *wsl.Distro) bool {
 
 func TestDistroString(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
-	fakeDistro := wsl.Distro{Name: UniqueDistroName(t)}
-	wrongDistro := wsl.Distro{Name: UniqueDistroName(t) + "_\x00_invalid_name"}
+	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
+	wrongDistro := wsl.Distro{Name: uniqueDistroName(t) + "_\x00_invalid_name"}
 
 	testCases := map[string]struct {
 		distro     *wsl.Distro
@@ -205,7 +205,7 @@ func TestConfigurationSetters(t *testing.T) {
 				err := d.Command(context.Background(), "useradd testuser").Run()
 				require.NoError(t, err, "unexpectedly failed to add a user to the distro")
 			case DistroNotRegistered:
-				d = wsl.Distro{Name: UniqueDistroName(t)}
+				d = wsl.Distro{Name: uniqueDistroName(t)}
 			case DistroInvalidName:
 				d = wsl.Distro{Name: "Wrong character \x00 in name"}
 			}

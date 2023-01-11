@@ -4,10 +4,13 @@ package wsl
 // with the advantage (sometimes) of not needing to start a subprocess.
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sync"
+	"syscall"
 
 	"github.com/0xrawsec/golang-utils/log"
 	"golang.org/x/sys/windows/registry"
@@ -65,21 +68,6 @@ func defaultDistro() (name string, err error) {
 	}
 	defer lxssKey.Close()
 
-	lxssData, err := lxssKey.Stat()
-	if err != nil {
-		return "", fmt.Errorf("failed to stat lxss registry key: %v", err)
-	}
-
-	if lxssData.SubKeyCount < 2 {
-		// lxss contains subkeys:
-		// - AppxInstallerCache
-		// - {distro 8-4-4-4-8 code}
-		// - {distro 8-4-4-4-8 code}
-		// - ...
-		// We know there are no distros when there is one or fewer subkeys
-		return "", nil
-	}
-
 	target := "DefaultDistribution"
 	distroDir, _, err := lxssKey.GetStringValue(target)
 	if err != nil {
@@ -124,8 +112,12 @@ func registeredDistros() (distros []Distro, err error) {
 	ch := make(chan distroErr)
 
 	wg := sync.WaitGroup{}
+
+	// Typical Microsoft {8-4-4-4-12} hex code
+	// example: {ee8aef7a-846f-4561-a028-79504ce65cd3}
+	distroRegex := regexp.MustCompile(`^\{[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\}$`)
 	for _, skName := range subkeys {
-		if skName == "AppxInstallerCache" {
+		if !distroRegex.MatchString(skName) {
 			continue // Not a WSL distro
 		}
 

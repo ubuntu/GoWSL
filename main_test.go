@@ -252,10 +252,10 @@ func backUpDefaultDistro() (func(), error) {
 		return func() {}, nil // No distros registered: no backup needed
 	}
 	restore := func() {
-		// Not linting G204: Subprocess launched with a potential tainted input or cmd arguments
+		//nolint: gosec // G204: Subprocess launched with a potential tainted input or cmd arguments
 		// No threat of code injection, wsl.exe will only interpret this text as a distro name
 		// and throw Wsl/Service/WSL_E_DISTRO_NOT_FOUND if it does not exist.
-		out, err := exec.Command("wsl.exe", "--set-default", distro).CombinedOutput() //nolint: gosec
+		out, err := exec.Command("wsl.exe", "--set-default", distro).CombinedOutput()
 		if err != nil {
 			log.Warnf("failed to set distro %q back as default: %v. Output: %s", distro, err, out)
 		}

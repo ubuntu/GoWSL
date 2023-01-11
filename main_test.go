@@ -53,7 +53,7 @@ func sanitizeDistroName(candidateName string) string {
 }
 
 // Generates a unique distro name. It does not create the distro.
-func UniqueDistroName(t *testing.T) string {
+func uniqueDistroName(t *testing.T) string {
 	t.Helper()
 	maxAttempts := 10
 	for i := 0; i < maxAttempts; i++ {

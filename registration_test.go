@@ -25,7 +25,7 @@ func TestRegister(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			d := wsl.Distro{Name: UniqueDistroName(t) + tc.distroSuffix}
+			d := wsl.Distro{Name: uniqueDistroName(t) + tc.distroSuffix}
 			defer func() {
 				err := CleanUpWslInstance(d)
 				if err != nil {
@@ -63,7 +63,7 @@ func TestRegister(t *testing.T) {
 func TestRegisteredDistros(t *testing.T) {
 	d1 := newTestDistro(t, emptyRootFs)
 	d2 := newTestDistro(t, emptyRootFs)
-	d3 := wsl.Distro{Name: UniqueDistroName(t)}
+	d3 := wsl.Distro{Name: uniqueDistroName(t)}
 
 	list, err := wsl.RegisteredDistros()
 	require.NoError(t, err)
@@ -94,7 +94,7 @@ func TestIsRegistered(t *testing.T) {
 			if config.register {
 				distro = newTestDistro(t, emptyRootFs)
 			} else {
-				distro = wsl.Distro{Name: UniqueDistroName(t)}
+				distro = wsl.Distro{Name: uniqueDistroName(t)}
 			}
 
 			reg, err := distro.IsRegistered()
@@ -115,8 +115,8 @@ func TestIsRegistered(t *testing.T) {
 
 func TestUnregister(t *testing.T) {
 	realDistro := newTestDistro(t, emptyRootFs)
-	fakeDistro := wsl.Distro{Name: UniqueDistroName(t)}
-	wrongDistro := wsl.Distro{Name: UniqueDistroName(t) + "This Distro \x00 has a null char"}
+	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
+	wrongDistro := wsl.Distro{Name: uniqueDistroName(t) + "This Distro \x00 has a null char"}
 
 	testCases := map[string]struct {
 		distro    *wsl.Distro

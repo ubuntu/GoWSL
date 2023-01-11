@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -208,12 +209,17 @@ func registeredTestWslInstances() ([]wsl.Distro, error) {
 // better decouple tests.
 func defaultDistro() (string, error) {
 	out, err := exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1; wsl.exe --list --verbose").CombinedOutput()
-	if strings.Contains(string(out), "Windows Subsystem for Linux has no installed distributions.") {
-		return "", nil
-	}
 	if err != nil {
-		return "", fmt.Errorf("failed to find current default distro: %v", err)
+		if !errors.Is(err, &exec.ExitError{}) {
+			return "", fmt.Errorf("failed to find current default distro: %v", err)
+		}
+		// cannot read from err.(*exec.ExitError).StdErr because message is printed to Stdout
+		if !strings.Contains(string(out), "Windows Subsystem for Linux has no installed distributions.") {
+			return "", fmt.Errorf("failed to find current default distro: %v. Output: %s", err, out)
+		}
+		return "", nil // No distros installed: no default
 	}
+
 	s := bufio.NewScanner(bytes.NewReader(out))
 	s.Scan() // Ignore first line (table header)
 	for s.Scan() {

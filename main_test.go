@@ -61,15 +61,15 @@ func uniqueDistroName(t *testing.T) string {
 		// Ensuring no name collision
 		exists, err := d.IsRegistered()
 		if err != nil {
-			t.Logf("Setup: Generated invalid distro name: %q. Trying again.", d.Name)
+			t.Logf("Setup: error in test distro name uniqueness check: %v", err)
 			continue
 		}
 		if exists {
-			t.Logf("Setup: Generated non-unique distro name: %q. Trying again.", d.Name)
+			t.Logf("Setup: name collision generating test distro: %q", d.Name)
 		}
 		return d.Name
 	}
-	require.Fail(t, "Setup: Failed to generate a valid, unique distro name.")
+	require.Fail(t, "Setup: failed to generate a unique name for the test distro.")
 	return ""
 }
 
@@ -77,7 +77,7 @@ func uniqueDistroName(t *testing.T) string {
 func newTestDistro(t *testing.T, rootfs string) wsl.Distro {
 	t.Helper()
 
-	d := wsl.Distro{Name: UniqueDistroName(t)}
+	d := wsl.Distro{Name: uniqueDistroName(t)}
 	t.Logf("Setup: Registering %q\n", d.Name)
 
 	powershellInstallDistro(t, d.Name, rootfs)

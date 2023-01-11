@@ -55,7 +55,7 @@ func sanitizeDistroName(candidateName string) string {
 // Generates a unique distro name. It does not create the distro.
 func uniqueDistroName(t *testing.T) string {
 	t.Helper()
-	maxAttempts := 10
+	const maxAttempts = 10
 	for i := 0; i < maxAttempts; i++ {
 		d := wsl.Distro{Name: sanitizeDistroName(fmt.Sprintf("%s_%s_%s", namePrefix, t.Name(), uniqueID()))}
 		// Ensuring no name collision
@@ -65,7 +65,7 @@ func uniqueDistroName(t *testing.T) string {
 			continue
 		}
 		if exists {
-			t.Logf("Setup: name collision generating test distro: %q", d.Name)
+			t.Logf("Setup: name collision generating test distro: %q.", d.Name)
 			continue
 		}
 		return d.Name

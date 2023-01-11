@@ -77,6 +77,7 @@ func TestDefaultDistro(t *testing.T) {
 
 	//Not linting G204: Subprocess launched with a potential tainted input or cmd arguments
 	out, err := exec.Command("wsl.exe", "--set-default", want.Name).CombinedOutput() //nolint:gosec
+	require.NoErrorf(t, err, "setup: failed to set test distro as default: %s", out)
 
 	got, err := wsl.DefaultDistro()
 	require.NoError(t, err, "unexpected error getting default distro %q", want.Name)
@@ -91,8 +92,8 @@ func TestDistroSetAsDefault(t *testing.T) {
 		distro  wsl.Distro
 		wantErr bool
 	}{
-		"happy path":  {distro: realDistro},
-		"fake distro": {distro: fakeDistro, wantErr: true},
+		"set an existing distro as default":          {distro: realDistro},
+		"fail to set non-existent distro as default": {distro: fakeDistro, wantErr: true},
 	}
 
 	for name, tc := range testCases {
@@ -104,6 +105,7 @@ func TestDistroSetAsDefault(t *testing.T) {
 				return
 			}
 			require.NoErrorf(t, err, "Unexpected error setting %q as default", tc.distro.Name)
+
 			got, err := defaultDistro()
 			require.NoError(t, err, "unexpected error getting default distro")
 			require.Equal(t, tc.distro.Name, got)

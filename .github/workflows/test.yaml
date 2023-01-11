@@ -60,35 +60,23 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: "1.18"
-      - name: Launch async rootfs download
+      - name: Download rootfs
         shell: powershell
         run: |
-          if( $(Test-Path -Path ".\images") ) {
-            Remove-Item ".\images" -Force -Recurse
-          }
-          New-Item -ItemType "directory" -Path ".\images" -Force
-          New-Item -ItemType "File" -Path ".\images\empty.tar.gz" -Force
+          # Syncing rootfs cache
+          $rootfs = "${HOME}\Downloads\rootfs\jammy.tar.gz"
+          .\.github\workflows\syncRootfs.ps1 -Path "${rootfs}" -CodeName "jammy" ; if(! "$?" ) { Exit(1) }
 
-          Start-Process powershell.exe @'
-          Invoke-WebRequest                                                                                     `
-              -Uri "https://cloud-images.ubuntu.com/wsl/jammy/current/ubuntu-jammy-wsl-amd64-wsl.rootfs.tar.gz" `
-              -OutFile ".\images\jammy.tar.gz"                                                                  `
-              *> ".\images\download.log"
-          Write-Output "$?" > .\images\done.txt
-          '@
+          # Copying rootfs from cache
+          if ( $(Test-Path -Path ".\images") ) {
+              Remove-Item ".\images" -Force -Recurse
+          }
+
+          New-Item -ItemType "directory" -Path ".\images" -Force          | Out-Null ; if(! "$?" ) { Exit(2) }
+          New-Item -ItemType "File" -Path ".\images\empty.tar.gz" -Force  | Out-Null ; if(! "$?" ) { Exit(3) }
+          Copy-Item -Path "${rootfs}" -Destination ".\images\"            | Out-Null ; if(! "$?" ) { Exit(4) }
       - name: Install WSL
         uses: ubuntu/WSL/.github/actions/wsl-install/@main
-      - name: Await async rootfs download
-        shell: powershell
-        run: |
-          Write-Output "::group::Waiting for download"
-          while (! $(Test-Path -Path ".\images\done.txt") ) {
-              $progress=[math]::Round($(Get-Item -Path ".\images\jammy.tar.gz").Length/1MB)
-              Write-Output "Downloaded ${progress} MB"
-              Start-Sleep 10
-          }
-          $success=$(Get-Content -Path ".\images\done.txt")
-          Write-Output "::endgroup::"
       - name: Test
         uses: ubuntu/WSL/.github/actions/wsl-powershell/@main
         with:

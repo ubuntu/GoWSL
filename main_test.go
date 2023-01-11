@@ -215,7 +215,7 @@ func defaultDistro() (string, error) {
 			return "", fmt.Errorf("failed to find current default distro: %v", err)
 		}
 		// cannot read from err.(*exec.ExitError).StdErr because message is printed to Stdout
-		if !strings.Contains(string(out), "Windows Subsystem for Linux has no installed distributions.") {
+		if !strings.Contains(string(out), "Wsl/WSL_E_DEFAULT_DISTRO_NOT_FOUND") {
 			return "", fmt.Errorf("failed to find current default distro: %v. Output: %s", err, out)
 		}
 		return "", nil // No distros installed: no default

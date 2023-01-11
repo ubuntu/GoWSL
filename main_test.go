@@ -84,7 +84,7 @@ func newTestDistro(t *testing.T, rootfs string) wsl.Distro {
 	powershellInstallDistro(t, d.Name, rootfs)
 
 	t.Cleanup(func() {
-		err := CleanUpWslInstance(d)
+		err := cleanUpWslInstance(d)
 		if err != nil {
 			t.Logf("Cleanup: %v\n", err)
 		}
@@ -157,15 +157,15 @@ func cleanUpTestWslInstances() {
 	}
 
 	for _, d := range testInstances {
-		err := CleanUpWslInstance(d)
+		err := cleanUpWslInstance(d)
 		if err != nil {
 			log.Warnf("Cleanup: %v\n", err)
 		}
 	}
 }
 
-// CleanUpWslInstance checks if a distro exists and if it does, it unregisters it.
-func CleanUpWslInstance(distro wsl.Distro) error {
+// cleanUpWslInstance checks if a distro exists and if it does, it unregisters it.
+func cleanUpWslInstance(distro wsl.Distro) error {
 	if r, err := distro.IsRegistered(); err == nil && !r {
 		return nil
 	}

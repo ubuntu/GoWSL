@@ -27,7 +27,7 @@ func TestRegister(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			d := wsl.Distro{Name: uniqueDistroName(t) + tc.distroSuffix}
 			defer func() {
-				err := CleanUpWslInstance(d)
+				err := cleanUpWslInstance(d)
 				if err != nil {
 					t.Logf("Cleanup: %v", err)
 				}

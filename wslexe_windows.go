@@ -53,7 +53,6 @@ func setAsDefault(distroName string) error {
 }
 
 // defaultDistro gets the name of the default distribution.
-// If no distros are installed (hence no default), an empty string is returned.
 func defaultDistro() (name string, err error) {
 	defer func() {
 		if err == nil {
@@ -70,6 +69,9 @@ func defaultDistro() (name string, err error) {
 
 	target := "DefaultDistribution"
 	distroDir, _, err := lxssKey.GetStringValue(target)
+	if errors.Is(err, syscall.ERROR_FILE_NOT_FOUND) {
+		return "", errors.New("no default distro")
+	}
 	if err != nil {
 		return "", fmt.Errorf("cannot find %s:%s : %v", lxssPath, target, err)
 	}

@@ -66,6 +66,7 @@ func uniqueDistroName(t *testing.T) string {
 		}
 		if exists {
 			t.Logf("Setup: name collision generating test distro: %q", d.Name)
+			continue
 		}
 		return d.Name
 	}

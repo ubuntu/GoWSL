@@ -17,6 +17,7 @@ import (
 )
 
 func TestExitErrorIs(t *testing.T) {
+	t.Parallel()
 	reference := wsl.ExitError{Code: 35}
 	exit := wsl.ExitError{Code: 5}
 	err := errors.New("")
@@ -96,6 +97,7 @@ func TestCommandRun(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			d := realDistro
 			if tc.fakeDistro {
 				d = fakeDistro
@@ -249,6 +251,7 @@ func TestCommandStartWait(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			ctx := context.Background()
 			var cancel context.CancelFunc
 			if tc.cancelOn != Never {
@@ -355,6 +358,7 @@ func TestCommandOutPipes(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			cmd := d.Command(context.Background(), "echo 'Hello stdout' >&1 && sleep 1 && echo 'Hello stderr' >&2")
 
 			var buff bytes.Buffer
@@ -404,6 +408,7 @@ func TestCommandOutput(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			cmd := tc.distro.Command(ctx, tc.cmd)
@@ -464,6 +469,7 @@ func TestCommandCombinedOutput(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
@@ -526,6 +532,7 @@ print("Your text was", v)
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			if tc.text == "" {
 				tc.text = "Hello, wsl!"
 			}

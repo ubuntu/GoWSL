@@ -155,6 +155,7 @@ configuration: error in GetConfiguration: failed to convert %q to UTF16
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			d := *tc.distro
 			got := d.String()
 			require.Equal(t, tc.wants, got)
@@ -326,6 +327,7 @@ func TestGetConfiguration(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			d := wsl.Distro{Name: tc.distroName}
 			c, err := d.GetConfiguration()
 

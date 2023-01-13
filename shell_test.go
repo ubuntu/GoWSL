@@ -50,6 +50,7 @@ func TestShell(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			d := *tc.distro
 
 			// Because Shell is an interactive command, it needs to be quit from

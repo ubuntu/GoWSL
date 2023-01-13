@@ -211,10 +211,10 @@ func registeredTestWslInstances() ([]wsl.Distro, error) {
 func defaultDistro() (string, error) {
 	out, err := exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1; wsl.exe --list --verbose").CombinedOutput()
 	if err != nil {
-		if !errors.As(err, new(*exec.ExitError)) {
+		if target := (&exec.ExitError{}); !errors.As(err, &target) {
 			return "", fmt.Errorf("failed to find current default distro: %v", err)
 		}
-		// cannot read from err.(*exec.ExitError).StdErr because message is printed to Stdout
+		// cannot read from target.StdErr because message is printed to Stdout
 		if !strings.Contains(string(out), "Wsl/WSL_E_DEFAULT_DISTRO_NOT_FOUND") {
 			return "", fmt.Errorf("failed to find current default distro: %v. Output: %s", err, out)
 		}

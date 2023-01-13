@@ -8,6 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+//nolint: tparallel
+// Top-level test cannot be parallel because "newTestDistro" may shutdown WSL, interfering with all
+// other tests.
 func TestShell(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
 	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}

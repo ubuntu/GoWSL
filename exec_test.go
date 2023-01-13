@@ -48,6 +48,9 @@ func TestExitErrorAsString(t *testing.T) {
 	}
 }
 
+//nolint: tparallel
+// Top-level test cannot be parallel because "newTestDistro" may shutdown WSL, interfering with all
+// other tests.
 func TestCommandRun(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
 	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
@@ -150,6 +153,9 @@ func TestCommandRun(t *testing.T) {
 	}
 }
 
+//nolint: tparallel
+// Top-level test cannot be parallel because "newTestDistro" may shutdown WSL, interfering with all
+// other tests.
 func TestCommandStartWait(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
 	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
@@ -339,6 +345,9 @@ func TestCommandStartWait(t *testing.T) {
 	}
 }
 
+//nolint: tparallel
+// Top-level test cannot be parallel because "newTestDistro" may shutdown WSL, interfering with all
+// other tests.
 func TestCommandOutPipes(t *testing.T) {
 	d := newTestDistro(t, jammyRootFs)
 
@@ -377,6 +386,9 @@ func TestCommandOutPipes(t *testing.T) {
 	}
 }
 
+//nolint: tparallel
+// Top-level test cannot be parallel because "newTestDistro" may shutdown WSL, interfering with all
+// other tests.
 func TestCommandOutput(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
 	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
@@ -437,6 +449,9 @@ func TestCommandOutput(t *testing.T) {
 	}
 }
 
+//nolint: tparallel
+// Top-level test cannot be parallel because "newTestDistro" may shutdown WSL, interfering with all
+// other tests.
 func TestCommandCombinedOutput(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
 	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
@@ -500,6 +515,9 @@ func TestCommandCombinedOutput(t *testing.T) {
 	}
 }
 
+//nolint: tparallel
+// Top-level test cannot be parallel because "newTestDistro" may shutdown WSL, interfering with all
+// other tests.
 func TestCommandStdin(t *testing.T) {
 	d := newTestDistro(t, jammyRootFs)
 

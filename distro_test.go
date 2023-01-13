@@ -114,6 +114,9 @@ func TestDistroSetAsDefault(t *testing.T) {
 	}
 }
 
+//nolint: tparallel
+// Top-level test cannot be parallel because "newTestDistro" may shutdown WSL, interfering with all
+// other tests.
 func TestDistroString(t *testing.T) {
 	realDistro := newTestDistro(t, jammyRootFs)
 	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
@@ -312,6 +315,10 @@ func TestConfigurationSetters(t *testing.T) {
 		})
 	}
 }
+
+//nolint: tparallel
+// Top-level test cannot be parallel because "newTestDistro" may shutdown WSL, interfering with all
+// other tests.
 func TestGetConfiguration(t *testing.T) {
 	d := newTestDistro(t, jammyRootFs)
 

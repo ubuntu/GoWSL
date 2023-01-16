@@ -1,12 +1,13 @@
-package wsl_test
+package GoWSL_test
 
 import (
+	wsl "github.com/EduardGomezEscandell/GoWSL"
+
 	"context"
 	"fmt"
 	"os/exec"
 	"testing"
 	"time"
-	"wsl"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

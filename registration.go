@@ -1,4 +1,4 @@
-package wsl
+package GoWSL
 
 // This file contains utilities to create, destroy, stop WSL distros,
 // as well as utilities to query this status.

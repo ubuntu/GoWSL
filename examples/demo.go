@@ -1,11 +1,12 @@
 package main
 
 import (
+	wsl "github.com/EduardGomezEscandell/GoWSL"
+
 	"context"
 	"errors"
 	"fmt"
 	"time"
-	"wsl"
 )
 
 func main() {

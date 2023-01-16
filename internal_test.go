@@ -1,4 +1,4 @@
-package wsl
+package GoWSL
 
 import (
 	"fmt"

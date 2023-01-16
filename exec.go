@@ -1,4 +1,4 @@
-package wsl
+package GoWSL
 
 // This file contains utilities to launch commands into WSL distros.
 

@@ -1,4 +1,4 @@
-package wsl
+package GoWSL
 
 // This file contains windows-only API definitions and imports
 

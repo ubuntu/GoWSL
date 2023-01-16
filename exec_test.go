@@ -1,6 +1,8 @@
-package wsl_test
+package GoWSL_test
 
 import (
+	wsl "github.com/EduardGomezEscandell/GoWSL"
+
 	"bufio"
 	"bytes"
 	"context"
@@ -10,7 +12,6 @@ import (
 	"os"
 	"testing"
 	"time"
-	"wsl"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

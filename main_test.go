@@ -1,8 +1,10 @@
-package wsl_test
+package GoWSL_test
 
 // This file contains testing functionality
 
 import (
+	wsl "github.com/EduardGomezEscandell/GoWSL"
+
 	"bufio"
 	"bytes"
 	"context"
@@ -14,7 +16,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"wsl"
 
 	"github.com/0xrawsec/golang-utils/log"
 	"github.com/stretchr/testify/require"

@@ -5,6 +5,8 @@ concurrency: azure-vm
 on:
   pull_request:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 env:
   az_name: wsl-ci-2

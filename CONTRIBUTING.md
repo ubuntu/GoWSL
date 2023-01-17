@@ -73,7 +73,12 @@ running some asynchronous and interactive commands to it before unregistering it
 To run, simply run:
 
 ```powershell
-TODO, this is powershell :)
+# Setup
+New-Item -Type Directory -Path .\images
+powershell.exe -ExecutionPolicy Bypass -File .\.github\workflows\syncRootfs.ps1 .\images\jammy.tar.gz jammy
+
+# To run the example
+go run .\examples\demo.go
 ```
 
 ### About the testsuite

@@ -26,7 +26,7 @@ Contributions are made to this project via Issues and Pull Requests (PRs). A few
 
 * To report security vulnerabilities, please use the advisories page of the repository and not a public bug report.
 * Search for existing Issues and PRs before creating your own.
-* We work hard to makes sure issues are handled in a timely manner but, depending on the impact, it could take a while to investigate the root cause. A friendly ping in the comment thread to the submitter or a contributor can help draw attention if your issue is blocking.
+* We work hard to make sure issues are handled in a timely manner but, depending on the impact, it could take a while to investigate the root cause. A friendly ping in the comment thread to the submitter or a contributor can help draw attention if your issue is blocking.
 * If you've never contributed before, see [this Ubuntu discourse post](https://discourse.ubuntu.com/t/contribute/26) for resources and tips on how to get started.
 
 ### Issues

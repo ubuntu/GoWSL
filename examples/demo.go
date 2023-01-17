@@ -13,6 +13,7 @@ func main() {
 	distro := wsl.Distro{Name: "Ubuntu-22.04-test"}
 
 	// Registering a new distro
+	// TODO: install ubuntu-preview from the store?
 	fmt.Println("Registering a new WSL distro...")
 	if err := distro.Register(`.\images\jammy.tar.gz`); err != nil {
 		panic(err)
@@ -65,5 +66,4 @@ func main() {
 	} else {
 		fmt.Println("Process with timeout succeeded!")
 	}
-
 }

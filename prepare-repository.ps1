@@ -61,7 +61,7 @@ Write-Output "Ubuntu is installed"
 Write-Output "Creating images directory"
 
 $images = ".\images"
-$tarball = "${images}\jammy.tar.gz"
+$tarball = "${images}\rootfs.tar.gz"
 $sourceRootfs = "$((Get-AppPackage | Where-Object Name -like 'CanonicalGroupLimited.Ubuntu').InstallLocation)\install.tar.gz"
 
 if ( ! (Test-Path "${images}") ) {

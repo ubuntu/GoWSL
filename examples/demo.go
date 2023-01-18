@@ -10,11 +10,11 @@ import (
 )
 
 func main() {
-	distro := wsl.Distro{Name: "Ubuntu-22.04-test"}
+	distro := wsl.Distro{Name: "Ubuntu-GoWSL-demo"}
 
 	// Registering a new distro
 	fmt.Printf("Registering a new distro %q\n", distro.Name)
-	if err := distro.Register(`.\images\jammy.tar.gz`); err != nil {
+	if err := distro.Register(`.\images\rootfs.tar.gz`); err != nil {
 		panic(err)
 	}
 

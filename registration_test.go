@@ -16,9 +16,9 @@ func TestRegister(t *testing.T) {
 		rootfs       string
 		wantError    bool
 	}{
-		"happy path":          {rootfs: jammyRootFs},
-		"wrong name":          {rootfs: jammyRootFs, distroSuffix: "--I contain whitespace", wantError: true},
-		"null char in name":   {rootfs: jammyRootFs, distroSuffix: "--I \x00 contain a null char", wantError: true},
+		"happy path":          {rootfs: rootFs},
+		"wrong name":          {rootfs: rootFs, distroSuffix: "--I contain whitespace", wantError: true},
+		"null char in name":   {rootfs: rootFs, distroSuffix: "--I \x00 contain a null char", wantError: true},
 		"null char in rootfs": {rootfs: "jammy\x00.tar.gz", wantError: true},
 		"inexistent rootfs":   {rootfs: "I am not a real file.tar.gz", wantError: true},
 	}

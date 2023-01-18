@@ -74,9 +74,9 @@ jobs:
               Remove-Item ".\images" -Force -Recurse
           }
 
-          New-Item -ItemType "directory" -Path ".\images" -Force          | Out-Null ; if(! "$?" ) { Exit(2) }
-          New-Item -ItemType "File" -Path ".\images\empty.tar.gz" -Force  | Out-Null ; if(! "$?" ) { Exit(3) }
-          Copy-Item -Path "${rootfs}" -Destination ".\images\"            | Out-Null ; if(! "$?" ) { Exit(4) }
+          New-Item -ItemType "directory" -Path ".\images" -Force            | Out-Null ; if(! "$?" ) { Exit(2) }
+          New-Item -ItemType "File" -Path ".\images\empty.tar.gz" -Force    | Out-Null ; if(! "$?" ) { Exit(3) }
+          Copy-Item -Path "${rootfs}" -Destination ".\images\rootfs.tar.gz" | Out-Null ; if(! "$?" ) { Exit(4) }
       - name: Install WSL
         uses: ubuntu/WSL/.github/actions/wsl-install/@main
       - name: Test

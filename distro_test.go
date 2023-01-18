@@ -14,7 +14,7 @@ import (
 )
 
 func TestShutdown(t *testing.T) {
-	d := newTestDistro(t, jammyRootFs) // Will terminate
+	d := newTestDistro(t, rootFs) // Will terminate
 
 	defer startTestLinuxProcess(t, &d)()
 
@@ -25,8 +25,8 @@ func TestShutdown(t *testing.T) {
 }
 
 func TestTerminate(t *testing.T) {
-	sampleDistro := newTestDistro(t, jammyRootFs)  // Will terminate
-	controlDistro := newTestDistro(t, jammyRootFs) // Will not terminate, used to assert other distros are unaffected
+	sampleDistro := newTestDistro(t, rootFs)  // Will terminate
+	controlDistro := newTestDistro(t, rootFs) // Will not terminate, used to assert other distros are unaffected
 
 	defer startTestLinuxProcess(t, &sampleDistro)()
 	defer startTestLinuxProcess(t, &controlDistro)()
@@ -116,7 +116,7 @@ func TestDistroSetAsDefault(t *testing.T) {
 }
 
 func TestDistroString(t *testing.T) {
-	realDistro := newTestDistro(t, jammyRootFs)
+	realDistro := newTestDistro(t, rootFs)
 	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
 	wrongDistro := wsl.Distro{Name: uniqueDistroName(t) + "_\x00_invalid_name"}
 
@@ -244,7 +244,7 @@ func TestConfigurationSetters(t *testing.T) {
 			var d wsl.Distro
 			switch tc.distro {
 			case DistroRegistered:
-				d = newTestDistro(t, jammyRootFs)
+				d = newTestDistro(t, rootFs)
 				err := d.Command(context.Background(), "useradd testuser").Run()
 				require.NoError(t, err, "unexpectedly failed to add a user to the distro")
 			case DistroNotRegistered:
@@ -313,7 +313,7 @@ func TestConfigurationSetters(t *testing.T) {
 	}
 }
 func TestGetConfiguration(t *testing.T) {
-	d := newTestDistro(t, jammyRootFs)
+	d := newTestDistro(t, rootFs)
 
 	testCases := map[string]struct {
 		distroName string

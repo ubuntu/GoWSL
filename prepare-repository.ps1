@@ -56,19 +56,16 @@ if ( $(Get-AppPackage | Where-Object Name -like 'CanonicalGroupLimited.Ubuntu').
     if ( ! $? ) { Exit(1) }
 }
 Write-Output "Ubuntu is installed"
+$ubuntuRootfs = "$((Get-AppPackage | Where-Object Name -like 'CanonicalGroupLimited.Ubuntu').InstallLocation)\install.tar.gz"
 
 # Creating images directory
 Write-Output "Creating images directory"
 
-$images = ".\images"
-$tarball = "${images}\rootfs.tar.gz"
-$sourceRootfs = "$((Get-AppPackage | Where-Object Name -like 'CanonicalGroupLimited.Ubuntu').InstallLocation)\install.tar.gz"
-
-if ( ! (Test-Path "${images}") ) {
-    New-Item -Path "${images}" -ItemType "directory"           | Out-Null
+if ( ! (Test-Path ".\images") ) {
+    New-Item -Path ".\images" -ItemType "directory" | Out-Null
 }
-Remove-Item -Path "${images}\empty.tar.gz"                2>&1 | Out-Null
-New-Item -Path "${images}\empty.tar.gz" -ItemType "file"       | Out-Null
-Copy-Item -Path "${sourceRootfs}" -Destination "${tarball}"   
+
+New-Item -Force -Path ".\images\empty.tar.gz" -ItemType "file" | Out-Null
+Copy-Item -Force -Destination ".\images\rootfs.tar.gz"  -Path "${ubuntuRootfs}"
 
 Write-Output "Done"

@@ -63,21 +63,22 @@ In general, we follow the ["fork-and-pull" Git workflow](https://github.com/susa
 
 ### Required dependencies and setup
 
-TODO
+You can set every thing manually if you want, it is quite simple (you can look at the CI for reference). But we also provide you with a way to
+get it up and running automatically. You only need to install [Winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/). This will
+be used only in the setup, you can uninstall it later.
 
-### Building an example code
+Then, run script [`.\prepare-repository.ps1`](prepare-repository.ps1). You can simply run the script with no arguments, but if you want to see the options use `help .\prepare-repository.ps1`.
+
+This setup is only necessary if you want to run an example or the test suite. If you merely intend to consume this module, import `github.com/EduardGomezEscandell/GoWSL` in your Go project and you're set.
+
+### Building an example program
 
 You will find some example code in [the example folder](examples/demo.go). It consists of installing an ubuntu WSL distribution,
-running some asynchronous and interactive commands to it before unregistering it.
+running some asynchronous and interactive commands to it, and finally unregistering it.
 
-To run, simply run:
+To run it, complete the setup explained in the previous section and simply run:
 
 ```powershell
-# Setup
-New-Item -Type Directory -Path .\images
-powershell.exe -ExecutionPolicy Bypass -File .\.github\workflows\syncRootfs.ps1 .\images\jammy.tar.gz jammy
-
-# To run the example
 go run .\examples\demo.go
 ```
 

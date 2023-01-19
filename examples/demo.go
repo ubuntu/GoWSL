@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	wsl "github.com/EduardGomezEscandell/GoWSL"
 
 	"context"
@@ -15,7 +17,8 @@ func main() {
 	// Registering a new distro
 	fmt.Printf("Registering a new distro %q\n", distro.Name)
 	if err := distro.Register(`.\images\rootfs.tar.gz`); err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "Unexpected error: %v\n", err)
+		return
 	}
 
 	// Ensuring the distro is unregistered at the end
@@ -47,17 +50,20 @@ func main() {
 
 	// Waiting for command 1
 	err = cmd1.Wait()
+	target := &wsl.ExitError{}
 	switch {
 	case err == nil:
 		fmt.Printf("Succesful async command!\n")
-	case errors.Is(err, &wsl.ExitError{}):
+	case errors.As(err, &target):
 		fmt.Printf("Unsuccesful async command: %v\n", err)
 	default:
-		panic(err)
+		fmt.Fprintf(os.Stderr, "Unexpected error: %v\n", err)
+		return
 	}
 
 	// Showing CommandContext
 	fmt.Println("\nCancelling a command that takes too long")
+	// We call 'sleep 5' but cancel after only one second.
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
@@ -68,13 +74,28 @@ func main() {
 		fmt.Println("Process with timeout succeeded!")
 	}
 
-	// Starting Shell
-	fmt.Println("\nStarting a shell in Ubuntu. Feel free to exit to continue the demo")
+	// Showing CombinedOutput
+	fmt.Println("\rRunning a command with redirected output")
 	fmt.Println()
-	err = distro.Shell()
+	// Useful so the next shell command is less verbose
+	out, err = distro.Command(context.Background(), "touch /root/.hushlogin").CombinedOutput()
 	if err != nil {
-		fmt.Printf("Shell exited with error:\n%s", err)
-	} else {
-		fmt.Println("Shell exited with exit code 0")
+		fmt.Fprintf(os.Stderr, "Unexpected error: %v\nError message: %s", err, out)
 	}
+
+	// Starting Shell
+	fmt.Println("\r\nStarting a shell in Ubuntu. Feel free to `exit <NUMBER>` to continue the demo")
+
+	fmt.Println("\r")
+	err = distro.Shell()
+	switch {
+	case err == nil:
+		fmt.Printf("\rShell exited with exit code 0\n")
+	case errors.As(err, &target):
+		fmt.Printf("\rShell exited with exit code %d\n", target.Code)
+	default:
+		fmt.Fprintf(os.Stderr, "Unexpected error: %v\n", err)
+		return
+	}
+	fmt.Println("\r")
 }

@@ -47,14 +47,14 @@ func main() {
 
 	// Waiting for command 1
 	err = cmd1.Wait()
-	if err != nil && !errors.Is(err, &wsl.ExitError{}) {
+	switch {
+	case err == nil:
+		fmt.Printf("Succesful async command!\n")
+	case errors.Is(err, &wsl.ExitError{}):
+		fmt.Printf("Unsuccesful async command: %v\n", err)
+	default:
 		panic(err)
 	}
-	if err != nil {
-		fmt.Printf("Unsuccesful async command: %v\n", err)
-		return
-	}
-	fmt.Printf("Succesful async command!\n")
 
 	// Showing CommandContext
 	fmt.Println("\nCancelling a command that takes too long")

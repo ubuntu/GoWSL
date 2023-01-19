@@ -340,36 +340,89 @@ func TestCommandStartWait(t *testing.T) {
 func TestCommandOutPipes(t *testing.T) {
 	d := newTestDistro(t, rootFs)
 
+	type stream int
+	const (
+		null stream = iota
+		buffer
+		file
+	)
+
 	testCases := map[string]struct {
 		cmd    string
-		stdout bool
-		stderr bool
+		stdout stream
+		stderr stream
 
-		want string
+		skip         bool // Known bugs
+		wantInFile   string
+		wantInBuffer string
 	}{
-		"all discarded":           {},
-		"piped stdout":            {stdout: true, want: "Hello stdout\n"},
-		"piped stderr":            {stderr: true, want: "Hello stderr\n"},
-		"piped stdout and stderr": {stdout: true, stderr: true, want: "Hello stdout\nHello stderr\n"},
+		"all discarded": {},
+
+		// Writing to buffer
+		"stdout to a buffer":            {stdout: buffer, wantInBuffer: "Hello stdout\n"},
+		"stderr to a buffer":            {stderr: buffer, wantInBuffer: "Hello stderr\n"},
+		"stdout and stderr to a buffer": {stdout: buffer, stderr: buffer, wantInBuffer: "Hello stdout\nHello stderr\n"},
+
+		// Writing to file
+		"stdout to file":            {stdout: file, wantInFile: "Hello stdout\n"},
+		"stderr to file":            {stderr: file, wantInFile: "Hello stderr\n"},
+		"stdout and stderr to file": {stdout: file, stderr: file, wantInFile: "Hello stdout\nHello stderr\n"},
+
+		// Mixed
+		"stdout to file, stderr to buffer": {stdout: file, stderr: buffer, wantInFile: "Hello stdout\n", wantInBuffer: "Hello stderr\n"},
+		"stdout to buffer, stderr to file": {stdout: buffer, stderr: file, wantInFile: "Hello stderr\n", wantInBuffer: "Hello stdout\n"},
 	}
+
+	tmpDir := t.TempDir()
 
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			if tc.skip {
+				t.Skip("Skipping test because it is a known bug")
+			}
+
 			cmd := d.Command(context.Background(), "echo 'Hello stdout' >&1 && sleep 1 && echo 'Hello stderr' >&2")
 
-			var buff bytes.Buffer
-			if tc.stdout {
-				cmd.Stdout = &buff
-			}
-			if tc.stderr {
-				cmd.Stderr = &buff
+			bufferRW := &bytes.Buffer{}
+			fileRW, err := os.CreateTemp(tmpDir, "log_*.txt")
+			require.NoError(t, err, "could not create file")
+			defer fileRW.Close()
+
+			switch tc.stdout {
+			case null:
+			case buffer:
+				cmd.Stdout = bufferRW
+			case file:
+				cmd.Stdout = fileRW
+			default:
+				require.Fail(t, "setup: unknown stdout stream enum value %d", tc.stdout)
 			}
 
-			err := cmd.Run()
+			switch tc.stderr {
+			case null:
+			case buffer:
+				cmd.Stderr = bufferRW
+			case file:
+				cmd.Stderr = fileRW
+			default:
+				require.Fail(t, "setup: unknown stderr stream enum value %d", tc.stderr)
+			}
+
+			err = cmd.Run()
 			require.NoError(t, err, "Did not expect an error during (*Cmd).Run")
 
-			require.Equal(t, tc.want, buff.String())
+			// Testing buffer contents
+			assert.Equal(t, tc.wantInBuffer, bufferRW.String())
+
+			// Testing file contents
+			err = fileRW.Close()
+			require.NoError(t, err, "failed to close file at the end of test")
+
+			contents, err := os.ReadFile(fileRW.Name())
+			require.NoError(t, err, "failed to read file before testing contents")
+
+			require.Equal(t, tc.wantInFile, string(contents))
 		})
 	}
 }
@@ -501,6 +554,7 @@ func TestCommandStdin(t *testing.T) {
 	const (
 		readFromPipe int = iota
 		readFromBuffer
+		readFromFile
 	)
 
 	testCases := map[string]struct {
@@ -510,10 +564,12 @@ func TestCommandStdin(t *testing.T) {
 		closeBeforeWait bool // Set to true to close the pipe before execution of the Cmd is over
 		readFrom        int  // Where Cmd should read Stdin from
 	}{
-		"from pipe":        {},
-		"funny characters": {text: "Hello, \x00wsl!"},
-		"closing early":    {closeBeforeWait: true},
-		"using a buffer":   {readFrom: readFromBuffer},
+		"from a pipe":                           {},
+		"from a pipe, funny characters in text": {text: "Hello, \x00wsl!"},
+		"from a pipe, closing early":            {closeBeforeWait: true},
+		"from a buffer":                         {readFrom: readFromBuffer},
+		"from a file":                           {readFrom: readFromFile},
+		"from a file, closing early":            {readFrom: readFromFile, closeBeforeWait: true},
 	}
 
 	// Simple program to test stdin
@@ -523,6 +579,7 @@ v = input("Write your text here: ")
 sleep(1)					        # Ensures we get the prompts in separate reads
 print("Your text was", v)
 '`
+	tmpDir := t.TempDir()
 
 	for name, tc := range testCases {
 		tc := tc
@@ -550,12 +607,23 @@ print("Your text was", v)
 				stdinbuff := bytes.NewBufferString(tc.text + "\n")
 				cmd.Stdin = stdinbuff
 				stdin = stdinbuff
+			case readFromFile:
+				// Writing input text to file
+				file, err := os.CreateTemp(tmpDir, "log_*.txt")
+				defer file.Close()
+				require.NoError(t, err, "setup: could not create file")
+				_, err = file.Write([]byte(tc.text + "\n"))
+				require.NoError(t, err, "setup: could not write input to file")
+				_, err = file.Seek(0, io.SeekStart)
+				require.NoError(t, err, "setup: failed to rewind cursor back to the start of the file")
+				cmd.Stdin = file
+				stdin = file
 			default:
-				t.Fatalf("test implementation error: unrecognized testCase.readFrom: %d", tc.readFrom)
+				t.Fatalf("setup: unrecognized enum value for testCase.readFrom: %d", tc.readFrom)
 			}
 
 			_, err = cmd.StdinPipe()
-			require.Error(t, err, "Unexpected success calling (*Cmd).StdinPipe twice")
+			require.Error(t, err, "Unexpected success calling (*Cmd).StdinPipe when (*Cmd).Stdin is already set")
 
 			err = cmd.Start()
 			require.NoError(t, err, "Unexpected error calling (*Cmd).Start")
@@ -586,9 +654,8 @@ print("Your text was", v)
 			require.Equal(t, fmt.Sprintf("Your text was %s\n", tc.text), string(buffer[:n]), "Answer does not match expected value.")
 
 			// Finishing
-			if tc.closeBeforeWait && tc.readFrom == readFromPipe {
-				err = stdin.(io.WriteCloser).Close() //nolint: forcetypeassert
-				require.NoError(t, err, "Failed to close stdin pipe prematurely")
+			if closer, ok := stdin.(io.WriteCloser); tc.closeBeforeWait && ok {
+				require.NoError(t, closer.Close(), "Failed to close stdin pipe prematurely")
 			}
 
 			err = cmd.Wait()

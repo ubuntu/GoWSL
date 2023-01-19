@@ -24,6 +24,17 @@ param (
     [switch]$AcceptAll = $false
 )
 
+# Using ID instead of App Name ensures no future name collisions, such
+# as the one that already occurs with:
+#
+#     winget install --Name 'Ubuntu'
+#
+# You can verify these with:
+#  - `winget show STORE_ID`
+#  - Visiting https://apps.microsoft.com/store/detail/STORE_ID.
+$wslStoreId = '9P9TQF7MRM4R'
+$ubuntuStoreId = '9PDXGNCFSCZV'
+
 $acceptance = ""
 if ( $AcceptAll ) {
     $acceptance = "--accept-package-agreements","--accept-source-agreements"
@@ -40,7 +51,7 @@ function Test-Winget {
 if ( ! $(Get-AppPackage | Where-Object Name -like 'MicrosoftCorporationII.WindowsSubsystemForLinux') ) {
     if (! $(Test-Winget) ) { Exit(1) }
     Write-Output "Installing WSL"
-    winget install --name 'Windows Subsystem for Linux' --silent ${acceptance}
+    winget install --Id "${wslStoreId}" --silent ${acceptance}
     if ( ! $? ) { Exit(1) }
 }
 Write-Output "WSL is installed"
@@ -49,10 +60,7 @@ Write-Output "WSL is installed"
 if ( $(Get-AppPackage | Where-Object Name -like 'CanonicalGroupLimited.Ubuntu').Count -eq 0 ) {
     if (! $(Test-Winget) ) { Exit(1) }
     Write-Output "Installing Ubuntu"
-    winget install --Id '9PDXGNCFSCZV' --silent ${acceptance}
-    #                    ^~~~~~~~~~~~
-    # If this looks fishy to you, you can veryify it with `winget search 9PDXGNCFSCZV`
-    # or by checking out https://apps.microsoft.com/store/detail/9PDXGNCFSCZV
+    winget install --Id "${ubuntuStoreId}" --silent ${acceptance}
     if ( ! $? ) { Exit(1) }
 }
 Write-Output "Ubuntu is installed"

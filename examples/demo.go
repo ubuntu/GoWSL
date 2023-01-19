@@ -75,7 +75,7 @@ func main() {
 	}
 
 	// Showing CombinedOutput
-	fmt.Println("\rRunning a command with redirected output")
+	fmt.Println("Running a command with redirected output")
 	fmt.Println()
 	// Useful so the next shell command is less verbose
 	out, err = distro.Command(context.Background(), "touch /root/.hushlogin").CombinedOutput()
@@ -84,18 +84,18 @@ func main() {
 	}
 
 	// Starting Shell
-	fmt.Println("\r\nStarting a shell in Ubuntu. Feel free to `exit <NUMBER>` to continue the demo")
+	fmt.Println("\nStarting a shell in Ubuntu. Feel free to `exit <NUMBER>` to continue the demo")
+	fmt.Println("")
 
-	fmt.Println("\r")
 	err = distro.Shell()
 	switch {
 	case err == nil:
-		fmt.Printf("\rShell exited with exit code 0\n")
+		fmt.Printf("Shell exited with exit code 0\n")
 	case errors.As(err, &target):
-		fmt.Printf("\rShell exited with exit code %d\n", target.Code)
+		fmt.Printf("Shell exited with exit code %d\n", target.Code)
 	default:
 		fmt.Fprintf(os.Stderr, "Unexpected error: %v\n", err)
 		return
 	}
-	fmt.Println("\r")
+	fmt.Println("")
 }

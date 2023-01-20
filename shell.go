@@ -1,4 +1,4 @@
-package GoWSL
+package gowsl
 
 import (
 	"errors"

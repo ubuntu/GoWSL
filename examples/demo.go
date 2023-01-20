@@ -1,14 +1,13 @@
 package main
 
 import (
-	"os"
-
-	wsl "github.com/ubuntu/GoWSL"
-
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
+
+	wsl "github.com/ubuntu/gowsl"
 )
 
 func main() {

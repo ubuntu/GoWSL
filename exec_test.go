@@ -1,7 +1,7 @@
-package GoWSL_test
+package gowsl_test
 
 import (
-	wsl "github.com/ubuntu/GoWSL"
+	wsl "github.com/ubuntu/gowsl"
 
 	"bufio"
 	"bytes"

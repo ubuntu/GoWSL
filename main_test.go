@@ -3,7 +3,7 @@ package GoWSL_test
 // This file contains testing functionality
 
 import (
-	wsl "github.com/EduardGomezEscandell/GoWSL"
+	wsl "github.com/ubuntu/GoWSL"
 
 	"bufio"
 	"bytes"

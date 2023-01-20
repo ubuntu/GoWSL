@@ -2,10 +2,10 @@
 
 This module ofers an idiomatic interface between your Go code and the Windows Subsystem for Linux (WSL) API (`wslApi.dll`  and ocasionally `wsl.exe`). It offers wrappers around common actions to manage WSL distros.
 
-[![Code quality](https://github.com/EduardGomezEscandell/GoWSL/workflows/Test/badge.svg)](https://github.com/EduardGomezEscandell/GoWSL/actions/workflows/test.yaml?query=workflow%3Atest)
-[![Go Reference](https://pkg.go.dev/badge/github.com/EduardGomezEscandell/gowsl.svg)](https://pkg.go.dev/github.com/EduardGomezEscandell/gowsl)
-[![Go Report Card](https://goreportcard.com/badge/EduardGomezEscandell/gowsl)](https://goreportcard.com/report/EduardGomezEscandell/gowsl)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/EduardGomezEscandell/gowsl/blob/main/LICENSE)
+[![Code quality](https://github.com/ubuntu/GoWSL/workflows/Test/badge.svg)](https://github.com/ubuntu/GoWSL/actions/workflows/test.yaml?query=workflow%3Atest)
+[![Go Reference](https://pkg.go.dev/badge/github.com/ubuntu/gowsl.svg)](https://pkg.go.dev/github.com/ubuntu/gowsl)
+[![Go Report Card](https://goreportcard.com/badge/ubuntu/gowsl)](https://goreportcard.com/report/ubuntu/gowsl)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/ubuntu/gowsl/blob/main/LICENSE)
 
 ## Aim
 

@@ -69,7 +69,7 @@ be used only in the setup, you can uninstall it later.
 
 Then, run script [`.\prepare-repository.ps1`](prepare-repository.ps1). You can simply run the script with no arguments, but if you want to see the options use `help .\prepare-repository.ps1`.
 
-This setup is only necessary if you want to run an example or the test suite. If you merely intend to consume this module, import `github.com/EduardGomezEscandell/GoWSL` in your Go project and you're set.
+This setup is only necessary if you want to run an example or the test suite. If you merely intend to consume this module, import `github.com/ubuntu/GoWSL` in your Go project and you're set.
 
 ### Building an example program
 

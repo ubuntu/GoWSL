@@ -1,4 +1,4 @@
-module github.com/EduardGomezEscandell/GoWSL
+module github.com/ubuntu/GoWSL
 
 go 1.18
 

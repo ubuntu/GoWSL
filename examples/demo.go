@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	wsl "github.com/EduardGomezEscandell/GoWSL"
+	wsl "github.com/ubuntu/GoWSL"
 
 	"context"
 	"errors"

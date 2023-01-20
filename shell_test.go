@@ -1,7 +1,7 @@
 package GoWSL_test
 
 import (
-	wsl "github.com/EduardGomezEscandell/GoWSL"
+	wsl "github.com/ubuntu/GoWSL"
 
 	"testing"
 	"time"

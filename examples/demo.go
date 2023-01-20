@@ -1,62 +1,68 @@
 package main
 
 import (
-	wsl "github.com/EduardGomezEscandell/GoWSL"
-
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
+
+	wsl "github.com/ubuntu/gowsl"
 )
 
 func main() {
-	distro := wsl.Distro{Name: "Ubuntu-22.04-test"}
+	distro := wsl.Distro{Name: "Ubuntu-GoWSL-demo"}
 
 	// Registering a new distro
-	// TODO: install ubuntu-preview from the store?
-	fmt.Println("Registering a new WSL distro...")
-	if err := distro.Register(`.\images\jammy.tar.gz`); err != nil {
-		panic(err)
+	fmt.Printf("Registering a new distro %q\n", distro.Name)
+	if err := distro.Register(`.\images\rootfs.tar.gz`); err != nil {
+		fmt.Fprintf(os.Stderr, "Unexpected error: %v\n", err)
+		return
 	}
 
 	// Ensuring the distro is unregistered at the end
 	defer distro.Unregister()
 
 	// Getting config and printing it
+	fmt.Println("\nPrinting distro information:")
 	fmt.Printf("%v", distro)
 
 	// Setting config
+	fmt.Println("\nDisable windows paths and fail to run notepad:")
 	distro.PathAppended(false)
 
-	// Launching async command
-	process1 := distro.Command(context.Background(), `sleep 3 && cat goodmorning.txt`)
-	process1.Start()
-
-	// Launching async command
-	process2 := distro.Command(context.Background(), `echo "Hello, world from WSL!" > "goodmorning.txt"`)
-	process2.Run()
-
 	// Launching an interactive command (should fail as per config change)
-	err := distro.Shell(wsl.WithCommand("sh -c 'notepad.exe'"))
+	out, err := distro.Command(context.Background(), "sh -c 'notepad.exe'").CombinedOutput()
 	if err != nil {
-		fmt.Printf("Sync command unsuccesful: %v\n", err)
+		fmt.Printf("%v\n%s", err, out)
 	} else {
-		fmt.Printf("Sync command succesful\n")
+		fmt.Printf("Unexpected success:\n%s", out)
 	}
 
-	// Managing the result of the async commands
-	err = process1.Wait()
-	if err != nil && !errors.Is(err, &wsl.ExitError{}) {
-		panic(err)
-	}
+	// Launching async command 1
+	fmt.Println("\nRunning async commands")
+	cmd1 := distro.Command(context.Background(), `sleep 3 && cat goodmorning.txt`)
+	cmd1.Start()
 
-	if err != nil {
+	// Launching and waiting for command 2
+	distro.Command(context.Background(), `echo "Hello, world from WSL!" > "goodmorning.txt"`).Run()
+
+	// Waiting for command 1
+	err = cmd1.Wait()
+	target := &wsl.ExitError{}
+	switch {
+	case err == nil:
+		fmt.Printf("Succesful async command!\n")
+	case errors.As(err, &target):
 		fmt.Printf("Unsuccesful async command: %v\n", err)
+	default:
+		fmt.Fprintf(os.Stderr, "Unexpected error: %v\n", err)
 		return
 	}
-	fmt.Printf("Succesful async command!\n")
 
 	// Showing CommandContext
+	fmt.Println("\nCancelling a command that takes too long")
+	// We call 'sleep 5' but cancel after only one second.
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
@@ -66,4 +72,29 @@ func main() {
 	} else {
 		fmt.Println("Process with timeout succeeded!")
 	}
+
+	// Showing CombinedOutput
+	fmt.Println("Running a command with redirected output")
+	fmt.Println()
+	// Useful so the next shell command is less verbose
+	out, err = distro.Command(context.Background(), "touch /root/.hushlogin").CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unexpected error: %v\nError message: %s", err, out)
+	}
+
+	// Starting Shell
+	fmt.Println("\nStarting a shell in Ubuntu. Feel free to `exit <NUMBER>` to continue the demo")
+	fmt.Println("")
+
+	err = distro.Shell()
+	switch {
+	case err == nil:
+		fmt.Printf("Shell exited with exit code 0\n")
+	case errors.As(err, &target):
+		fmt.Printf("Shell exited with exit code %d\n", target.Code)
+	default:
+		fmt.Fprintf(os.Stderr, "Unexpected error: %v\n", err)
+		return
+	}
+	fmt.Println("")
 }

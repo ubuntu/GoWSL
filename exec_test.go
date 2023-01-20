@@ -1,7 +1,7 @@
-package GoWSL_test
+package gowsl_test
 
 import (
-	wsl "github.com/EduardGomezEscandell/GoWSL"
+	wsl "github.com/ubuntu/gowsl"
 
 	"bufio"
 	"bytes"
@@ -49,7 +49,7 @@ func TestExitErrorAsString(t *testing.T) {
 }
 
 func TestCommandRun(t *testing.T) {
-	realDistro := newTestDistro(t, jammyRootFs)
+	realDistro := newTestDistro(t, rootFs)
 	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
 
 	// Poking distro to wake it up
@@ -150,7 +150,7 @@ func TestCommandRun(t *testing.T) {
 }
 
 func TestCommandStartWait(t *testing.T) {
-	realDistro := newTestDistro(t, jammyRootFs)
+	realDistro := newTestDistro(t, rootFs)
 	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
 	wrongDistro := wsl.Distro{Name: uniqueDistroName(t) + "--IHaveA\x00NullChar!"}
 
@@ -338,7 +338,7 @@ func TestCommandStartWait(t *testing.T) {
 }
 
 func TestCommandOutPipes(t *testing.T) {
-	d := newTestDistro(t, jammyRootFs)
+	d := newTestDistro(t, rootFs)
 
 	testCases := map[string]struct {
 		cmd    string
@@ -375,7 +375,7 @@ func TestCommandOutPipes(t *testing.T) {
 }
 
 func TestCommandOutput(t *testing.T) {
-	realDistro := newTestDistro(t, jammyRootFs)
+	realDistro := newTestDistro(t, rootFs)
 	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
 	wrongDistro := wsl.Distro{Name: uniqueDistroName(t) + "--IHaveA\x00NullChar!"}
 
@@ -434,7 +434,7 @@ func TestCommandOutput(t *testing.T) {
 }
 
 func TestCommandCombinedOutput(t *testing.T) {
-	realDistro := newTestDistro(t, jammyRootFs)
+	realDistro := newTestDistro(t, rootFs)
 	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
 	wrongDistro := wsl.Distro{Name: uniqueDistroName(t) + "--IHaveA\x00NullChar!"}
 
@@ -496,7 +496,7 @@ func TestCommandCombinedOutput(t *testing.T) {
 }
 
 func TestCommandStdin(t *testing.T) {
-	d := newTestDistro(t, jammyRootFs)
+	d := newTestDistro(t, rootFs)
 
 	const (
 		readFromPipe int = iota

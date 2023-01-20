@@ -62,29 +62,16 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: "1.18"
-      - name: Download rootfs
+      - name: Prepare repo
         shell: powershell
         run: |
-          # Syncing rootfs cache
-          $rootfs = "${HOME}\Downloads\rootfs\jammy.tar.gz"
-          .\.github\workflows\syncRootfs.ps1 -Path "${rootfs}" -CodeName "jammy" ; if(! "$?" ) { Exit(1) }
-
-          # Copying rootfs from cache
-          if ( $(Test-Path -Path ".\images") ) {
-              Remove-Item ".\images" -Force -Recurse
-          }
-
-          New-Item -ItemType "directory" -Path ".\images" -Force          | Out-Null ; if(! "$?" ) { Exit(2) }
-          New-Item -ItemType "File" -Path ".\images\empty.tar.gz" -Force  | Out-Null ; if(! "$?" ) { Exit(3) }
-          Copy-Item -Path "${rootfs}" -Destination ".\images\"            | Out-Null ; if(! "$?" ) { Exit(4) }
-      - name: Install WSL
-        uses: ubuntu/WSL/.github/actions/wsl-install/@main
+          # Preparing repo
+          .\prepare-repository.ps1 --AcceptAll
       - name: Test
-        uses: ubuntu/WSL/.github/actions/wsl-powershell/@main
-        with:
-          exec: |
-            go test
-            if ( ! $? ) { Exit(1) }
+        shell: powershell
+        run: |
+          go test
+          if ( ! $? ) { Exit(1) }
 
   stop-vm:
     runs-on: ubuntu-latest

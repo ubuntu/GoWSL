@@ -1,7 +1,7 @@
-package GoWSL_test
+package gowsl_test
 
 import (
-	wsl "github.com/EduardGomezEscandell/GoWSL"
+	wsl "github.com/ubuntu/gowsl"
 
 	"testing"
 	"time"
@@ -10,7 +10,7 @@ import (
 )
 
 func TestShell(t *testing.T) {
-	realDistro := newTestDistro(t, jammyRootFs)
+	realDistro := newTestDistro(t, rootFs)
 	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
 	wrongDistro := wsl.Distro{Name: "I have a \x00 null char in my name"}
 

@@ -2,10 +2,10 @@
 
 This module ofers an idiomatic interface between your Go code and the Windows Subsystem for Linux (WSL) API (`wslApi.dll`  and ocasionally `wsl.exe`). It offers wrappers around common actions to manage WSL distros.
 
-[![Code quality](https://github.com/EduardGomezEscandell/GoWSL/workflows/Test/badge.svg)](https://github.com/EduardGomezEscandell/GoWSL/actions/workflows/test.yaml?query=workflow%3Atest)
-[![Go Reference](https://pkg.go.dev/badge/github.com/EduardGomezEscandell/gowsl.svg)](https://pkg.go.dev/github.com/EduardGomezEscandell/gowsl)
-[![Go Report Card](https://goreportcard.com/badge/EduardGomezEscandell/gowsl)](https://goreportcard.com/report/EduardGomezEscandell/gowsl)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/EduardGomezEscandell/gowsl/blob/main/LICENSE)
+[![Code quality](https://github.com/ubuntu/gowsl/workflows/Test/badge.svg)](https://github.com/ubuntu/gowsl/actions/workflows/test.yaml?query=workflow%3Atest)
+[![Go Reference](https://pkg.go.dev/badge/github.com/ubuntu/gowsl.svg)](https://pkg.go.dev/github.com/ubuntu/gowsl)
+[![Go Report Card](https://goreportcard.com/badge/ubuntu/gowsl)](https://goreportcard.com/report/ubuntu/gowsl)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/ubuntu/gowsl/blob/main/LICENSE)
 
 ## Aim
 
@@ -18,27 +18,7 @@ We aim not to extend the aforementioned API, but rather to provide a safe, idoma
 
 ## Development
 
-This module is still in its infancy, but quickly reaching maturity. For developers wanting to test, you must first complete a couple of  steps of setup:
-
-- Create a directory named `images` in the project root.
-- Download the Ubuntu 22.04 LTS tarball from [here](https://cloud-images.ubuntu.com/wsl/jammy/current/), and store it as `.\images\jammy.tar.gz`.
-- Create an empty file, rename it and store it as `.\images\empty.tar.gz`
-
-Then you can run the tests:
-
-```powershell
-go.exe test
-```
-
-The tests take a few minutes to run due to the delay in registering distros and the fact that `wslApi.dll` is not thread-safe.
-
-## Examples
-
-You can see some example usage in the tests, as well as in [examples/demo.go](examples/demo.go). If you only want to run the example, use the following command while reading along the file to understand what it is doing.
-
-```powershell
-go.exe run .\examples\demo.go
-```
+Your help would be very much appreciated! Check out the [CONTRIBUTING](./CONTRIBUTING.md) document to see how you could collaborate.
 
 ## Contact
 

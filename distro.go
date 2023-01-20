@@ -1,8 +1,8 @@
-// Package GoWSL wraps around the wslApi.dll (and sometimes wsl.exe) for
+// Package gowsl wraps around the wslApi.dll (and sometimes wsl.exe) for
 // safe and idiomatic use within Go projects.
 //
 // This package is not thread safe.
-package GoWSL
+package gowsl
 
 // This file contains utilities to interact with a Distro and its configuration
 

@@ -1,9 +1,9 @@
-package GoWSL_test
+package gowsl_test
 
 // This file contains testing functionality
 
 import (
-	wsl "github.com/EduardGomezEscandell/GoWSL"
+	wsl "github.com/ubuntu/gowsl"
 
 	"bufio"
 	"bytes"
@@ -23,8 +23,8 @@ import (
 
 const (
 	namePrefix  string = "wsltesting"
-	emptyRootFs string = `.\images\empty.tar.gz` // Empty non-functional image. It registers instantly.
-	jammyRootFs string = `.\images\jammy.tar.gz` // Fully functional rootfs
+	emptyRootFs string = `.\images\empty.tar.gz`  // Empty non-functional image. It registers instantly.
+	rootFs      string = `.\images\rootfs.tar.gz` // Fully functional rootfs
 )
 
 func TestMain(m *testing.M) {

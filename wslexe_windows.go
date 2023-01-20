@@ -1,4 +1,4 @@
-package GoWSL
+package gowsl
 
 // This file contains utilities to access functionality often accessed via wsl.exe,
 // with the advantage (sometimes) of not needing to start a subprocess.

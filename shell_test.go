@@ -3,6 +3,7 @@ package gowsl_test
 import (
 	wsl "github.com/ubuntu/gowsl"
 
+	"context"
 	"testing"
 	"time"
 
@@ -52,6 +53,11 @@ func TestShell(t *testing.T) {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
 			d := *tc.distro
+
+			// Keeping distro awake so there are no unexpected timeouts
+			if d == realDistro {
+				defer keepAwake(t, context.Background(), &realDistro)()
+			}
 
 			// Because Shell is an interactive command, it needs to be quit from
 			// outside. This goroutine sets a fuse before shutting down the distro.

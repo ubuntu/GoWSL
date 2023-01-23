@@ -21,9 +21,8 @@ func TestCommandRun(t *testing.T) {
 	realDistro := newTestDistro(t, rootFs)
 	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
 
-	// Poking distro to wake it up
-	err := realDistro.Command(context.Background(), "exit 0").Run()
-	require.NoError(t, err)
+	// Keeping distro awake so there are no unexpected timeouts
+	defer keepAwake(t, context.Background(), &realDistro)()
 
 	// Enum with various times in the execution
 	type when uint
@@ -121,6 +120,9 @@ func TestCommandStartWait(t *testing.T) {
 	realDistro := newTestDistro(t, rootFs)
 	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
 	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "--IHaveA\x00NullChar!")
+
+	// Keeping distro awake so there are no unexpected timeouts
+	defer keepAwake(t, context.Background(), &realDistro)()
 
 	// Enum with various times in the execution
 	type when uint

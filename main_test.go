@@ -261,3 +261,32 @@ func backUpDefaultDistro() (func(), error) {
 	}
 	return restore, nil
 }
+
+// keepAwake sends an endless command to the distro to keep it awake.
+// The distro will stay awake until the context is cancelled or the cancel
+// function is called.
+//
+// You must call the cancel function to release the associated resources.
+//
+//nolint:revive
+func keepAwake(t *testing.T, ctx context.Context, d *wsl.Distro) context.CancelFunc {
+	// Linter says "context-as-argument: context.Context should be the first parameter of a function"
+	// This is an abomination that we won't stand for
+	t.Helper()
+	ctx, cancel := context.WithCancel(ctx)
+
+	cmd := d.Command(ctx, "sleep infinity")
+	err := cmd.Start()
+	if err != nil {
+		cancel()
+		require.Failf(t, "failed to Start command to keep the distro alive:", "%v", err)
+	}
+
+	return func() {
+		cancel()
+		//nolint: errcheck
+		// not checking error because it is guaranteed to fail: it can only
+		// finish by being interrupted. This is the intended behaviour.
+		cmd.Wait()
+	}
+}

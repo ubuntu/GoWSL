@@ -38,7 +38,7 @@ func (d *Distro) GUID() (GUID, error) {
 	if err != nil {
 		return GUID{}, fmt.Errorf("error accessing the registry to obtain distro ID: %v", err)
 	}
-	id, ok := ids[d.Name]
+	id, ok := ids[d.Name()]
 	if !ok {
 		return GUID{}, errors.New("distro is not registered")
 	}
@@ -188,11 +188,21 @@ func (d Distro) GetConfiguration() (c Configuration, e error) {
 
 // String deserializes a distro and its configuration as a yaml string.
 func (d Distro) String() string {
+	return fmt.Sprintf("name: %s\n%s\n%s", d.Name(), d.guidToString(), d.configToString())
+}
+
+func (d Distro) guidToString() string {
+	id, err := d.GUID()
+	if err != nil {
+		return fmt.Sprintf("guid: |\n  %v", err)
+	}
+	return fmt.Sprintf("guid: '%v'", id)
+}
+
+func (d Distro) configToString() string {
 	c, err := d.GetConfiguration()
 	if err != nil {
-		return fmt.Sprintf(`distro: %s
-configuration: %v
-`, d.Name(), err)
+		return fmt.Sprintf("configuration: |\n  %v\n", err)
 	}
 
 	// Get sorted list of environment variables
@@ -208,15 +218,14 @@ configuration: %v
 	}
 
 	// Generate the string
-	return fmt.Sprintf(`distro: %s
-configuration:
+	return fmt.Sprintf(`configuration:
   - Version: %d
   - DefaultUID: %d
   - InteropEnabled: %t
   - PathAppended: %t
   - DriveMountingEnabled: %t
   - undocumentedWSLVersion: %d
-  - DefaultEnvironmentVariables:%s`, d.Name(), c.Version, c.DefaultUID, c.InteropEnabled, c.PathAppended,
+  - DefaultEnvironmentVariables:%s`, c.Version, c.DefaultUID, c.InteropEnabled, c.PathAppended,
 		c.DriveMountingEnabled, c.undocumentedWSLVersion, fmtEnvs)
 }
 

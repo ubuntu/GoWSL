@@ -122,6 +122,9 @@ func TestDistroString(t *testing.T) {
 	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
 	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "_\x00_invalid_name")
 
+	realID, err := realDistro.GUID()
+	require.NoError(t, err, "could not get the test distro's GUID")
+
 	testCases := map[string]struct {
 		distro     *wsl.Distro
 		withoutEnv bool
@@ -129,7 +132,8 @@ func TestDistroString(t *testing.T) {
 	}{
 		"nominal": {
 			distro: &realDistro,
-			wants: fmt.Sprintf(`distro: %s
+			wants: fmt.Sprintf(`name: %s
+guid: '%v'
 configuration:
   - Version: 2
   - DefaultUID: 0
@@ -142,16 +146,24 @@ configuration:
     - LANG: en_US.UTF-8
     - PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
     - TERM: xterm-256color
-`, realDistro.Name())},
+`, realDistro.Name(), realID),
+		},
 		"fake distro": {
 			distro: &fakeDistro,
-			wants: fmt.Sprintf(`distro: %s
-configuration: error in GetConfiguration: failed syscall to WslGetDistributionConfiguration
-`, fakeDistro.Name())},
+			wants: fmt.Sprintf(`name: %s
+guid: |
+  distro is not registered
+configuration: |
+  error in GetConfiguration: failed syscall to WslGetDistributionConfiguration
+`, fakeDistro.Name()),
+		},
 		"wrong distro": {
 			distro: &wrongDistro,
-			wants: fmt.Sprintf(`distro: %s
-configuration: error in GetConfiguration: failed to convert %q to UTF16
+			wants: fmt.Sprintf(`name: %s
+guid: |
+  distro is not registered
+configuration: |
+  error in GetConfiguration: failed to convert %q to UTF16
 `, wrongDistro.Name(), wrongDistro.Name())},
 	}
 
@@ -171,7 +183,7 @@ func TestGUID(t *testing.T) {
 	// format "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}", but syscall.GUID
 	// does not have such method and prints its contents like any other
 	// struct.
-	distro := wsl.Distro{Name: uniqueDistroName(t)}
+	distro := wsl.NewDistro(uniqueDistroName(t))
 	err := distro.Register(emptyRootFs)
 	require.NoError(t, err, "could not register empty distro")
 

@@ -89,7 +89,7 @@ func registeredDistros() (distros []Distro, err error) {
 
 	distros = make([]Distro, len(registeredDistros))
 	for name := range registeredDistros {
-		distros = append(distros, Distro{Name: name})
+		distros = append(distros, NewDistro(name))
 	}
 
 	return distros, nil

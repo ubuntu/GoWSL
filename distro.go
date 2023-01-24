@@ -7,6 +7,7 @@ package gowsl
 // This file contains utilities to interact with a Distro and its configuration
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -29,6 +30,19 @@ func NewDistro(name string) Distro {
 // Name is a getter for the DistroName as shown in "wsl.exe --list".
 func (d Distro) Name() string {
 	return d.name
+}
+
+// GUID returns the Global Unique IDentifier for the distro.
+func (d *Distro) GUID() (GUID, error) {
+	ids, err := distroGUIDs()
+	if err != nil {
+		return GUID{}, fmt.Errorf("error accessing the registry to obtain distro ID: %v", err)
+	}
+	id, ok := ids[d.Name]
+	if !ok {
+		return GUID{}, errors.New("distro is not registered")
+	}
+	return id, nil
 }
 
 // Terminate powers off the distro.

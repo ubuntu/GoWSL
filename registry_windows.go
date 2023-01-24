@@ -4,13 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"regexp"
-	"sync"
 	"syscall"
 
-	"github.com/0xrawsec/golang-utils/log"
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
+
+// GUID is a type alias for windows.GUID. Note that syscall.GUID is not
+// equivalent.
+type GUID = windows.GUID
 
 // defaultDistro gets the name of the default distribution.
 func defaultDistro() (name string, err error) {
@@ -39,19 +41,7 @@ func defaultDistro() (name string, err error) {
 	return readRegistryDistributionName(distroDir)
 }
 
-// registeredDistros returns a slice of the registered distros.
-//
-// It is analogous to
-//
-//	`wsl.exe --list`
-func registeredDistros() (distros []Distro, err error) {
-	defer func() {
-		if err == nil {
-			return
-		}
-		err = fmt.Errorf("failed to obtain list of registered distros: %v", err)
-	}()
-
+func distroGUIDs() (distros map[string]GUID, err error) {
 	lxssKey, err := registry.OpenKey(lxssRegistry, lxssPath, registry.READ)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open lxss registry: %v", err)
@@ -60,56 +50,46 @@ func registeredDistros() (distros []Distro, err error) {
 
 	lxssData, err := lxssKey.Stat()
 	if err != nil {
-		return []Distro{}, fmt.Errorf("failed to stat lxss registry key: %v", err)
+		return nil, fmt.Errorf("failed to stat lxss registry key: %v", err)
 	}
 
 	subkeys, err := lxssKey.ReadSubKeyNames(int(lxssData.SubKeyCount))
 	if err != nil {
-		return []Distro{}, fmt.Errorf("failed to read lxss registry subkeys: %v", err)
+		return nil, fmt.Errorf("failed to read lxss registry subkeys: %v", err)
 	}
 
-	type distroErr struct {
-		distro Distro
-		err    error
-	}
-	ch := make(chan distroErr)
-
-	wg := sync.WaitGroup{}
-
-	// Typical Microsoft {8-4-4-4-12} hex code
-	// example: {ee8aef7a-846f-4561-a028-79504ce65cd3}
-	distroRegex := regexp.MustCompile(`^\{[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\}$`)
-	for _, skName := range subkeys {
-		if !distroRegex.MatchString(skName) {
+	distros = make(map[string]GUID, len(subkeys))
+	for _, key := range subkeys {
+		guid, err := windows.GUIDFromString(key)
+		if err != nil {
 			continue // Not a WSL distro
 		}
 
-		skName := skName
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			name, err := readRegistryDistributionName(skName)
+		name, err := readRegistryDistributionName(key)
+		if err != nil {
+			return nil, err
+		}
 
-			if err != nil {
-				ch <- distroErr{err: fmt.Errorf("failed to parse registry entry %s: %v", skName, err)}
-				return
-			}
-			ch <- distroErr{distro: Distro{Name: name}}
-		}()
+		distros[name] = guid
 	}
 
-	go func() {
-		wg.Wait()
-		close(ch)
-	}()
+	return distros, nil
+}
 
-	// Collecting results
-	for d := range ch {
-		if d.err != nil {
-			log.Warnf("%v", d.err)
-			continue
-		}
-		distros = append(distros, d.distro)
+// registeredDistros returns a slice of the registered distros.
+//
+// It is analogous to
+//
+//	`wsl.exe --list`
+func registeredDistros() (distros []Distro, err error) {
+	registeredDistros, err := distroGUIDs()
+	if err != nil {
+		return nil, fmt.Errorf("failed to obtain list of registered distros: %v", err)
+	}
+
+	distros = make([]Distro, len(registeredDistros))
+	for name := range registeredDistros {
+		distros = append(distros, Distro{Name: name})
 	}
 
 	return distros, nil

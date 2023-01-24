@@ -1,6 +1,8 @@
 package gowsl_test
 
 import (
+	"regexp"
+
 	wsl "github.com/ubuntu/gowsl"
 
 	"context"
@@ -161,6 +163,23 @@ configuration: error in GetConfiguration: failed to convert %q to UTF16
 			require.Equal(t, tc.wants, got)
 		})
 	}
+}
+
+func TestGUID(t *testing.T) {
+	// This test validates that the GUID is properly printed.
+	// Note that windows.GUID has a String method printing the expected
+	// format "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}", but syscall.GUID
+	// does not have such method and prints its contents like any other
+	// struct.
+	distro := wsl.Distro{Name: uniqueDistroName(t)}
+	err := distro.Register(emptyRootFs)
+	require.NoError(t, err, "could not register empty distro")
+
+	guid, err := distro.GUID()
+	require.NoError(t, err, "could not obtain GUID")
+
+	pattern := regexp.MustCompile(`^\{[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}\}$`)
+	require.Regexpf(t, pattern, fmt.Sprint(guid), "GUID does not match pattern")
 }
 
 func TestConfigurationSetters(t *testing.T) {

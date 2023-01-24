@@ -127,7 +127,7 @@ func (c *Cmd) Start() (err error) {
 		return errors.New("distro is not registered")
 	}
 
-	distroUTF16, err := syscall.UTF16PtrFromString(c.distro.Name)
+	distroUTF16, err := syscall.UTF16PtrFromString(c.distro.Name())
 	if err != nil {
 		return errors.New("failed to convert distro name to UTF16")
 	}

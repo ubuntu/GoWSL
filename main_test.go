@@ -68,7 +68,7 @@ func uniqueDistroName(t *testing.T) string {
 	t.Helper()
 	const maxAttempts = 10
 	for i := 0; i < maxAttempts; i++ {
-		d := wsl.Distro{Name: sanitizeDistroName(fmt.Sprintf("%s_%s_%s", namePrefix, t.Name(), uniqueID()))}
+		d := wsl.NewDistro(sanitizeDistroName(fmt.Sprintf("%s_%s_%s", namePrefix, t.Name(), uniqueID())))
 		// Ensuring no name collision
 		exists, err := d.IsRegistered()
 		if err != nil {
@@ -76,10 +76,10 @@ func uniqueDistroName(t *testing.T) string {
 			continue
 		}
 		if exists {
-			t.Logf("Setup: name collision generating test distro: %q.", d.Name)
+			t.Logf("Setup: name collision generating test distro: %q.", d.Name())
 			continue
 		}
-		return d.Name
+		return d.Name()
 	}
 	require.Fail(t, "Setup: failed to generate a unique name for the test distro.")
 	return ""
@@ -89,10 +89,10 @@ func uniqueDistroName(t *testing.T) string {
 func newTestDistro(t *testing.T, rootfs string) wsl.Distro {
 	t.Helper()
 
-	d := wsl.Distro{Name: uniqueDistroName(t)}
-	t.Logf("Setup: Registering %q\n", d.Name)
+	d := wsl.NewDistro(uniqueDistroName(t))
+	t.Logf("Setup: Registering %q\n", d.Name())
 
-	powershellInstallDistro(t, d.Name, rootfs)
+	powershellInstallDistro(t, d.Name(), rootfs)
 
 	t.Cleanup(func() {
 		err := cleanUpWslInstance(d)
@@ -101,7 +101,7 @@ func newTestDistro(t *testing.T, rootfs string) wsl.Distro {
 		}
 	})
 
-	t.Logf("Setup: Distro %q registered\n", d.Name)
+	t.Logf("Setup: Distro %q registered\n", d.Name())
 	return d
 }
 
@@ -162,7 +162,7 @@ func cleanUpTestWslInstances() {
 	if len(testInstances) != 0 {
 		s := ""
 		for _, d := range testInstances {
-			s = s + "\n - " + d.Name
+			s = s + "\n - " + d.Name()
 		}
 		log.Warnf("Cleanup: The following WSL distros were not properly cleaned up:%s", s)
 	}
@@ -180,10 +180,10 @@ func cleanUpWslInstance(distro wsl.Distro) error {
 	if r, err := distro.IsRegistered(); err == nil && !r {
 		return nil
 	}
-	cmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --unregister %s", distro.Name)
+	cmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --unregister %s", distro.Name())
 	_, err := exec.Command("powershell.exe", "-command", cmd).CombinedOutput() //nolint: gosec
 	if err != nil {
-		return fmt.Errorf("failed to clean up test WSL distro %q: %v", distro.Name, err)
+		return fmt.Errorf("failed to clean up test WSL distro %q: %v", distro.Name(), err)
 	}
 	return nil
 }
@@ -201,7 +201,7 @@ func registeredTestWslInstances() ([]wsl.Distro, error) {
 		if !strings.HasPrefix(line, namePrefix) {
 			continue
 		}
-		distros = append(distros, wsl.Distro{Name: line})
+		distros = append(distros, wsl.NewDistro(line))
 	}
 
 	return distros, nil

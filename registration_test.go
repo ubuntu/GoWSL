@@ -26,7 +26,7 @@ func TestRegister(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			d := wsl.Distro{Name: uniqueDistroName(t) + tc.distroSuffix}
+			d := wsl.NewDistro(uniqueDistroName(t) + tc.distroSuffix)
 			defer func() {
 				err := cleanUpWslInstance(d)
 				if err != nil {
@@ -35,23 +35,23 @@ func TestRegister(t *testing.T) {
 			}()
 
 			cancel := wslShutdownTimeout(t, time.Minute)
-			t.Logf("Registering %q", d.Name)
+			t.Logf("Registering %q", d.Name())
 			err := d.Register(tc.rootfs)
 			cancel()
 			t.Log("Registration completed")
 
 			if tc.wantError {
-				require.Errorf(t, err, "Unexpected success in registering distro %q.", d.Name)
+				require.Errorf(t, err, "Unexpected success in registering distro %q.", d.Name())
 				return
 			}
-			require.NoError(t, err, "Unexpected failure in registering distro %q.", d.Name)
+			require.NoError(t, err, "Unexpected failure in registering distro %q.", d.Name())
 			list, err := registeredTestWslInstances()
 			require.NoError(t, err, "Failed to read list of registered test distros.")
 			require.Contains(t, list, d, "Failed to find distro in list of registered distros.")
 
 			// Testing double registration failure
 			cancel = wslShutdownTimeout(t, time.Minute)
-			t.Logf("Registering %q", d.Name)
+			t.Logf("Registering %q", d.Name())
 			err = d.Register(tc.rootfs)
 			cancel()
 			t.Log("Registration completed")
@@ -64,7 +64,7 @@ func TestRegister(t *testing.T) {
 func TestRegisteredDistros(t *testing.T) {
 	d1 := newTestDistro(t, emptyRootFs)
 	d2 := newTestDistro(t, emptyRootFs)
-	d3 := wsl.Distro{Name: uniqueDistroName(t)}
+	d3 := wsl.NewDistro(uniqueDistroName(t))
 
 	list, err := wsl.RegisteredDistros()
 	require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestIsRegistered(t *testing.T) {
 			if config.register {
 				distro = newTestDistro(t, emptyRootFs)
 			} else {
-				distro = wsl.Distro{Name: uniqueDistroName(t)}
+				distro = wsl.NewDistro(uniqueDistroName(t))
 			}
 
 			reg, err := distro.IsRegistered()
@@ -116,8 +116,8 @@ func TestIsRegistered(t *testing.T) {
 
 func TestUnregister(t *testing.T) {
 	realDistro := newTestDistro(t, emptyRootFs)
-	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
-	wrongDistro := wsl.Distro{Name: uniqueDistroName(t) + "This Distro \x00 has a null char"}
+	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
+	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "This Distro \x00 has a null char")
 
 	testCases := map[string]struct {
 		distro    *wsl.Distro
@@ -134,15 +134,15 @@ func TestUnregister(t *testing.T) {
 			d := *tc.distro
 
 			cancel := wslShutdownTimeout(t, time.Minute)
-			t.Logf("Unregistering %q", d.Name)
+			t.Logf("Unregistering %q", d.Name())
 			err := d.Unregister()
 			cancel()
 			t.Log("Unregistration completed")
 
 			if tc.wantError {
-				require.Errorf(t, err, "Unexpected success in unregistering distro %q.", d.Name)
+				require.Errorf(t, err, "Unexpected success in unregistering distro %q.", d.Name())
 			} else {
-				require.NoError(t, err, "Unexpected failure in unregistering distro %q.", d.Name)
+				require.NoError(t, err, "Unexpected failure in unregistering distro %q.", d.Name())
 			}
 
 			list, err := registeredTestWslInstances()

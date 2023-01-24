@@ -17,14 +17,25 @@ import (
 
 // Distro is an abstraction around a WSL distro.
 type Distro struct {
-	Name string
+	name string
+}
+
+// NewDistro declares a new distribution, but does not register it nor
+// check if it exists.
+func NewDistro(name string) Distro {
+	return Distro{name: name}
+}
+
+// Name is a getter for the DistroName as shown in "wsl.exe --list".
+func (d Distro) Name() string {
+	return d.name
 }
 
 // Terminate powers off the distro.
 // Equivalent to:
 //  wsl --terminate <distro>
 func (d Distro) Terminate() error {
-	return terminate(d.Name)
+	return terminate(d.Name())
 }
 
 // Shutdown powers off all of WSL, including all other distros.
@@ -38,13 +49,13 @@ func Shutdown() error {
 // Equivalent to:
 //   wsl --set-default <distro>
 func (d Distro) SetAsDefault() error {
-	return setAsDefault(d.Name)
+	return setAsDefault(d.Name())
 }
 
 // DefaultDistro gets the current default distribution.
 func DefaultDistro() (Distro, error) {
 	n, e := defaultDistro()
-	return Distro{Name: n}, e
+	return NewDistro(n), e
 }
 
 // Windows' WSL_DISTRIBUTION_FLAGS
@@ -129,9 +140,9 @@ func (d Distro) GetConfiguration() (c Configuration, e error) {
 	}()
 	var conf Configuration
 
-	distroUTF16, err := syscall.UTF16PtrFromString(d.Name)
+	distroUTF16, err := syscall.UTF16PtrFromString(d.Name())
 	if err != nil {
-		return conf, fmt.Errorf("failed to convert %q to UTF16", d.Name)
+		return conf, fmt.Errorf("failed to convert %q to UTF16", d.Name())
 	}
 
 	var (
@@ -164,7 +175,7 @@ func (d Distro) String() string {
 	if err != nil {
 		return fmt.Sprintf(`distro: %s
 configuration: %v
-`, d.Name, err)
+`, d.Name(), err)
 	}
 
 	// Get sorted list of environment variables
@@ -188,7 +199,7 @@ configuration:
   - PathAppended: %t
   - DriveMountingEnabled: %t
   - undocumentedWSLVersion: %d
-  - DefaultEnvironmentVariables:%s`, d.Name, c.Version, c.DefaultUID, c.InteropEnabled, c.PathAppended,
+  - DefaultEnvironmentVariables:%s`, d.Name(), c.Version, c.DefaultUID, c.InteropEnabled, c.PathAppended,
 		c.DriveMountingEnabled, c.undocumentedWSLVersion, fmtEnvs)
 }
 
@@ -199,9 +210,9 @@ configuration:
 //  - PathAppended
 //  - DriveMountingEnabled
 func (d *Distro) configure(config Configuration) error {
-	distroUTF16, err := syscall.UTF16PtrFromString(d.Name)
+	distroUTF16, err := syscall.UTF16PtrFromString(d.Name())
 	if err != nil {
-		return fmt.Errorf("failed to convert %q to UTF16", d.Name)
+		return fmt.Errorf("failed to convert %q to UTF16", d.Name())
 	}
 
 	flags, err := config.packFlags()

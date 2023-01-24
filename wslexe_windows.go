@@ -133,7 +133,7 @@ func registeredDistros() (distros []Distro, err error) {
 				ch <- distroErr{err: fmt.Errorf("failed to parse registry entry %s: %v", skName, err)}
 				return
 			}
-			ch <- distroErr{distro: Distro{Name: name}}
+			ch <- distroErr{distro: NewDistro(name)}
 		}()
 	}
 

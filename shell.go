@@ -43,7 +43,7 @@ func (d *Distro) Shell(opts ...func(*shellOptions)) (err error) {
 		if errors.Is(err, ExitError{}) {
 			return
 		}
-		err = fmt.Errorf("error in Shell with distro %q: %v", d.Name, err)
+		err = fmt.Errorf("error in Shell with distro %q: %v", d.Name(), err)
 	}()
 
 	r, err := d.IsRegistered()
@@ -62,7 +62,7 @@ func (d *Distro) Shell(opts ...func(*shellOptions)) (err error) {
 		o(&options)
 	}
 
-	distroUTF16, err := syscall.UTF16PtrFromString(d.Name)
+	distroUTF16, err := syscall.UTF16PtrFromString(d.Name())
 	if err != nil {
 		return errors.New("failed to convert distro name to UTF16")
 	}

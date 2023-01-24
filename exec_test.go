@@ -50,7 +50,7 @@ func TestExitErrorAsString(t *testing.T) {
 
 func TestCommandRun(t *testing.T) {
 	realDistro := newTestDistro(t, rootFs)
-	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
+	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
 
 	// Poking distro to wake it up
 	err := realDistro.Command(context.Background(), "exit 0").Run()
@@ -151,8 +151,8 @@ func TestCommandRun(t *testing.T) {
 
 func TestCommandStartWait(t *testing.T) {
 	realDistro := newTestDistro(t, rootFs)
-	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
-	wrongDistro := wsl.Distro{Name: uniqueDistroName(t) + "--IHaveA\x00NullChar!"}
+	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
+	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "--IHaveA\x00NullChar!")
 
 	// Enum with various times in the execution
 	type when uint
@@ -376,8 +376,8 @@ func TestCommandOutPipes(t *testing.T) {
 
 func TestCommandOutput(t *testing.T) {
 	realDistro := newTestDistro(t, rootFs)
-	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
-	wrongDistro := wsl.Distro{Name: uniqueDistroName(t) + "--IHaveA\x00NullChar!"}
+	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
+	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "--IHaveA\x00NullChar!")
 
 	testCases := map[string]struct {
 		distro       *wsl.Distro
@@ -435,8 +435,8 @@ func TestCommandOutput(t *testing.T) {
 
 func TestCommandCombinedOutput(t *testing.T) {
 	realDistro := newTestDistro(t, rootFs)
-	fakeDistro := wsl.Distro{Name: uniqueDistroName(t)}
-	wrongDistro := wsl.Distro{Name: uniqueDistroName(t) + "--IHaveA\x00NullChar!"}
+	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
+	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "--IHaveA\x00NullChar!")
 
 	testCases := map[string]struct {
 		distro       *wsl.Distro

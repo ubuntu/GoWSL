@@ -18,7 +18,7 @@ import (
 func (d *Distro) Register(rootFsPath string) (e error) {
 	defer func() {
 		if e != nil {
-			e = fmt.Errorf("error registering %q: %v", d.Name, e)
+			e = fmt.Errorf("error registering %q: %v", d.Name(), e)
 		}
 	}()
 
@@ -35,7 +35,7 @@ func (d *Distro) Register(rootFsPath string) (e error) {
 		return errors.New("already registered")
 	}
 
-	distroUTF16, err := syscall.UTF16PtrFromString(d.Name)
+	distroUTF16, err := syscall.UTF16PtrFromString(d.Name())
 	if err != nil {
 		return errors.New("failed to convert distro name to UTF16")
 	}
@@ -65,7 +65,7 @@ func RegisteredDistros() ([]Distro, error) {
 func (d Distro) IsRegistered() (registered bool, e error) {
 	defer func() {
 		if e != nil {
-			e = fmt.Errorf("failed to detect if %q is registered: %v", d.Name, e)
+			e = fmt.Errorf("failed to detect if %q is registered: %v", d.Name(), e)
 		}
 	}()
 
@@ -75,7 +75,7 @@ func (d Distro) IsRegistered() (registered bool, e error) {
 	}
 
 	for _, dist := range distros {
-		if dist.Name != d.Name {
+		if dist.Name() != d.Name() {
 			continue
 		}
 		return true, nil
@@ -88,7 +88,7 @@ func (d Distro) IsRegistered() (registered bool, e error) {
 func (d *Distro) Unregister() (e error) {
 	defer func() {
 		if e != nil {
-			e = fmt.Errorf("failed to unregister %q: %v", d.Name, e)
+			e = fmt.Errorf("failed to unregister %q: %v", d.Name(), e)
 		}
 	}()
 
@@ -100,7 +100,7 @@ func (d *Distro) Unregister() (e error) {
 		return errors.New("not registered")
 	}
 
-	distroUTF16, err := syscall.UTF16PtrFromString(d.Name)
+	distroUTF16, err := syscall.UTF16PtrFromString(d.Name())
 	if err != nil {
 		return errors.New("failed to convert distro name to UTF16")
 	}

@@ -176,7 +176,7 @@ configuration: |
 }
 
 // The subtests can be parallel but the main body cannot, since it registers a
-// distro, possibly interfeering with other tests.
+// distro, possibly interfering with other tests.
 //
 //nolint:tparallel
 func TestGUID(t *testing.T) {

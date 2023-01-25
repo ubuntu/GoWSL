@@ -192,7 +192,9 @@ func TestGUID(t *testing.T) {
 
 	err := realDistro.Register(emptyRootFs)
 	require.NoError(t, err, "could not register empty distro")
-	t.Cleanup(func() { realDistro.Unregister() }) //nolint:errcheck // We don't care about cleanup errors
+
+	//nolint:errcheck // We don't care about cleanup errors
+	t.Cleanup(func() { realDistro.Unregister() })
 
 	// We cannot really assert on the GUID without re-implementing the distro.GUID() method,
 	// leading to circular logic that would test that our two implementations match rather

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"golang.org/x/sys/windows"
@@ -30,15 +31,19 @@ func defaultDistro() (name string, err error) {
 	defer lxssKey.Close()
 
 	target := "DefaultDistribution"
-	distroDir, _, err := lxssKey.GetStringValue(target)
+	guidVal, _, err := lxssKey.GetStringValue(target)
 	if errors.Is(err, syscall.ERROR_FILE_NOT_FOUND) {
 		return "", errors.New("no default distro")
 	}
 	if err != nil {
 		return "", fmt.Errorf("cannot find %s:%s : %v", lxssPath, target, err)
 	}
+	guid, err := windows.GUIDFromString(guidVal)
+	if err != nil {
+		return "", fmt.Errorf("could not parse default distro GUID in registry %s:%s (%s): %v", lxssPath, target, guidVal, err)
+	}
 
-	return readRegistryDistributionName(distroDir)
+	return distronameFromGUID(guid)
 }
 
 func distroGUIDs() (distros map[string]guid, err error) {
@@ -65,7 +70,7 @@ func distroGUIDs() (distros map[string]guid, err error) {
 			continue // Not a WSL distro
 		}
 
-		name, err := readRegistryDistributionName(key)
+		name, err := distronameFromGUID(guid)
 		if err != nil {
 			return nil, err
 		}
@@ -95,17 +100,12 @@ func registeredDistros() (distros []Distro, err error) {
 	return distros, nil
 }
 
-// readRegistryDistributionName returs the value of DistributionName from a registry path.
+// distronameFromGUID returs the value of DistributionName
+// from the registry path:
 //
-// An example registry path may be
-//
-//	`Software\Microsoft\Windows\CurrentVersion\Lxss\{ee8aef7a-846f-4561-a028-79504ce65cd3}`.
-//
-// Then, the registryDir is
-//
-//	`{ee8aef7a-846f-4561-a028-79504ce65cd3}`
-func readRegistryDistributionName(registryDir string) (string, error) {
-	keyPath := filepath.Join(lxssPath, registryDir)
+//	`Software\Microsoft\Windows\CurrentVersion\Lxss\$GUID`.
+func distronameFromGUID(GUID windows.GUID) (string, error) {
+	keyPath := filepath.Join(lxssPath, strings.ToLower(GUID.String()))
 
 	key, err := registry.OpenKey(lxssRegistry, keyPath, registry.QUERY_VALUE)
 	if err != nil {

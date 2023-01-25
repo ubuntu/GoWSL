@@ -36,7 +36,7 @@ func (d Distro) Name() string {
 func (d *Distro) GUID() (guid, error) {
 	ids, err := distroGUIDs()
 	if err != nil {
-		return guid{}, fmt.Errorf("error accessing the registry to obtain distro ID: %v", err)
+		return guid{}, fmt.Errorf("error accessing the registry to obtain distro GUID: %v", err)
 	}
 	id, ok := ids[d.Name()]
 	if !ok {

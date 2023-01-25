@@ -186,11 +186,15 @@ func (d Distro) GetConfiguration() (c Configuration, e error) {
 	return conf, nil
 }
 
-// String deserializes a distro and its configuration as a yaml string.
+// String deserializes a distro its GUID and its configuration as a yaml string.
+// If there is an error, it is printed as part of the yaml.
 func (d Distro) String() string {
 	return fmt.Sprintf("name: %s\n%s\n%s", d.Name(), d.guidToString(), d.configToString())
 }
 
+// guidToString shows the GUID as a yaml string.
+// It exists to simplify the implementation of (Distro).String
+// If it errors out, the message is returned as the value in the yaml.
 func (d Distro) guidToString() string {
 	id, err := d.GUID()
 	if err != nil {
@@ -199,6 +203,9 @@ func (d Distro) guidToString() string {
 	return fmt.Sprintf("guid: '%v'", id)
 }
 
+// configToString shows the configuration as a yaml string.
+// It exists to simplify the implementation of (Distro).String
+// If it errors out, the message is returned as the value in the yaml.
 func (d Distro) configToString() string {
 	c, err := d.GetConfiguration()
 	if err != nil {

@@ -33,14 +33,14 @@ func (d Distro) Name() string {
 }
 
 // GUID returns the Global Unique IDentifier for the distro.
-func (d *Distro) GUID() (GUID, error) {
+func (d *Distro) GUID() (guid, error) {
 	ids, err := distroGUIDs()
 	if err != nil {
-		return GUID{}, fmt.Errorf("error accessing the registry to obtain distro ID: %v", err)
+		return guid{}, fmt.Errorf("error accessing the registry to obtain distro ID: %v", err)
 	}
 	id, ok := ids[d.Name()]
 	if !ok {
-		return GUID{}, errors.New("distro is not registered")
+		return guid{}, errors.New("distro is not registered")
 	}
 	return id, nil
 }

@@ -10,9 +10,9 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-// GUID is a type alias for windows.GUID. Note that syscall.GUID is not
+// guid is a type alias for windows.GUID. Note that syscall.GUID is not
 // equivalent.
-type GUID = windows.GUID
+type guid = windows.GUID
 
 // defaultDistro gets the name of the default distribution.
 func defaultDistro() (name string, err error) {
@@ -41,7 +41,7 @@ func defaultDistro() (name string, err error) {
 	return readRegistryDistributionName(distroDir)
 }
 
-func distroGUIDs() (distros map[string]GUID, err error) {
+func distroGUIDs() (distros map[string]guid, err error) {
 	lxssKey, err := registry.OpenKey(lxssRegistry, lxssPath, registry.READ)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open lxss registry: %v", err)
@@ -58,7 +58,7 @@ func distroGUIDs() (distros map[string]GUID, err error) {
 		return nil, fmt.Errorf("failed to read lxss registry subkeys: %v", err)
 	}
 
-	distros = make(map[string]GUID, len(subkeys))
+	distros = make(map[string]guid, len(subkeys))
 	for _, key := range subkeys {
 		guid, err := windows.GUIDFromString(key)
 		if err != nil {

@@ -151,8 +151,7 @@ configuration:
 		"fake distro": {
 			distro: &fakeDistro,
 			wants: fmt.Sprintf(`name: %s
-guid: |
-  distro is not registered
+guid: distro is not registered
 configuration: |
   error in GetConfiguration: failed syscall to WslGetDistributionConfiguration
 `, fakeDistro.Name()),
@@ -160,8 +159,7 @@ configuration: |
 		"wrong distro": {
 			distro: &wrongDistro,
 			wants: fmt.Sprintf(`name: %s
-guid: |
-  distro is not registered
+guid: distro is not registered
 configuration: |
   error in GetConfiguration: failed to convert %q to UTF16
 `, wrongDistro.Name(), wrongDistro.Name())},

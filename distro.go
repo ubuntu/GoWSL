@@ -203,6 +203,14 @@ func (d Distro) String() string {
 // It exists to simplify the implementation of (Distro).String
 // If it errors out, the message is returned as the value in the yaml.
 func (d Distro) guidToString() string {
+	registered, err := d.IsRegistered()
+	if err != nil {
+		return fmt.Sprintf("guid: |\n  %v", err)
+	}
+	if !registered {
+		return "guid: distro is not registered"
+	}
+
 	id, err := d.GUID()
 	if err != nil {
 		return fmt.Sprintf("guid: |\n  %v", err)

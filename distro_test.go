@@ -185,6 +185,7 @@ func TestGUID(t *testing.T) {
 	// struct.
 	distro := wsl.NewDistro(uniqueDistroName(t))
 	err := distro.Register(emptyRootFs)
+	defer distro.Unregister()
 	require.NoError(t, err, "could not register empty distro")
 
 	guid, err := distro.GUID()

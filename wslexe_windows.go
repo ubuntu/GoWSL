@@ -19,7 +19,8 @@ import (
 // shutdown shuts down all distros
 //
 // It is analogous to
-//  `wsl.exe --shutdown
+//
+//	`wsl.exe --shutdown
 func shutdown() error {
 	out, err := exec.Command("wsl.exe", "--shutdown").CombinedOutput()
 	if err != nil {
@@ -31,7 +32,8 @@ func shutdown() error {
 // terminate shuts down a particular distro
 //
 // It is analogous to
-//  `wsl.exe --terminate <distroName>`
+//
+//	`wsl.exe --terminate <distroName>`
 func terminate(distroName string) error {
 	out, err := exec.Command("wsl.exe", "--terminate", distroName).CombinedOutput()
 	if err != nil {
@@ -43,7 +45,8 @@ func terminate(distroName string) error {
 // setAsDefault sets a particular distribution as the default one.
 //
 // It is analogous to
-//  `wsl.exe --set-default <distroName>`
+//
+//	`wsl.exe --set-default <distroName>`
 func setAsDefault(distroName string) error {
 	out, err := exec.Command("wsl.exe", "--set-default", distroName).CombinedOutput()
 	if err != nil {
@@ -82,7 +85,8 @@ func defaultDistro() (name string, err error) {
 // registeredDistros returns a slice of the registered distros.
 //
 // It is analogous to
-//  `wsl.exe --list`
+//
+//	`wsl.exe --list`
 func registeredDistros() (distros []Distro, err error) {
 	defer func() {
 		if err == nil {
@@ -157,10 +161,12 @@ func registeredDistros() (distros []Distro, err error) {
 // readRegistryDistributionName returs the value of DistributionName from a registry path.
 //
 // An example registry path may be
-//   `Software\Microsoft\Windows\CurrentVersion\Lxss\{ee8aef7a-846f-4561-a028-79504ce65cd3}`.
+//
+//	`Software\Microsoft\Windows\CurrentVersion\Lxss\{ee8aef7a-846f-4561-a028-79504ce65cd3}`.
 //
 // Then, the registryDir is
-//   `{ee8aef7a-846f-4561-a028-79504ce65cd3}`
+//
+//	`{ee8aef7a-846f-4561-a028-79504ce65cd3}`
 func readRegistryDistributionName(registryDir string) (string, error) {
 	keyPath := filepath.Join(lxssPath, registryDir)
 

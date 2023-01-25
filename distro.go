@@ -33,21 +33,24 @@ func (d Distro) Name() string {
 
 // Terminate powers off the distro.
 // Equivalent to:
-//  wsl --terminate <distro>
+//
+//	wsl --terminate <distro>
 func (d Distro) Terminate() error {
 	return terminate(d.Name())
 }
 
 // Shutdown powers off all of WSL, including all other distros.
 // Equivalent to:
-//   wsl --shutdown
+//
+//	wsl --shutdown
 func Shutdown() error {
 	return shutdown()
 }
 
 // SetAsDefault sets a particular distribution as the default one.
 // Equivalent to:
-//   wsl --set-default <distro>
+//
+//	wsl --set-default <distro>
 func (d Distro) SetAsDefault() error {
 	return setAsDefault(d.Name())
 }
@@ -205,10 +208,10 @@ configuration:
 
 // configure is a wrapper around Win32's WslConfigureDistribution.
 // Note that only the following config is mutable:
-//  - DefaultUID
-//  - InteropEnabled
-//  - PathAppended
-//  - DriveMountingEnabled
+//   - DefaultUID
+//   - InteropEnabled
+//   - PathAppended
+//   - DriveMountingEnabled
 func (d *Distro) configure(config Configuration) error {
 	distroUTF16, err := syscall.UTF16PtrFromString(d.Name())
 	if err != nil {

@@ -1,18 +1,18 @@
 package gowsl_test
 
 import (
-	"regexp"
-
 	wsl "github.com/ubuntu/gowsl"
 
 	"context"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/windows"
 )
 
 func TestShutdown(t *testing.T) {
@@ -177,22 +177,57 @@ configuration: |
 	}
 }
 
+// The subtests can be parallel but the main body cannot, since it registers a
+// distro, possibly interfeering with other tests.
+//
+//nolint:tparallel
 func TestGUID(t *testing.T) {
-	// This test validates that the GUID is properly printed.
+	// This test validates that the GUID is properly obtained and printed.
 	// Note that windows.GUID has a String method printing the expected
 	// format "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}", but syscall.GUID
 	// does not have such method and prints its contents like any other
 	// struct.
-	distro := wsl.NewDistro(uniqueDistroName(t))
-	err := distro.Register(emptyRootFs)
-	defer distro.Unregister()
+
+	realDistro := wsl.NewDistro(uniqueDistroName(t))
+	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
+	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "\x00invalidcharacter")
+
+	err := realDistro.Register(emptyRootFs)
 	require.NoError(t, err, "could not register empty distro")
+	t.Cleanup(func() { realDistro.Unregister() }) //nolint:errcheck // We don't care about cleanup errors
 
-	guid, err := distro.GUID()
-	require.NoError(t, err, "could not obtain GUID")
+	// We cannot really assert on the GUID without re-implementing the distro.GUID() method,
+	// leading to circular logic that would test that our two implementations match rather
+	// than their correctness.
+	//
+	// We can at least check that it adheres to the expected format with a regex
+	guidRegex := regexp.MustCompile(`^\{[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}\}$`)
 
-	pattern := regexp.MustCompile(`^\{[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}\}$`)
-	require.Regexpf(t, pattern, fmt.Sprint(guid), "GUID does not match pattern")
+	testCases := map[string]struct {
+		distro *wsl.Distro
+
+		wantErr bool
+	}{
+		"real distro":  {distro: &realDistro},
+		"fake distro":  {distro: &fakeDistro, wantErr: true},
+		"wrong distro": {distro: &wrongDistro, wantErr: true},
+	}
+
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			guid, err := tc.distro.GUID()
+			if tc.wantErr {
+				require.Error(t, err, "Unexpected success obtaining GUID of non-eligible distro")
+				return
+			}
+			require.NoError(t, err, "could not obtain GUID")
+			require.NotEqual(t, (windows.GUID{}), guid, "GUID was not initialized")
+			require.Regexpf(t, guidRegex, guid.String(), "GUID does not match pattern")
+		})
+	}
 }
 
 func TestConfigurationSetters(t *testing.T) {

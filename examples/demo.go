@@ -37,8 +37,7 @@ func main() {
 	// programs such as bash, python, etc. it'll will start an interactive session
 	// that the user can interact with. This is presumably what wsl.exe uses.
 	// It is a blocking call.
-	err := distro.Shell(wsl.WithCommand("sh -c 'powershell.exe'"))
-	if err != nil {
+	if err := distro.Shell(wsl.WithCommand("sh -c 'powershell.exe'")); err != nil {
 		fmt.Printf("Interactive session unsuccesful: %v\n", err)
 	} else {
 		fmt.Println("Interactive session succesful")
@@ -53,9 +52,9 @@ func main() {
 	distro.Command(context.Background(), `echo "Hello, world from WSL!" > "goodmorning.txt"`).Run()
 
 	// Waiting for command 1
-	err = cmd1.Wait()
+
 	target := &exec.ExitError{}
-	switch {
+	switch err := cmd1.Wait(); {
 	case err == nil:
 		fmt.Printf("Succesful async command!\n")
 	case errors.As(err, &target):
@@ -71,8 +70,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	err = distro.Command(ctx, "sleep 5 && echo 'Woke up!'").Run()
-	if err != nil {
+	if err := distro.Command(ctx, "sleep 5 && echo 'Woke up!'").Run(); err != nil {
 		fmt.Printf("Process with timeout failed: %v\n", err)
 	} else {
 		fmt.Println("Process with timeout succeeded!")

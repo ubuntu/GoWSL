@@ -7,6 +7,7 @@ package gowsl
 // This file contains utilities to interact with a Distro and its configuration
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -29,6 +30,26 @@ func NewDistro(name string) Distro {
 // Name is a getter for the DistroName as shown in "wsl.exe --list".
 func (d Distro) Name() string {
 	return d.name
+}
+
+// GUID returns the Global Unique IDentifier for the distro.
+func (d *Distro) GUID() (id guid, err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		err = fmt.Errorf("%s: GUID() returned error: %v", d.name, err)
+	}()
+
+	ids, err := distroGUIDs()
+	if err != nil {
+		return id, fmt.Errorf("error accessing the registry to obtain distro GUID: %v", err)
+	}
+	id, ok := ids[d.Name()]
+	if !ok {
+		return id, errors.New("distro is not registered")
+	}
+	return id, nil
 }
 
 // Terminate powers off the distro.
@@ -172,13 +193,38 @@ func (d Distro) GetConfiguration() (c Configuration, e error) {
 	return conf, nil
 }
 
-// String deserializes a distro and its configuration as a yaml string.
+// String deserializes a distro its GUID and its configuration as a yaml string.
+// If there is an error, it is printed as part of the yaml.
 func (d Distro) String() string {
+	return fmt.Sprintf("name: %s\n%s\n%s", d.Name(), d.guidToString(), d.configToString())
+}
+
+// guidToString shows the GUID as a yaml string.
+// It exists to simplify the implementation of (Distro).String
+// If it errors out, the message is returned as the value in the yaml.
+func (d Distro) guidToString() string {
+	registered, err := d.IsRegistered()
+	if err != nil {
+		return fmt.Sprintf("guid: |\n  %v", err)
+	}
+	if !registered {
+		return "guid: distro is not registered"
+	}
+
+	id, err := d.GUID()
+	if err != nil {
+		return fmt.Sprintf("guid: |\n  %v", err)
+	}
+	return fmt.Sprintf("guid: '%v'", id)
+}
+
+// configToString shows the configuration as a yaml string.
+// It exists to simplify the implementation of (Distro).String
+// If it errors out, the message is returned as the value in the yaml.
+func (d Distro) configToString() string {
 	c, err := d.GetConfiguration()
 	if err != nil {
-		return fmt.Sprintf(`distro: %s
-configuration: %v
-`, d.Name(), err)
+		return fmt.Sprintf("configuration: |\n  %v\n", err)
 	}
 
 	// Get sorted list of environment variables
@@ -194,15 +240,14 @@ configuration: %v
 	}
 
 	// Generate the string
-	return fmt.Sprintf(`distro: %s
-configuration:
+	return fmt.Sprintf(`configuration:
   - Version: %d
   - DefaultUID: %d
   - InteropEnabled: %t
   - PathAppended: %t
   - DriveMountingEnabled: %t
   - undocumentedWSLVersion: %d
-  - DefaultEnvironmentVariables:%s`, d.Name(), c.Version, c.DefaultUID, c.InteropEnabled, c.PathAppended,
+  - DefaultEnvironmentVariables:%s`, c.Version, c.DefaultUID, c.InteropEnabled, c.PathAppended,
 		c.DriveMountingEnabled, c.undocumentedWSLVersion, fmtEnvs)
 }
 

@@ -6,11 +6,13 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/windows"
 )
 
 func TestShutdown(t *testing.T) {
@@ -120,6 +122,9 @@ func TestDistroString(t *testing.T) {
 	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
 	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "_\x00_invalid_name")
 
+	realID, err := realDistro.GUID()
+	require.NoError(t, err, "could not get the test distro's GUID")
+
 	testCases := map[string]struct {
 		distro     *wsl.Distro
 		withoutEnv bool
@@ -127,7 +132,8 @@ func TestDistroString(t *testing.T) {
 	}{
 		"nominal": {
 			distro: &realDistro,
-			wants: fmt.Sprintf(`distro: %s
+			wants: fmt.Sprintf(`name: %s
+guid: '%v'
 configuration:
   - Version: 2
   - DefaultUID: 0
@@ -140,16 +146,22 @@ configuration:
     - LANG: en_US.UTF-8
     - PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
     - TERM: xterm-256color
-`, realDistro.Name())},
+`, realDistro.Name(), realID),
+		},
 		"fake distro": {
 			distro: &fakeDistro,
-			wants: fmt.Sprintf(`distro: %s
-configuration: error in GetConfiguration: failed syscall to WslGetDistributionConfiguration
-`, fakeDistro.Name())},
+			wants: fmt.Sprintf(`name: %s
+guid: distro is not registered
+configuration: |
+  error in GetConfiguration: failed syscall to WslGetDistributionConfiguration
+`, fakeDistro.Name()),
+		},
 		"wrong distro": {
 			distro: &wrongDistro,
-			wants: fmt.Sprintf(`distro: %s
-configuration: error in GetConfiguration: failed to convert %q to UTF16
+			wants: fmt.Sprintf(`name: %s
+guid: distro is not registered
+configuration: |
+  error in GetConfiguration: failed to convert %q to UTF16
 `, wrongDistro.Name(), wrongDistro.Name())},
 	}
 
@@ -159,6 +171,61 @@ configuration: error in GetConfiguration: failed to convert %q to UTF16
 			d := *tc.distro
 			got := d.String()
 			require.Equal(t, tc.wants, got)
+		})
+	}
+}
+
+// The subtests can be parallel but the main body cannot, since it registers a
+// distro, possibly interfering with other tests.
+//
+//nolint:tparallel
+func TestGUID(t *testing.T) {
+	// This test validates that the GUID is properly obtained and printed.
+	// Note that windows.GUID has a String method printing the expected
+	// format "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}", but syscall.GUID
+	// does not have such method and prints its contents like any other
+	// struct.
+
+	realDistro := wsl.NewDistro(uniqueDistroName(t))
+	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
+	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "\x00invalidcharacter")
+
+	err := realDistro.Register(emptyRootFs)
+	require.NoError(t, err, "could not register empty distro")
+
+	//nolint:errcheck // We don't care about cleanup errors
+	t.Cleanup(func() { realDistro.Unregister() })
+
+	// We cannot really assert on the GUID without re-implementing the distro.GUID() method,
+	// leading to circular logic that would test that our two implementations match rather
+	// than their correctness.
+	//
+	// We can at least check that it adheres to the expected format with a regex
+	guidRegex := regexp.MustCompile(`^\{[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}\}$`)
+
+	testCases := map[string]struct {
+		distro *wsl.Distro
+
+		wantErr bool
+	}{
+		"real distro":  {distro: &realDistro},
+		"fake distro":  {distro: &fakeDistro, wantErr: true},
+		"wrong distro": {distro: &wrongDistro, wantErr: true},
+	}
+
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			guid, err := tc.distro.GUID()
+			if tc.wantErr {
+				require.Error(t, err, "Unexpected success obtaining GUID of non-eligible distro")
+				return
+			}
+			require.NoError(t, err, "could not obtain GUID")
+			require.NotEqual(t, (windows.GUID{}), guid, "GUID was not initialized")
+			require.Regexpf(t, guidRegex, guid.String(), "GUID does not match pattern")
 		})
 	}
 }

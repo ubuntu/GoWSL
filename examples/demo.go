@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"time"
 
 	wsl "github.com/ubuntu/gowsl"
@@ -32,11 +33,14 @@ func main() {
 	distro.PathAppended(false)
 
 	// Launching an interactive command (should fail as per config change)
-	out, err := distro.Command(context.Background(), "sh -c 'notepad.exe'").CombinedOutput()
-	if err != nil {
-		fmt.Printf("%v\n%s", err, out)
+	// Interactive commands are printed directly to console. If you call interactive
+	// programs such as bash, python, etc. it'll will start an interactive session
+	// that the user can interact with. This is presumably what wsl.exe uses.
+	// It is a blocking call.
+	if err := distro.Shell(wsl.WithCommand("sh -c 'powershell.exe'")); err != nil {
+		fmt.Printf("Interactive session unsuccesful: %v\n", err)
 	} else {
-		fmt.Printf("Unexpected success:\n%s", out)
+		fmt.Println("Interactive session succesful")
 	}
 
 	// Launching async command 1
@@ -48,9 +52,9 @@ func main() {
 	distro.Command(context.Background(), `echo "Hello, world from WSL!" > "goodmorning.txt"`).Run()
 
 	// Waiting for command 1
-	err = cmd1.Wait()
-	target := &wsl.ExitError{}
-	switch {
+
+	target := &exec.ExitError{}
+	switch err := cmd1.Wait(); {
 	case err == nil:
 		fmt.Printf("Succesful async command!\n")
 	case errors.As(err, &target):
@@ -66,8 +70,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	err = distro.Command(ctx, "sleep 5 && echo 'Woke up!'").Run()
-	if err != nil {
+	if err := distro.Command(ctx, "sleep 5 && echo 'Woke up!'").Run(); err != nil {
 		fmt.Printf("Process with timeout failed: %v\n", err)
 	} else {
 		fmt.Println("Process with timeout succeeded!")
@@ -77,7 +80,7 @@ func main() {
 	fmt.Println("Running a command with redirected output")
 	fmt.Println()
 	// Useful so the next shell command is less verbose
-	out, err = distro.Command(context.Background(), "touch /root/.hushlogin").CombinedOutput()
+	out, err := distro.Command(context.Background(), "touch /root/.hushlogin").CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unexpected error: %v\nError message: %s", err, out)
 	}
@@ -86,15 +89,9 @@ func main() {
 	fmt.Println("\nStarting a shell in Ubuntu. Feel free to `exit <NUMBER>` to continue the demo")
 	fmt.Println("")
 
-	err = distro.Shell()
-	switch {
-	case err == nil:
-		fmt.Printf("Shell exited with exit code 0\n")
-	case errors.As(err, &target):
-		fmt.Printf("Shell exited with exit code %d\n", target.Code)
-	default:
-		fmt.Fprintf(os.Stderr, "Unexpected error: %v\n", err)
-		return
+	if err = distro.Shell(); err != nil {
+		fmt.Printf("Shell exited with an error: %v\n", err)
+	} else {
+		fmt.Println("Shell exited with no errors")
 	}
-	fmt.Println("")
 }

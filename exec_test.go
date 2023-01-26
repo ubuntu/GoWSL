@@ -3,7 +3,6 @@ package gowsl_test
 import (
 	wsl "github.com/ubuntu/gowsl"
 
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -238,22 +237,12 @@ func TestCommandStartWait(t *testing.T) {
 			if tc.cancelOn == BeforeStart {
 				cancel()
 			}
-			var stdout, stderr *bufio.Reader
+			var stdout, stderr *bytes.Buffer
 			if tc.stdoutPipe {
-				pr, err := cmd.StdoutPipe()
-				require.NoError(t, err, "Unexpected failure in call to (*Cmd).StdoutPipe")
-				stdout = bufio.NewReader(pr)
-
-				_, err = cmd.StdoutPipe()
-				require.Error(t, err, "Unexpected success calling (*Cmd).StdoutPipe twice")
+				stdout = bufferPipeOutput(t, cmd, "Stdout")
 			}
 			if tc.stderrPipe {
-				pr, err := cmd.StderrPipe()
-				require.NoError(t, err, "Unexpected failure in call to (*Cmd).StderrPipe")
-				stderr = bufio.NewReader(pr)
-
-				_, err = cmd.StderrPipe()
-				require.Error(t, err, "Unexpected success calling (*Cmd).StderrPipe twice")
+				stderr = bufferPipeOutput(t, cmd, "Stderr")
 			}
 
 			err := cmd.Wait()
@@ -267,22 +256,6 @@ func TestCommandStartWait(t *testing.T) {
 			}
 			if requireErrors(t, tc, AfterStart, err) {
 				return
-			}
-
-			if stdout != nil {
-				text, err := stdout.ReadString('\n')
-				if err != nil {
-					require.ErrorIs(t, err, io.EOF, "Unexpected failure reading from StdoutPipe")
-				}
-				assert.Equal(t, tc.wantStdout, text, "Mismatch in piped stdout")
-			}
-
-			if stderr != nil {
-				text, err := stderr.ReadString('\n')
-				if err != nil {
-					require.ErrorIs(t, err, io.EOF, "Unexpected failure reading from StderrPipe")
-				}
-				assert.Equal(t, tc.wantStderr, text, "Mismatch in piped stderr")
 			}
 
 			err = cmd.Start()
@@ -301,10 +274,43 @@ func TestCommandStartWait(t *testing.T) {
 				return
 			}
 
+			if stdout != nil {
+				assert.Equal(t, tc.wantStdout, stdout.String(), "Mismatch in piped stdout")
+			}
+			if stderr != nil {
+				assert.Equal(t, tc.wantStderr, stderr.String(), "Mismatch in piped stderr")
+			}
+
 			err = cmd.Wait()
 			require.Error(t, err, "Unexpected success calling (*Cmd).Wait twice")
 		})
 	}
+}
+
+// bufferPipeOutput buffers the output stream of a command with an intermediate pipe.
+func bufferPipeOutput(t *testing.T, cmd *wsl.Cmd, pipeName string) *bytes.Buffer {
+	t.Helper()
+
+	buffer := bytes.NewBuffer([]byte{})
+
+	StdXPipe := (*cmd).StdoutPipe
+	if pipeName == "Stderr" {
+		StdXPipe = (*cmd).StderrPipe
+	}
+
+	pr, err := StdXPipe()
+	require.NoErrorf(t, err, "Unexpected failure in call to (*Cmd).%s", pipeName)
+
+	// Goroutine will be released on (*cmd).Wait
+	go func() {
+		t.Helper()
+		n, err := io.Copy(buffer, pr)
+		assert.NoErrorf(t, err, "async error copying %s after %d bytes", pipeName, n)
+	}()
+	_, err = StdXPipe()
+	require.Errorf(t, err, "Unexpected success calling (*Cmd).%s twice", pipeName)
+
+	return buffer
 }
 
 func TestCommandOutPipes(t *testing.T) {

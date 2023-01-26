@@ -350,15 +350,13 @@ func TestCommandOutPipes(t *testing.T) {
 		"stdout to buffer, stderr to file": {stdout: buffer, stderr: file, wantInFile: "Hello stderr\n", wantInBuffer: "Hello stdout\n"},
 	}
 
-	tmpDir := t.TempDir()
-
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
 			cmd := d.Command(context.Background(), "echo 'Hello stdout' >&1 && sleep 1 && echo 'Hello stderr' >&2")
 
 			bufferRW := &bytes.Buffer{}
-			fileRW, err := os.CreateTemp(tmpDir, "log_*.txt")
+			fileRW, err := os.CreateTemp(t.TempDir(), "log_*.txt")
 			require.NoError(t, err, "could not create file")
 			defer fileRW.Close()
 
@@ -553,7 +551,6 @@ v = input("Write your text here: ")
 sleep(1)					        # Ensures we get the prompts in separate reads
 print("Your text was", v)
 '`
-	tmpDir := t.TempDir()
 
 	for name, tc := range testCases {
 		tc := tc
@@ -583,7 +580,7 @@ print("Your text was", v)
 				stdin = stdinbuff
 			case readFromFile:
 				// Writing input text to file
-				file, err := os.CreateTemp(tmpDir, "log_*.txt")
+				file, err := os.CreateTemp(t.TempDir(), "log_*.txt")
 				defer file.Close()
 				require.NoError(t, err, "setup: could not create file")
 				_, err = file.Write([]byte(tc.text + "\n"))

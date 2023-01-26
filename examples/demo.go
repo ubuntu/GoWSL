@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"time"
 
 	wsl "github.com/ubuntu/gowsl"
@@ -32,11 +33,15 @@ func main() {
 	distro.PathAppended(false)
 
 	// Launching an interactive command (should fail as per config change)
-	out, err := distro.Command(context.Background(), "sh -c 'notepad.exe'").CombinedOutput()
+	// Interactive commands are printed directly to console. If you call interactive
+	// programs such as bash, python, etc. it'll will start an interactive session
+	// that the user can interact with. This is presumably what wsl.exe uses.
+	// It is a blocking call.
+	err := distro.Shell(wsl.WithCommand("sh -c 'powershell.exe'"))
 	if err != nil {
-		fmt.Printf("%v\n%s", err, out)
+		fmt.Printf("Interactive session unsuccesful: %v\n", err)
 	} else {
-		fmt.Printf("Unexpected success:\n%s", out)
+		fmt.Println("Interactive session succesful")
 	}
 
 	// Launching async command 1
@@ -49,7 +54,7 @@ func main() {
 
 	// Waiting for command 1
 	err = cmd1.Wait()
-	target := &wsl.ExitError{}
+	target := &exec.ExitError{}
 	switch {
 	case err == nil:
 		fmt.Printf("Succesful async command!\n")
@@ -77,7 +82,7 @@ func main() {
 	fmt.Println("Running a command with redirected output")
 	fmt.Println()
 	// Useful so the next shell command is less verbose
-	out, err = distro.Command(context.Background(), "touch /root/.hushlogin").CombinedOutput()
+	out, err := distro.Command(context.Background(), "touch /root/.hushlogin").CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unexpected error: %v\nError message: %s", err, out)
 	}
@@ -86,15 +91,9 @@ func main() {
 	fmt.Println("\nStarting a shell in Ubuntu. Feel free to `exit <NUMBER>` to continue the demo")
 	fmt.Println("")
 
-	err = distro.Shell()
-	switch {
-	case err == nil:
-		fmt.Printf("Shell exited with exit code 0\n")
-	case errors.As(err, &target):
-		fmt.Printf("Shell exited with exit code %d\n", target.Code)
-	default:
-		fmt.Fprintf(os.Stderr, "Unexpected error: %v\n", err)
-		return
+	if err = distro.Shell(); err != nil {
+		fmt.Printf("Shell exited with an error: %v\n", err)
+	} else {
+		fmt.Println("Shell exited with no errors")
 	}
-	fmt.Println("")
 }

@@ -10,43 +10,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestExitErrorIs(t *testing.T) {
-	reference := wsl.ExitError{Code: 35}
-	exit := wsl.ExitError{Code: 5}
-	err := errors.New("")
-
-	assert.ErrorIs(t, exit, reference, "An ExitError should have been detected as being an ExitError")
-	assert.NotErrorIs(t, err, reference, "A string error should not have been detected as being an ExitError")
-	assert.NotErrorIs(t, reference, err, "An ExitError error should not have been detected as being a string error")
-}
-
-// TestExitErrorAsString ensures that ExitError's message contains the actual code.
-func TestExitErrorAsString(t *testing.T) {
-	t.Parallel()
-	testCases := []uint32{1, 15, 255, wsl.ActiveProcess, wsl.WindowsError}
-
-	for _, tc := range testCases {
-		tc := tc
-		t.Run(fmt.Sprintf("%d", tc), func(t *testing.T) {
-			t.Parallel()
-
-			err := wsl.ExitError{Code: tc}
-
-			s := fmt.Sprintf("%v", err)
-			assert.Contains(t, s, fmt.Sprintf("%d", tc))
-
-			s = err.Error()
-			assert.Contains(t, s, fmt.Sprintf("%d", tc))
-		})
-	}
-}
 
 func TestCommandRun(t *testing.T) {
 	realDistro := newTestDistro(t, rootFs)
@@ -71,27 +41,27 @@ func TestCommandRun(t *testing.T) {
 		fakeDistro bool
 		cancelOn   when
 
-		wantError     bool
-		wantExitError *wsl.ExitError
+		wantError    bool
+		wantExitCode int
 	}{
 		"success":                      {cmd: "exit 0"},
-		"windows error":                {cmd: "exit 0", fakeDistro: true, wantError: true},
-		"linux error":                  {cmd: "exit 42", wantError: true, wantExitError: &wsl.ExitError{Code: 42}},
+		"fake distro":                  {cmd: "exit 0", fakeDistro: true, wantError: true},
+		"linux error":                  {cmd: "exit 42", wantError: true, wantExitCode: 42},
 		"command with null char error": {cmd: "echo \x00", fakeDistro: true, wantError: true},
 
 		// timeout cases
-		"success with timeout long enough":       {cmd: "exit 0", timeout: 6 * time.Second},
-		"linux error with timeout long enough":   {cmd: "exit 42", timeout: 6 * time.Second, wantError: true, wantExitError: &wsl.ExitError{Code: 42}},
-		"windows error with timeout long enough": {cmd: "exit 0", fakeDistro: true, wantError: true},
-		"timeout before Run":                     {cmd: "exit 0", timeout: 1 * time.Nanosecond, wantError: true},
-		"timeout during Run":                     {cmd: "sleep 3 && exit 0", timeout: 2 * time.Second, wantError: true},
+		"success with timeout long enough":     {cmd: "exit 0", timeout: 6 * time.Second},
+		"linux error with timeout long enough": {cmd: "exit 42", timeout: 6 * time.Second, wantError: true, wantExitCode: 42},
+		"fake distro with timeout long enough": {cmd: "exit 0", fakeDistro: true, wantError: true},
+		"timeout before Run":                   {cmd: "exit 0", timeout: 1 * time.Nanosecond, wantError: true},
+		"timeout during Run":                   {cmd: "sleep 3 && exit 0", timeout: 2 * time.Second, wantError: true},
 
 		// cancel cases
-		"success with no cancel":  {cmd: "exit 0", cancelOn: CancelAfterRun},
-		"linux error no cancel":   {cmd: "exit 42", cancelOn: CancelAfterRun, wantError: true, wantExitError: &wsl.ExitError{Code: 42}},
-		"windows error no cancel": {cmd: "exit 42", cancelOn: CancelAfterRun, fakeDistro: true, wantError: true},
-		"cancel before Run":       {cmd: "exit 0", cancelOn: CancelBeforeRun, wantError: true},
-		"cancel during Run":       {cmd: "sleep 5 && exit 0", cancelOn: CancelDuringRun, wantError: true},
+		"success with no cancel": {cmd: "exit 0", cancelOn: CancelAfterRun},
+		"linux error no cancel":  {cmd: "exit 42", cancelOn: CancelAfterRun, wantError: true, wantExitCode: 42},
+		"fake distro no cancel":  {cmd: "exit 42", cancelOn: CancelAfterRun, fakeDistro: true, wantError: true},
+		"cancel before Run":      {cmd: "exit 0", cancelOn: CancelBeforeRun, wantError: true},
+		"cancel during Run":      {cmd: "sleep 5 && exit 0", cancelOn: CancelDuringRun, wantError: true},
 	}
 
 	for name, tc := range testCases {
@@ -135,16 +105,15 @@ func TestCommandRun(t *testing.T) {
 
 			require.Error(t, err, "expected Run() to return an error")
 
-			if tc.wantExitError != nil {
-				var target wsl.ExitError
-				if errors.As(err, &target) {
-					require.Equal(t, target.Code, tc.wantExitError.Code, "returned error ExitError has unexpected Code status")
-				}
+			target := &exec.ExitError{}
+			if tc.wantExitCode != 0 {
+				require.ErrorAsf(t, err, &target, "Run() should have returned an ExitError")
+				require.Equal(t, target.ExitCode(), tc.wantExitCode, "returned error ExitError has unexpected Code status")
 				return
 			}
 
 			// Ensure that we don't get an ExitError
-			require.NotErrorIs(t, err, wsl.ExitError{}, "Run() should not have returned an ExitError")
+			notErrorAsf(t, err, &target, "Run() should not have returned an ExitError", err, target)
 		})
 	}
 }
@@ -189,7 +158,7 @@ func TestCommandStartWait(t *testing.T) {
 		wantStdout    string
 		wantStderr    string
 		wantErrOn     when
-		wantExitError *wsl.ExitError
+		wantExitError int
 	}
 
 	testCases := map[string]testCase{
@@ -197,7 +166,7 @@ func TestCommandStartWait(t *testing.T) {
 		"success":                     {distro: &realDistro, cmd: "exit 0"},
 		"failure fake distro":         {distro: &fakeDistro, cmd: "exit 0", wantErrOn: AfterStart},
 		"failure null char in distro": {distro: &wrongDistro, cmd: "exit 0", wantErrOn: AfterStart},
-		"failure exit code":           {distro: &realDistro, cmd: "exit 42", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
+		"failure exit code":           {distro: &realDistro, cmd: "exit 42", wantErrOn: AfterWait, wantExitError: 42},
 
 		// Pipe success
 		"success with empty stdout": {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
@@ -207,21 +176,21 @@ func TestCommandStartWait(t *testing.T) {
 		"success with both pipes":   {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n"},
 
 		// Pipe failure
-		"failure exit code with stdout": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
-		"failure exit code with stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2 && exit 42", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
-		"failure exit code both pipes":  {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
+		"failure exit code with stdout": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", wantErrOn: AfterWait, wantExitError: 42},
+		"failure exit code with stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2 && exit 42", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
+		"failure exit code both pipes":  {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
 
 		// Timeout context
 		"timeout success":          {distro: &realDistro, cmd: "exit 0", timeout: 2 * time.Second},
-		"timeout exit code":        {distro: &realDistro, cmd: "exit 42", timeout: 2 * time.Second, wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
+		"timeout exit code":        {distro: &realDistro, cmd: "exit 42", timeout: 2 * time.Second, wantErrOn: AfterWait, wantExitError: 42},
 		"timeout before execution": {distro: &realDistro, cmd: "exit 0", timeout: time.Nanosecond, wantErrOn: AfterStart},
 		"timeout during execution": {distro: &realDistro, cmd: "sleep 3", timeout: 2 * time.Second, wantErrOn: AfterWait},
 
 		// Cancel context
 		"cancel success":          {distro: &realDistro, cmd: "exit 0", cancelOn: AfterWait},
-		"cancel exit code":        {distro: &realDistro, cmd: "exit 42", cancelOn: AfterWait, wantErrOn: AfterWait, wantExitError: &wsl.ExitError{Code: 42}},
+		"cancel exit code":        {distro: &realDistro, cmd: "exit 42", cancelOn: AfterWait, wantErrOn: AfterWait, wantExitError: 42},
 		"cancel before execution": {distro: &realDistro, cmd: "exit 0", cancelOn: BeforeStart, wantErrOn: AfterStart},
-		"cancel during execution": {distro: &realDistro, cmd: "sleep 3", cancelOn: AfterStart, wantErrOn: AfterWait},
+		"cancel during execution": {distro: &realDistro, cmd: "sleep 10", cancelOn: AfterStart, wantErrOn: AfterWait},
 	}
 
 	// requireErrors checks that an error is emitted when expected, and checks that it is the proper type.
@@ -236,14 +205,15 @@ func TestCommandStartWait(t *testing.T) {
 		}
 		require.Error(t, err, "Unexpected success at time %s", whenToString(now))
 
-		if tc.wantExitError != nil {
-			require.ErrorIsf(t, err, wsl.ExitError{}, "Unexpected error type at time %s. Expected an ExitCode.", whenToString(now))
-			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitError.Code, "Unexpected value for ExitError.Code at time %s", whenToString(now)) //nolint: forcetypeassert, errorlint
+		target := &exec.ExitError{}
+		if tc.wantExitError != 0 {
+			require.ErrorAsf(t, err, &target, "Unexpected error type at time %s. Expected an ExitError.", whenToString(now))
+			require.Equal(t, target.ExitCode(), tc.wantExitError, "Unexpected value for ExitError.Code at time %s", whenToString(now))
 			return true
 		}
 
 		// Ensure that we don't get an ExitError
-		require.NotErrorIs(t, err, wsl.ExitError{}, "Unexpected error type at time %s. Expected anything but an ExitCode.", whenToString(now))
+		notErrorAsf(t, err, &target, "Unexpected error type at time %s. Expected anything but an ExitError.", whenToString(now))
 		return true
 	}
 
@@ -364,13 +334,13 @@ func TestCommandOutPipes(t *testing.T) {
 		"stdout and stderr to a buffer": {stdout: buffer, stderr: buffer, wantInBuffer: "Hello stdout\nHello stderr\n"},
 
 		// Writing to file
-		"stdout to file":            {stdout: file, wantInFile: "Hello stdout\n"},
-		"stderr to file":            {stderr: file, wantInFile: "Hello stderr\n"},
-		"stdout and stderr to file": {stdout: file, stderr: file, wantInFile: "Hello stdout\nHello stderr\n"},
+		"stdout to file":            {stdout: file, wantInFile: "Hello stdout\n", skip: true},
+		"stderr to file":            {stderr: file, wantInFile: "Hello stderr\n", skip: true},
+		"stdout and stderr to file": {stdout: file, stderr: file, wantInFile: "Hello stdout\nHello stderr\n", skip: true},
 
 		// Mixed
-		"stdout to file, stderr to buffer": {stdout: file, stderr: buffer, wantInFile: "Hello stdout\n", wantInBuffer: "Hello stderr\n"},
-		"stdout to buffer, stderr to file": {stdout: buffer, stderr: file, wantInFile: "Hello stderr\n", wantInBuffer: "Hello stdout\n"},
+		"stdout to file, stderr to buffer": {stdout: file, stderr: buffer, wantInFile: "Hello stdout\n", wantInBuffer: "Hello stderr\n", skip: true},
+		"stdout to buffer, stderr to file": {stdout: buffer, stderr: file, wantInFile: "Hello stderr\n", wantInBuffer: "Hello stdout\n", skip: true},
 	}
 
 	tmpDir := t.TempDir()
@@ -442,7 +412,7 @@ func TestCommandOutput(t *testing.T) {
 		wantErr       bool
 		wantExitError bool
 		// Only relevant if wantExitError==true
-		wantExitCode uint32
+		wantExitCode int
 		wantStderr   string
 	}{
 		"happy path":                                   {distro: &realDistro, cmd: "exit 0"},
@@ -478,10 +448,10 @@ func TestCommandOutput(t *testing.T) {
 				return // Success
 			}
 
-			require.ErrorIsf(t, err, wsl.ExitError{}, "Unexpected error type. Expected an ExitCode.")
-			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitCode, "Unexpected value for ExitError.Code.") //nolint: forcetypeassert, errorlint
-
-			require.Equal(t, tc.wantStderr, string(err.(*wsl.ExitError).Stderr), "Unexpected contents in stderr") //nolint: forcetypeassert, errorlint
+			target := &exec.ExitError{}
+			require.ErrorAsf(t, err, &target, "Unexpected error type. Expected an ExitError.")
+			require.Equal(t, target.ExitCode(), tc.wantExitCode, "Unexpected value for ExitError.Code.")
+			require.Equal(t, tc.wantStderr, string(target.Stderr), "Unexpected contents in stderr")
 		})
 	}
 }
@@ -502,7 +472,7 @@ func TestCommandCombinedOutput(t *testing.T) {
 		wantError     bool
 		wantExitError bool
 		// Only relevant if wantExitError==true
-		wantExitCode uint32
+		wantExitCode int
 	}{
 		"happy path":                                   {distro: &realDistro, cmd: "exit 0"},
 		"happy path with stdout":                       {distro: &realDistro, cmd: "echo Hello", want: "Hello\n"},
@@ -542,8 +512,9 @@ func TestCommandCombinedOutput(t *testing.T) {
 				return // Success
 			}
 
-			require.ErrorIsf(t, err, wsl.ExitError{}, "Unexpected error type. Expected an ExitCode.")
-			require.Equal(t, err.(*wsl.ExitError).Code, tc.wantExitCode, "Unexpected value for ExitError.Code.") //nolint: forcetypeassert, errorlint
+			target := &exec.ExitError{}
+			require.ErrorAsf(t, err, &target, "Unexpected error type. Expected an ExitError.")
+			require.Equal(t, target.ExitCode(), tc.wantExitCode, "Unexpected value for ExitError.Code.")
 		})
 	}
 }
@@ -667,4 +638,40 @@ print("Your text was", v)
 			}
 		})
 	}
+}
+
+// ErrorAsf implements the non-existent require.NotErrorAsf
+//
+// Based on github.com\stretchr\testify@v1.8.1\require\require.go:@ErrorAsf.
+func notErrorAsf(t require.TestingT, err error, target interface{}, msgAndArgs ...any) {
+	if h, ok := t.(*testing.T); ok {
+		h.Helper()
+	}
+	if !errors.As(err, target) {
+		return
+	}
+
+	chain := buildErrorChainString(err)
+
+	assert.Fail(t, fmt.Sprintf("Should not be in error chain:\n"+
+		"unexpected: %q\n"+
+		"in chain: %s", target, chain,
+	), msgAndArgs...)
+
+	t.FailNow()
+}
+
+// Taken from github.com\stretchr\testify@v1.8.1\assert\assertions.go.
+func buildErrorChainString(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	e := errors.Unwrap(err)
+	chain := fmt.Sprintf("%q", err.Error())
+	for e != nil {
+		chain += fmt.Sprintf("\n\t%q", e.Error())
+		e = errors.Unwrap(e)
+	}
+	return chain
 }

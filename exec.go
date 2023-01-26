@@ -6,22 +6,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strconv"
 	"sync"
-	"syscall"
-	"time"
-	"unsafe"
-
-	"github.com/0xrawsec/golang-utils/log"
-)
-
-// Windows' constants.
-const (
-	WindowsError  uint32 = 4294967295 // Underflowed -1
-	ActiveProcess uint32 = 259
 )
 
 // Cmd is a wrapper around the Windows process spawned by WslLaunch.
@@ -52,30 +41,14 @@ type Cmd struct {
 	stderrW *os.File // File that acts as a writer for WSL to write stderr into
 
 	// Book-keeping
-	handle     syscall.Handle // The windows handle to the WSL process
-	finished   bool           // Flag to fail nicely when Wait is invoked twice
-	exitStatus *uint32        // Exit status of the process. Cached because it cannot be read after the preocess is closed.
+	Process      *os.Process      // The windows handle to the WSL process
+	finished     bool             // Flag to fail nicely when Wait is invoked twice
+	ProcessState *os.ProcessState // Status of the process. Cached because it cannot be read after the process is closed.
 
 	// Context management
 	ctx      context.Context // Context to kill the process before it finishes
+	ctxErr   error           // We deviate from the stdlib: "context cancelled" is more useful than "exit code 1"
 	waitDone chan struct{}   // This chanel prevents the context from attempting to kill the process when it is closed already
-}
-
-// ExitError represents a non-zero exit status from a WSL process.
-// Linux's exit errors range from 0 to 255, larger numbers correspond to Windows-side errors.
-type ExitError struct {
-	Code   uint32
-	Stderr []byte
-}
-
-func (m ExitError) Error() string {
-	return fmt.Sprintf("exit error: %d", m.Code)
-}
-
-// Is ensures ExitErrors can be matched with errors.Is().
-func (m ExitError) Is(target error) bool {
-	_, ok := target.(ExitError) //nolint: errorlint
-	return ok
 }
 
 // Command returns the Cmd struct to execute the named program with
@@ -91,12 +64,7 @@ func (d *Distro) Command(ctx context.Context, cmd string) *Cmd {
 		panic("nil Context")
 	}
 	return &Cmd{
-		Stdin:   nil,
-		Stdout:  nil,
-		Stderr:  nil,
-		UseCWD:  false,
 		distro:  d,
-		handle:  0,
 		command: cmd,
 		ctx:     ctx,
 	}
@@ -107,43 +75,17 @@ func (d *Distro) Command(ctx context.Context, cmd string) *Cmd {
 // The Wait method will return the exit code and release associated resources
 // once the command exits.
 func (c *Cmd) Start() (err error) {
-	defer func() {
-		if err == nil {
-			return
-		}
-		err = fmt.Errorf("wsl: %v", err)
-		if c.handle == 0 {
-			return
-		}
-		c.closeDescriptors(c.closeAfterStart)
-		c.closeDescriptors(c.closeAfterWait)
-	}()
-
+	// Based on exec/exec.go.
 	r, err := c.distro.IsRegistered()
 	if err != nil {
 		return err
 	}
 	if !r {
-		return errors.New("distro is not registered")
+		return errors.New("wsl: distro is not registered")
 	}
 
-	distroUTF16, err := syscall.UTF16PtrFromString(c.distro.Name())
-	if err != nil {
-		return errors.New("failed to convert distro name to UTF16")
-	}
-
-	commandUTF16, err := syscall.UTF16PtrFromString(c.command)
-	if err != nil {
-		return fmt.Errorf("failed to convert command %q to UTF16", c.command)
-	}
-
-	var useCwd wBOOL
-	if c.UseCWD {
-		useCwd = 1
-	}
-
-	if c.handle != 0 {
-		return errors.New("already started")
+	if c.Process != nil {
+		return errors.New("wsl: already started")
 	}
 
 	if c.ctx != nil {
@@ -166,30 +108,16 @@ func (c *Cmd) Start() (err error) {
 		}
 	}
 
-	r1, _, _ := wslLaunch.Call(
-		uintptr(unsafe.Pointer(distroUTF16)),
-		uintptr(unsafe.Pointer(commandUTF16)),
-		uintptr(useCwd),
-		c.stdinR.Fd(),
-		c.stdoutW.Fd(),
-		c.stderrW.Fd(),
-		uintptr(unsafe.Pointer(&c.handle)))
-
-	if r1 != 0 {
+	c.Process, err = c.startProcess()
+	if err != nil {
 		c.closeDescriptors(c.closeAfterStart)
 		c.closeDescriptors(c.closeAfterWait)
-		return fmt.Errorf("failed syscall to WslLaunch")
-	}
-	if c.handle == syscall.Handle(0) {
-		c.closeDescriptors(c.closeAfterStart)
-		c.closeDescriptors(c.closeAfterWait)
-		return fmt.Errorf("syscall to WslLaunch returned a null handle")
+		return err
 	}
 
 	c.closeDescriptors(c.closeAfterStart)
 
-	// Allocating goroutines that will monitor the pipes to copy them, and collect
-	// their errors into c.errch
+	// Don't allocate the channel unless there are goroutines to fire.
 	if len(c.goroutine) > 0 {
 		c.errch = make(chan error, len(c.goroutine))
 		for _, fn := range c.goroutine {
@@ -203,13 +131,12 @@ func (c *Cmd) Start() (err error) {
 		c.waitDone = make(chan struct{})
 		go func() {
 			select {
-			case <-c.waitDone:
-				return
 			case <-c.ctx.Done():
-			}
-			err := c.kill()
-			if err != nil {
-				log.Warnf("wsl: Failed to kill process: %v", err)
+				//nolint: errcheck // Mimicking behaviour from stdlib
+				c.Process.Kill()
+				// We deviate from the stdlib: "context cancelled" is more useful than "exit code 1"
+				c.ctxErr = c.ctx.Err()
+			case <-c.waitDone:
 			}
 		}()
 	}
@@ -220,9 +147,8 @@ func (c *Cmd) Start() (err error) {
 // Output runs the command and returns its standard output.
 // Any returned error will usually be of type *ExitError.
 // If c.Stderr was nil, Output populates ExitError.Stderr.
-//
-// Taken from exec/exec.go.
 func (c *Cmd) Output() ([]byte, error) {
+	// Taken from exec/exec.go.
 	if c.Stdout != nil {
 		return nil, errors.New("wsl: Stdout already set")
 	}
@@ -236,8 +162,12 @@ func (c *Cmd) Output() ([]byte, error) {
 
 	err := c.Run()
 	if err != nil && captureErr {
-		if ee, ok := err.(*ExitError); ok { //nolint: errorlint
-			ee.Stderr = c.Stderr.(*prefixSuffixSaver).Bytes() //nolint: forcetypeassert
+		//nolint: errorlint
+		// copied from stdlib. (*Cmd).Wait returns an unwrapped *ExitError so there should be no issue
+		if ee, ok := err.(*exec.ExitError); ok {
+			//nolint: forcetypeassert
+			// copied from stdlib. We know this to be true because it is set further up in this same function
+			ee.Stderr = c.Stderr.(*prefixSuffixSaver).Bytes()
 		}
 	}
 	return stdout.Bytes(), err
@@ -245,9 +175,8 @@ func (c *Cmd) Output() ([]byte, error) {
 
 // CombinedOutput runs the command and returns its combined standard
 // output and standard error.
-//
-// Taken from exec/exec.go.
 func (c *Cmd) CombinedOutput() ([]byte, error) {
+	// Taken from exec/exec.go.
 	if c.Stdout != nil {
 		return nil, errors.New("wsl: Stdout already set")
 	}
@@ -267,13 +196,12 @@ func (c *Cmd) CombinedOutput() ([]byte, error) {
 // A caller need only call Close to force the pipe to close sooner.
 // For example, if the command being run will not exit until standard input
 // is closed, the caller must close the pipe.
-//
-// Based on exec/exec.go.
 func (c *Cmd) StdinPipe() (io.WriteCloser, error) {
+	// Based on exec/exec.go.
 	if c.Stdin != nil {
 		return nil, errors.New("wsl: Stdin already set")
 	}
-	if c.handle != 0 {
+	if c.Process != nil {
 		return nil, errors.New("wsl: StdinPipe after process started")
 	}
 	pr, pw, err := os.Pipe()
@@ -287,22 +215,22 @@ func (c *Cmd) StdinPipe() (io.WriteCloser, error) {
 	return wc, nil
 }
 
-// Taken from exec/exec.go.
 type closeOnce struct {
+	// Taken from exec/exec.go.
 	*os.File
 
 	once sync.Once
 	err  error
 }
 
-// Taken from exec/exec.go.
 func (c *closeOnce) Close() error {
+	// Taken from exec/exec.go.
 	c.once.Do(c.close)
 	return c.err
 }
 
-// Taken from exec/exec.go.
 func (c *closeOnce) close() {
+	// Taken from exec/exec.go.
 	c.err = c.File.Close()
 }
 
@@ -313,13 +241,12 @@ func (c *closeOnce) close() {
 // need not close the pipe themselves. It is thus incorrect to call Wait
 // before all reads from the pipe have completed.
 // For the same reason, it is incorrect to call Run when using StdoutPipe.
-//
-// Based on exec/exec.go.
 func (c *Cmd) StdoutPipe() (io.ReadCloser, error) {
+	// Based on exec/exec.go.
 	if c.Stdout != nil {
 		return nil, errors.New("wsl: Stdout already set")
 	}
-	if c.handle != 0 {
+	if c.Process != nil {
 		return nil, errors.New("wsl: StdoutPipe after process started")
 	}
 	pr, pw, err := os.Pipe()
@@ -339,13 +266,12 @@ func (c *Cmd) StdoutPipe() (io.ReadCloser, error) {
 // need not close the pipe themselves. It is thus incorrect to call Wait
 // before all reads from the pipe have completed.
 // For the same reason, it is incorrect to use Run when using StderrPipe.
-//
-// Based on exec/exec.go.
 func (c *Cmd) StderrPipe() (io.ReadCloser, error) {
+	// Based on exec/exec.go.
 	if c.Stderr != nil {
 		return nil, errors.New("wsl: Stderr already set")
 	}
-	if c.handle != 0 {
+	if c.Process != nil {
 		return nil, errors.New("wsl: StderrPipe after process started")
 	}
 	pr, pw, err := os.Pipe()
@@ -366,8 +292,8 @@ func (c *Cmd) stdin() error {
 	return e
 }
 
-// Based on exec/exec.go.
 func (c *Cmd) stdout() error {
+	// Based on exec/exec.go.
 	w, e := c.writerDescriptor(c.Stdout)
 	if e == nil {
 		c.stdoutW = w
@@ -375,8 +301,8 @@ func (c *Cmd) stdout() error {
 	return e
 }
 
-// Based on exec/exec.go.
 func (c *Cmd) stderr() error {
+	// Based on exec/exec.go.
 	// Case where Stdout and Stderr are the same
 	if c.Stderr != nil && interfaceEqual(c.Stdout, c.Stderr) {
 		c.stderrW = c.stdoutW
@@ -392,9 +318,8 @@ func (c *Cmd) stderr() error {
 
 // interfaceEqual protects against panics from doing equality tests on
 // two interfaces with non-comparable underlying types.
-//
-// Taken from exec/exec.go.
 func interfaceEqual(a, b any) bool {
+	// Taken from exec/exec.go.
 	defer func() {
 		_ = recover()
 	}()
@@ -402,6 +327,7 @@ func interfaceEqual(a, b any) bool {
 }
 
 func (c *Cmd) closeDescriptors(closers []io.Closer) {
+	// Taken from exec/exec.go.
 	for _, fd := range closers {
 		fd.Close()
 	}
@@ -409,10 +335,9 @@ func (c *Cmd) closeDescriptors(closers []io.Closer) {
 
 // readerDescriptor connects an arbitrary reader to an os pipe's writer,
 // and returns this pipe's reader as a file.
-//
-// Taken from exec/exec.go:stdin.
-func (c *Cmd) readerDescriptor(reader io.Reader) (f *os.File, err error) {
-	if reader == nil {
+func (c *Cmd) readerDescriptor(r io.Reader) (f *os.File, err error) {
+	// Based on exec/exec.go:stdin.
+	if r == nil {
 		f, err = os.Open(os.DevNull)
 		if err != nil {
 			return
@@ -421,7 +346,7 @@ func (c *Cmd) readerDescriptor(reader io.Reader) (f *os.File, err error) {
 		return
 	}
 
-	if f, ok := reader.(*os.File); ok {
+	if f, ok := r.(*os.File); ok {
 		return f, nil
 	}
 
@@ -433,7 +358,7 @@ func (c *Cmd) readerDescriptor(reader io.Reader) (f *os.File, err error) {
 	c.closeAfterStart = append(c.closeAfterStart, pr)
 	c.closeAfterWait = append(c.closeAfterWait, pw)
 	c.goroutine = append(c.goroutine, func() error {
-		_, err := io.Copy(pw, reader)
+		_, err := io.Copy(pw, r)
 		if err1 := pw.Close(); err == nil {
 			err = err1
 		}
@@ -444,10 +369,9 @@ func (c *Cmd) readerDescriptor(reader io.Reader) (f *os.File, err error) {
 
 // writerDescriptor connects an arbitrary writer to an os pipe's reader,
 // and returns this pipe's writer as a file.
-//
-// Taken from exec/exec.go.
-func (c *Cmd) writerDescriptor(writer io.Writer) (f *os.File, err error) {
-	if writer == nil {
+func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
+	// Based on exec/exec.go.
+	if w == nil {
 		f, err = os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 		if err != nil {
 			return
@@ -456,7 +380,7 @@ func (c *Cmd) writerDescriptor(writer io.Writer) (f *os.File, err error) {
 		return
 	}
 
-	if f, ok := writer.(*os.File); ok {
+	if f, ok := w.(*os.File); ok {
 		return f, nil
 	}
 
@@ -468,7 +392,7 @@ func (c *Cmd) writerDescriptor(writer io.Writer) (f *os.File, err error) {
 	c.closeAfterStart = append(c.closeAfterStart, pw)
 	c.closeAfterWait = append(c.closeAfterWait, pr)
 	c.goroutine = append(c.goroutine, func() error {
-		_, err := io.Copy(writer, pr)
+		_, err := io.Copy(w, pr)
 		pr.Close() // in case io.Copy stopped due to write error
 		return err
 	})
@@ -493,25 +417,21 @@ func (c *Cmd) writerDescriptor(writer io.Writer) (f *os.File, err error) {
 //
 // Wait releases any resources associated with the Cmd.
 func (c *Cmd) Wait() error {
-	if c.handle == 0 {
-		return errors.New("in Distro.Wait: not started")
+	// Based on exec/exec.go.
+	if c.Process == nil {
+		return errors.New("wsl: not started")
 	}
 	if c.finished {
-		return errors.New("in Distro.Wait: already called")
+		return errors.New("wsl: Wait was already called")
 	}
 	c.finished = true
 
-	status, waitError := c.waitProcess()
-	// Will deal with waitError after releasing resources
-
-	// Releasing goroutines in charge of listening to context cancellation
+	state, err := c.Process.Wait()
 	if c.waitDone != nil {
 		close(c.waitDone)
 	}
-	c.exitStatus = &status
+	c.ProcessState = state
 
-	// Releasing goroutines in charge of pipe redirection. Collect
-	// their errors.
 	var copyError error
 	for range c.goroutine {
 		if err := <-c.errch; err != nil && copyError == nil {
@@ -519,52 +439,21 @@ func (c *Cmd) Wait() error {
 		}
 	}
 
-	// Releasing pipes
 	c.closeDescriptors(c.closeAfterWait)
 
-	// Reporting the errors in order of importance.
-	if waitError != nil {
-		return waitError
+	if c.ctxErr != nil {
+		// This if block does not exist in the stdlib. We deviate because
+		// printing "context cancelled" is more useful than "exit code 1".
+		return c.ctxErr
 	}
 
-	// Custom errors for particular exit status
-	if status == WindowsError {
-		return errors.New("command failed due to Windows-side error")
+	if err != nil {
+		return err
+	} else if !state.Success() {
+		return &exec.ExitError{ProcessState: state}
 	}
-	if status == ActiveProcess { // Process was most likely interrupted by context
-		if err := c.ctx.Err(); err != nil {
-			return err
-		}
-	}
-	if status != 0 {
-		return &ExitError{Code: status}
-	}
+
 	return copyError
-}
-
-func (c *Cmd) waitProcess() (uint32, error) {
-	event, statusError := syscall.WaitForSingleObject(c.handle, syscall.INFINITE)
-	if statusError != nil {
-		return WindowsError, fmt.Errorf("failed syscall to WaitForSingleObject: %v", statusError)
-	}
-	if event != syscall.WAIT_OBJECT_0 {
-		return WindowsError, fmt.Errorf("failed syscall to WaitForSingleObject, non-zero exit status %d", event)
-	}
-
-	// NOTE(brainman): It seems that sometimes process is not dead
-	// when WaitForSingleObject returns. But we do not know any
-	// other way to wait for it. Sleeping for a while seems to do
-	// the trick sometimes.
-	// See https://golang.org/issue/25965 for details.
-	time.Sleep(5 * time.Millisecond)
-
-	status, statusError := c.status()
-	ok := statusError == nil && status == 0
-
-	if err := syscall.CloseHandle(c.handle); !ok && err != nil {
-		return WindowsError, err
-	}
-	return status, statusError
 }
 
 // Run starts the specified WslProcess and waits for it to complete.
@@ -572,46 +461,19 @@ func (c *Cmd) waitProcess() (uint32, error) {
 // The returned error is nil if the command runs and exits with a zero exit status.
 //
 // If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
-//
-// Taken from exec/exec.go.
 func (c *Cmd) Run() error {
+	// Taken from exec/exec.go.
 	if err := c.Start(); err != nil {
 		return err
 	}
 	return c.Wait()
 }
 
-// status querries Windows for the process' status.
-func (c *Cmd) status() (exit uint32, err error) {
-	// Retrieving from cache in case the process has been closed
-	if c.exitStatus != nil {
-		return *c.exitStatus, nil
-	}
-
-	err = syscall.GetExitCodeProcess(c.handle, &exit)
-	if err != nil {
-		return WindowsError, fmt.Errorf("failed to retrieve exit status: %v", err)
-	}
-	return exit, nil
-}
-
-// kill gets the exit status before closing the process, without checking
-// if it has finished or not.
-func (c *Cmd) kill() error {
-	status, err := c.status()
-	c.exitStatus = nil
-	if err == nil {
-		c.exitStatus = &status
-	}
-	return syscall.TerminateProcess(c.handle, ActiveProcess)
-}
-
 // prefixSuffixSaver is an io.Writer which retains the first N bytes
 // and the last N bytes written to it. The Bytes() methods reconstructs
 // it with a pretty error message.
-//
-// Taken from exec/exec.go.
 type prefixSuffixSaver struct {
+	// Taken from exec/exec.go.
 	N         int // max size of prefix or suffix
 	prefix    []byte
 	suffix    []byte // ring buffer once len(suffix) == N
@@ -625,8 +487,8 @@ type prefixSuffixSaver struct {
 	// now just for error messages. It's only ~64KB anyway.
 }
 
-// Taken from exec/exec.go.
 func (w *prefixSuffixSaver) Write(p []byte) (n int, err error) {
+	// Taken from exec/exec.go.
 	lenp := len(p)
 	p = w.fill(&w.prefix, p)
 
@@ -652,9 +514,8 @@ func (w *prefixSuffixSaver) Write(p []byte) (n int, err error) {
 
 // fill appends up to len(p) bytes of p to *dst, such that *dst does not
 // grow larger than w.N. It returns the un-appended suffix of p.
-//
-// Taken from exec/exec.go.
 func (w *prefixSuffixSaver) fill(dst *[]byte, p []byte) (pRemain []byte) {
+	// Taken from exec/exec.go.
 	if remain := w.N - len(*dst); remain > 0 {
 		add := minInt(len(p), remain)
 		*dst = append(*dst, p[:add]...)
@@ -664,9 +525,8 @@ func (w *prefixSuffixSaver) fill(dst *[]byte, p []byte) (pRemain []byte) {
 }
 
 // Bytes returns the contents of the buffer.
-//
-// Taken from exec/exec.go.
 func (w *prefixSuffixSaver) Bytes() []byte {
+	// Taken from exec/exec.go.
 	if w.suffix == nil {
 		return w.prefix
 	}
@@ -684,8 +544,8 @@ func (w *prefixSuffixSaver) Bytes() []byte {
 	return buf.Bytes()
 }
 
-// Taken from exec/exec.go.
 func minInt(a, b int) int {
+	// Taken from exec/exec.go.
 	if a < b {
 		return a
 	}

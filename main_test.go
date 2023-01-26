@@ -35,6 +35,7 @@ func TestMain(m *testing.M) {
 	}
 	defer restore()
 
+	rand.Seed(time.Now().UnixNano())
 	exitVal := m.Run()
 
 	err = wsl.Shutdown()
@@ -44,13 +45,6 @@ func TestMain(m *testing.M) {
 	cleanUpTestWslInstances()
 
 	os.Exit(exitVal)
-}
-
-// uniqueID generates unique ID for distro names.
-func uniqueID() string {
-	rand.Seed(time.Now().UnixNano())
-	// No need for this to be cryptographically secure
-	return fmt.Sprintf("%d", rand.Intn(100_000_000)) //nolint:gosec
 }
 
 // sanitizeDistroName sanitizes the name of the disto as much as possible.
@@ -68,7 +62,10 @@ func uniqueDistroName(t *testing.T) string {
 	t.Helper()
 	const maxAttempts = 10
 	for i := 0; i < maxAttempts; i++ {
-		d := wsl.NewDistro(sanitizeDistroName(fmt.Sprintf("%s_%s_%s", namePrefix, t.Name(), uniqueID())))
+		//nolint:gosec
+		// No need for this random number to be cryptographically secure
+		d := wsl.NewDistro(sanitizeDistroName(fmt.Sprintf("%s_%s_%d", namePrefix, t.Name(), rand.Uint32())))
+
 		// Ensuring no name collision
 		exists, err := d.IsRegistered()
 		if err != nil {

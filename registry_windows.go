@@ -92,7 +92,7 @@ func registeredDistros() (distros []Distro, err error) {
 		return nil, fmt.Errorf("failed to obtain list of registered distros: %v", err)
 	}
 
-	distros = make([]Distro, len(registeredDistros))
+	distros = make([]Distro, 0, len(registeredDistros))
 	for name := range registeredDistros {
 		distros = append(distros, NewDistro(name))
 	}

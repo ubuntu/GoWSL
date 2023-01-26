@@ -38,6 +38,26 @@ func coTaskMemFree(p unsafe.Pointer) {
 	windows.CoTaskMemFree(p)
 }
 
+// Extracting the type of file a handle points to
+// https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfiletype
+type winFileType int
+
+const (
+	fileTypeChar    winFileType = 0x0002 // The specified file is a character file, typically an LPT device or a console.
+	fileTypeDisk    winFileType = 0x0001 // The specified file is a disk file.
+	fileTypePipe    winFileType = 0x0003 // The specified file is a socket, a named pipe, or an anonymous pipe.
+	fileTypeRemote  winFileType = 0x8000 // Unused.
+	fileTypeUnknown winFileType = 0x0000 // Either the type of the specified file is unknown, or the function failed.
+)
+
+func fileType(f *os.File) (winFileType, error) {
+	n, err := windows.GetFileType(windows.Handle(f.Fd()))
+	if err != nil {
+		return fileTypeUnknown, err
+	}
+	return winFileType(n), nil
+}
+
 // startProcess replaces os.StartProcess with WSL commands.
 func (c Cmd) startProcess() (process *os.Process, err error) {
 	distroUTF16, err := syscall.UTF16PtrFromString(c.distro.Name())

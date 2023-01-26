@@ -328,7 +328,6 @@ func TestCommandOutPipes(t *testing.T) {
 		stdout stream
 		stderr stream
 
-		skip         bool // Known bugs
 		wantInFile   string
 		wantInBuffer string
 	}{
@@ -340,13 +339,13 @@ func TestCommandOutPipes(t *testing.T) {
 		"stdout and stderr to a buffer": {stdout: buffer, stderr: buffer, wantInBuffer: "Hello stdout\nHello stderr\n"},
 
 		// Writing to file
-		"stdout to file":            {stdout: file, wantInFile: "Hello stdout\n", skip: true},
-		"stderr to file":            {stderr: file, wantInFile: "Hello stderr\n", skip: true},
-		"stdout and stderr to file": {stdout: file, stderr: file, wantInFile: "Hello stdout\nHello stderr\n", skip: true},
+		"stdout to file":            {stdout: file, wantInFile: "Hello stdout\n"},
+		"stderr to file":            {stderr: file, wantInFile: "Hello stderr\n"},
+		"stdout and stderr to file": {stdout: file, stderr: file, wantInFile: "Hello stdout\nHello stderr\n"},
 
 		// Mixed
-		"stdout to file, stderr to buffer": {stdout: file, stderr: buffer, wantInFile: "Hello stdout\n", wantInBuffer: "Hello stderr\n", skip: true},
-		"stdout to buffer, stderr to file": {stdout: buffer, stderr: file, wantInFile: "Hello stderr\n", wantInBuffer: "Hello stdout\n", skip: true},
+		"stdout to file, stderr to buffer": {stdout: file, stderr: buffer, wantInFile: "Hello stdout\n", wantInBuffer: "Hello stderr\n"},
+		"stdout to buffer, stderr to file": {stdout: buffer, stderr: file, wantInFile: "Hello stderr\n", wantInBuffer: "Hello stdout\n"},
 	}
 
 	tmpDir := t.TempDir()
@@ -354,10 +353,6 @@ func TestCommandOutPipes(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			if tc.skip {
-				t.Skip("Skipping test because it is a known bug")
-			}
-
 			cmd := d.Command(context.Background(), "echo 'Hello stdout' >&1 && sleep 1 && echo 'Hello stderr' >&2")
 
 			bufferRW := &bytes.Buffer{}

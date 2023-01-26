@@ -347,7 +347,16 @@ func (c *Cmd) readerDescriptor(r io.Reader) (f *os.File, err error) {
 	}
 
 	if f, ok := r.(*os.File); ok {
-		return f, nil
+		ft, err := fileType(f)
+		if err == nil && ft == fileTypePipe {
+			// It's a pipe: no need to create our own pipe.
+			return f, nil
+		}
+		// General case: it is not a pipe (or we don't know for sure).
+		// As such, we create a pipe to connect WslLaunch to the file.
+		// This would seem unnecessary, but for some reason WslLaunch
+		// fails silently if you try to redirect its streams
+		// to something other than a pipe.
 	}
 
 	pr, pw, err := os.Pipe()
@@ -381,7 +390,16 @@ func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
 	}
 
 	if f, ok := w.(*os.File); ok {
-		return f, nil
+		ft, err := fileType(f)
+		if err == nil && ft == fileTypePipe {
+			// It's a pipe: no need to create our own pipe.
+			return f, nil
+		}
+		// General case: it is not a pipe (or we don't know for sure).
+		// As such, we create a pipe to connect WslLaunch to the file.
+		// This would seem unnecessary, but for some reason WslLaunch
+		// fails silently if you try to redirect its streams
+		// to something other than a pipe.
 	}
 
 	pr, pw, err := os.Pipe()

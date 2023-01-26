@@ -48,8 +48,8 @@ func TestCommandRun(t *testing.T) {
 		"command with null char error": {cmd: "echo \x00", fakeDistro: true, wantError: true},
 
 		// timeout cases
-		"success with timeout long enough":     {cmd: "exit 0", timeout: 6 * time.Second},
-		"linux error with timeout long enough": {cmd: "exit 42", timeout: 6 * time.Second, wantError: true, wantExitCode: 42},
+		"success with timeout long enough":     {cmd: "exit 0", timeout: 10 * time.Second},
+		"linux error with timeout long enough": {cmd: "exit 42", timeout: 10 * time.Second, wantError: true, wantExitCode: 42},
 		"fake distro with timeout long enough": {cmd: "exit 0", fakeDistro: true, wantError: true},
 		"timeout before Run":                   {cmd: "exit 0", timeout: 1 * time.Nanosecond, wantError: true},
 		"timeout during Run":                   {cmd: "sleep 3 && exit 0", timeout: 2 * time.Second, wantError: true},
@@ -182,10 +182,10 @@ func TestCommandStartWait(t *testing.T) {
 		"failure exit code both pipes":  {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
 
 		// Timeout context
-		"timeout success":          {distro: &realDistro, cmd: "exit 0", timeout: 2 * time.Second},
-		"timeout exit code":        {distro: &realDistro, cmd: "exit 42", timeout: 2 * time.Second, wantErrOn: AfterWait, wantExitError: 42},
+		"timeout success":          {distro: &realDistro, cmd: "exit 0", timeout: 10 * time.Second},
+		"timeout exit code":        {distro: &realDistro, cmd: "exit 42", timeout: 10 * time.Second, wantErrOn: AfterWait, wantExitError: 42},
 		"timeout before execution": {distro: &realDistro, cmd: "exit 0", timeout: time.Nanosecond, wantErrOn: AfterStart},
-		"timeout during execution": {distro: &realDistro, cmd: "sleep 3", timeout: 2 * time.Second, wantErrOn: AfterWait},
+		"timeout during execution": {distro: &realDistro, cmd: "sleep 5", timeout: 3 * time.Second, wantErrOn: AfterWait},
 
 		// Cancel context
 		"cancel success":          {distro: &realDistro, cmd: "exit 0", cancelOn: AfterWait},

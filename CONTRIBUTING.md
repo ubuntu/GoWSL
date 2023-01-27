@@ -26,14 +26,14 @@ Contributions are made to this project via Issues and Pull Requests (PRs). A few
 
 * To report security vulnerabilities, please use the advisories page of the repository and not a public bug report.
 * Search for existing Issues and PRs before creating your own.
-* We work hard to make sure issues are handled in a timely manner but, depending on the impact, it could take a while to investigate the root cause. A friendly ping in the comment thread to the submitter or a contributor can help draw attention if your issue is blocking.
+* We work hard to make sure issues are handled promptly but, depending on the impact, it could take a while to investigate the root cause. A friendly ping in the comment thread to the submitter or a contributor can help draw attention if your issue is blocking.
 * If you've never contributed before, see [this Ubuntu discourse post](https://discourse.ubuntu.com/t/contribute/26) for resources and tips on how to get started.
 
 ### Issues
 
 Issues should be used to report problems with the software, request a new feature, or discuss potential changes before a PR is created. When you create a new Issue, a template will be loaded that will guide you through collecting and providing the information we need to investigate.
 
-If you find an Issue that addresses the problem you're having, please add your own reproduction information to the existing issue rather than creating a new one. Adding a [reaction](https://github.blog/2016-03-10-add-reactions-to-pull-requests-issues-and-comments/) can also help be indicating to our maintainers that a particular problem is affecting more than just the reporter.
+If you find an Issue that addresses the problem you're having, please add your reproduction information to the existing issue rather than creating a new one. Adding a [reaction](https://github.blog/2016-03-10-add-reactions-to-pull-requests-issues-and-comments/) can also help be indicating to our maintainers that a particular problem is affecting more than just the reporter.
 
 ### Pull Requests
 
@@ -92,7 +92,7 @@ The test suite must pass before merging the PR to our main branch. Any new featu
 
 ## Contributor Licence Agreement
 
-It is required to sign the [Contributor Licence Agreement](https://ubuntu.com/legal/contributors) in order to contribute to this project.
+It is required to sign the [Contributor Licence Agreement](https://ubuntu.com/legal/contributors) to contribute to this project.
 
 An automated test is executed on PRs to check if it has been accepted.
 

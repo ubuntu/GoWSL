@@ -1,6 +1,7 @@
 package gowsl_test
 
 import (
+	"github.com/google/uuid"
 	wsl "github.com/ubuntu/gowsl"
 
 	"context"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sys/windows"
 )
 
 func TestShutdown(t *testing.T) {
@@ -201,7 +201,7 @@ func TestGUID(t *testing.T) {
 	// than their correctness.
 	//
 	// We can at least check that it adheres to the expected format with a regex
-	guidRegex := regexp.MustCompile(`^\{[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}\}$`)
+	guidRegex := regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
 
 	testCases := map[string]struct {
 		distro *wsl.Distro
@@ -224,7 +224,7 @@ func TestGUID(t *testing.T) {
 				return
 			}
 			require.NoError(t, err, "could not obtain GUID")
-			require.NotEqual(t, (windows.GUID{}), guid, "GUID was not initialized")
+			require.NotEqual(t, (uuid.UUID{}), guid, "GUID was not initialized")
 			require.Regexpf(t, guidRegex, guid.String(), "GUID does not match pattern")
 		})
 	}

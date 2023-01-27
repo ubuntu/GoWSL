@@ -16,7 +16,7 @@ func main() {
 
 	// Registering a new distro
 	fmt.Printf("Registering a new distro %q\n", distro.Name())
-	if err := distro.Register(`.\images\rootfs.tar.gz`); err != nil {
+	if err := distro.Register(`images/rootfs.tar.gz`); err != nil {
 		fmt.Fprintf(os.Stderr, "Unexpected error: %v\n", err)
 		return
 	}

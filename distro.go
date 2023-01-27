@@ -10,10 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
-	"sync"
-	"syscall"
-	"unsafe"
+
+	"github.com/google/uuid"
 )
 
 // Distro is an abstraction around a WSL distro.
@@ -33,7 +31,7 @@ func (d Distro) Name() string {
 }
 
 // GUID returns the Global Unique IDentifier for the distro.
-func (d *Distro) GUID() (id guid, err error) {
+func (d *Distro) GUID() (id uuid.UUID, err error) {
 	defer func() {
 		if err == nil {
 			return
@@ -41,11 +39,11 @@ func (d *Distro) GUID() (id guid, err error) {
 		err = fmt.Errorf("%s: GUID() returned error: %v", d.name, err)
 	}()
 
-	ids, err := distroGUIDs()
+	distros, err := registeredDistros()
 	if err != nil {
 		return id, fmt.Errorf("error accessing the registry to obtain distro GUID: %v", err)
 	}
-	id, ok := ids[d.Name()]
+	id, ok := distros[d.Name()]
 	if !ok {
 		return id, errors.New("distro is not registered")
 	}
@@ -77,9 +75,37 @@ func (d Distro) SetAsDefault() error {
 }
 
 // DefaultDistro gets the current default distribution.
-func DefaultDistro() (Distro, error) {
-	n, e := defaultDistro()
-	return NewDistro(n), e
+func DefaultDistro() (d Distro, err error) {
+	// First, we find out the GUID of the default distro
+	r, err := openRegistry(lxssPath)
+	if err != nil {
+		return d, err
+	}
+	defer r.close()
+
+	guid, err := r.field("DefaultDistribution")
+	if err != nil {
+		return d, err
+	}
+
+	// Safety check: we ensure the gui is valid
+	if _, err = uuid.Parse(guid); err != nil {
+		return d, fmt.Errorf("registry returned invalid GUID: %s", guid)
+	}
+
+	// Last, we find out the name of the distro
+	r, err = openRegistry(lxssPath, guid)
+	if err != nil {
+		return d, err
+	}
+	defer r.close()
+
+	name, err := r.field("DistributionName")
+	if err != nil {
+		return d, err
+	}
+
+	return NewDistro(name), err
 }
 
 // Windows' WSL_DISTRIBUTION_FLAGS
@@ -163,33 +189,21 @@ func (d Distro) GetConfiguration() (c Configuration, e error) {
 		}
 	}()
 	var conf Configuration
+	var flags wslFlags
 
-	distroUTF16, err := syscall.UTF16PtrFromString(d.Name())
+	err := wslGetDistributionConfiguration(
+		d.Name(),
+		&conf.Version,
+		&conf.DefaultUID,
+		&flags,
+		&conf.DefaultEnvironmentVariables,
+	)
+
 	if err != nil {
-		return conf, fmt.Errorf("failed to convert %q to UTF16", d.Name())
-	}
-
-	var (
-		flags        wslFlags
-		envVarsBegin **char
-		envVarsLen   uint64 // size_t
-	)
-
-	r1, _, _ := wslGetDistributionConfiguration.Call(
-		uintptr(unsafe.Pointer(distroUTF16)),
-		uintptr(unsafe.Pointer(&conf.Version)),
-		uintptr(unsafe.Pointer(&conf.DefaultUID)),
-		uintptr(unsafe.Pointer(&flags)),
-		uintptr(unsafe.Pointer(&envVarsBegin)),
-		uintptr(unsafe.Pointer(&envVarsLen)),
-	)
-
-	if r1 != 0 {
-		return conf, fmt.Errorf("failed syscall to WslGetDistributionConfiguration")
+		return conf, err
 	}
 
 	conf.unpackFlags(flags)
-	conf.DefaultEnvironmentVariables = processEnvVariables(envVarsBegin, envVarsLen)
 	return conf, nil
 }
 
@@ -258,27 +272,12 @@ func (d Distro) configToString() string {
 //   - PathAppended
 //   - DriveMountingEnabled
 func (d *Distro) configure(config Configuration) error {
-	distroUTF16, err := syscall.UTF16PtrFromString(d.Name())
-	if err != nil {
-		return fmt.Errorf("failed to convert %q to UTF16", d.Name())
-	}
-
 	flags, err := config.packFlags()
 	if err != nil {
 		return err
 	}
 
-	r1, _, _ := wslConfigureDistribution.Call(
-		uintptr(unsafe.Pointer(distroUTF16)),
-		uintptr(config.DefaultUID),
-		uintptr(flags),
-	)
-
-	if r1 != 0 {
-		return fmt.Errorf("failed syscall to WslConfigureDistribution")
-	}
-
-	return nil
+	return wslConfigureDistribution(d.Name(), config.DefaultUID, flags)
 }
 
 // unpackFlags examines a winWslFlags object and stores its findings in the Configuration.
@@ -329,76 +328,4 @@ func (conf Configuration) packFlags() (wslFlags, error) {
 	}
 
 	return flags, nil
-}
-
-// processEnvVariables takes the (**char, length) obtained from Win32's API and returs a
-// map[variableName]variableValue. It also deallocates each of the *char strings as well
-// as the **char array.
-func processEnvVariables(cStringArray **char, len uint64) map[string]string {
-	stringPtrs := unsafe.Slice(cStringArray, len)
-
-	env := make(chan struct {
-		key   string
-		value string
-	})
-
-	wg := sync.WaitGroup{}
-	for _, cStr := range stringPtrs {
-		cStr := cStr
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			goStr := stringCtoGo(cStr, 32768)
-			idx := strings.Index(goStr, "=")
-			env <- struct {
-				key   string
-				value string
-			}{
-				key:   strings.Clone(goStr[:idx]),
-				value: strings.Clone(goStr[idx+1:]),
-			}
-			coTaskMemFree(unsafe.Pointer(cStr))
-		}()
-	}
-
-	// Cleanup
-	go func() {
-		wg.Wait()
-		coTaskMemFree(unsafe.Pointer(cStringArray))
-		close(env)
-	}()
-
-	// Collecting results
-	m := map[string]string{}
-
-	for kv := range env {
-		m[kv.key] = kv.value
-	}
-
-	return m
-}
-
-// stringCtoGo converts a null-terminated *char into a string
-// maxlen is the max distance that will searched. It is meant
-// to prevent or mitigate buffer overflows.
-func stringCtoGo(cString *char, maxlen uint64) (goString string) {
-	size := strnlen(cString, maxlen)
-	return string(unsafe.Slice(cString, size))
-}
-
-// strnlen finds the null terminator to determine *char length.
-// The null terminator itself is not counted towards the length.
-// maxlen is the max distance that will searched. It is meant to
-// prevent or mitigate buffer overflows.
-func strnlen(ptr *char, maxlen uint64) (length uint64) {
-	length = 0
-	for ; *ptr != 0 && length <= maxlen; ptr = charNext(ptr) {
-		length++
-	}
-	return length
-}
-
-// charNext advances *char by one position.
-func charNext(ptr *char) *char {
-	return (*char)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr)) + unsafe.Sizeof(char(0))))
 }

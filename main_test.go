@@ -23,8 +23,8 @@ import (
 
 const (
 	namePrefix  string = "wsltesting"
-	emptyRootFs string = `.\images\empty.tar.gz`  // Empty non-functional image. It registers instantly.
-	rootFs      string = `.\images\rootfs.tar.gz` // Fully functional rootfs
+	emptyRootFs string = `./images/empty.tar.gz`  // Empty non-functional image. It registers instantly.
+	rootFs      string = `./images/rootfs.tar.gz` // Fully functional rootfs
 )
 
 func TestMain(m *testing.M) {

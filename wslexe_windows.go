@@ -1,7 +1,6 @@
 package gowsl
 
-// This file contains utilities to access functionality often accessed via wsl.exe,
-// with the advantage (sometimes) of not needing to start a subprocess.
+// This file contains utilities to access functionality accessed via wsl.exe
 
 import (
 	"fmt"
@@ -46,4 +45,3 @@ func setAsDefault(distroName string) error {
 	}
 	return nil
 }
-

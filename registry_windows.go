@@ -4,119 +4,57 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"syscall"
 
-	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
 
-// guid is a type alias for windows.GUID. Note that syscall.GUID is not
-// equivalent.
-type guid = windows.GUID
+// registryKey wraps around a Windows registry key.
+// Create it by calling openRegistry. Must be closed after use with registryKey.close.
+type registryKey struct {
+	key  registry.Key
+	path string // For error message purposes
+}
 
-// defaultDistro gets the name of the default distribution.
-func defaultDistro() (name string, err error) {
-	defer func() {
-		if err == nil {
-			return
-		}
-		err = fmt.Errorf("failed to obtain default distro: %v", err)
-	}()
+const (
+	lxssReg  = registry.CURRENT_USER
+	lxssPath = `Software\Microsoft\Windows\CurrentVersion\Lxss\`
+)
 
-	lxssKey, err := registry.OpenKey(lxssRegistry, lxssPath, registry.READ)
-	if err != nil {
-		return "", fmt.Errorf("failed to open lxss registry: %v", err)
+// openRegistry opens a registry key at the chosen path. Multiple arguments will be
+// joined to form the path.
+func openRegistry(path ...string) (r *registryKey, err error) {
+	r = &registryKey{
+		path: filepath.Join(path...),
 	}
-	defer lxssKey.Close()
+	return r, nil
+}
 
-	target := "DefaultDistribution"
-	guidVal, _, err := lxssKey.GetStringValue(target)
+// close releases the key.
+func (r registryKey) close() (err error) {
+	defer decorate.OnError(&err, "registry: could not close HKEY_CURRENT_USER\\%s", r.path)
+	return r.key.Close()
+}
+
+// field obtains the value of a field. The value must be a string.
+func (r registryKey) field(name string) (value string, err error) {
+	value, _, err = r.key.GetStringValue(name)
 	if errors.Is(err, syscall.ERROR_FILE_NOT_FOUND) {
-		return "", errors.New("no default distro")
+		return value, errors.New("field not found")
 	}
 	if err != nil {
-		return "", fmt.Errorf("cannot find %s:%s : %v", lxssPath, target, err)
+		return value, err
 	}
-	guid, err := windows.GUIDFromString(guidVal)
-	if err != nil {
-		return "", fmt.Errorf("could not parse default distro GUID in registry %s:%s (%s): %v", lxssPath, target, guidVal, err)
-	}
-
-	return distronameFromGUID(guid)
+	return value, nil
 }
 
-func distroGUIDs() (distros map[string]guid, err error) {
-	lxssKey, err := registry.OpenKey(lxssRegistry, lxssPath, registry.READ)
+// subkeyNames returns a slice containing the names of the current key's children.
+func (r registryKey) subkeyNames() (subkeys []string, err error) {
+	defer decorate.OnError(&err, "registry: could not access subkeys under HKEY_CURRENT_USER\\%s", r.path)
+
+	keyInfo, err := r.key.Stat()
 	if err != nil {
-		return nil, fmt.Errorf("failed to open lxss registry: %v", err)
+		return nil, fmt.Errorf("could not stat parent registry key: %v", err)
 	}
-	defer lxssKey.Close()
-
-	lxssData, err := lxssKey.Stat()
-	if err != nil {
-		return nil, fmt.Errorf("failed to stat lxss registry key: %v", err)
-	}
-
-	subkeys, err := lxssKey.ReadSubKeyNames(int(lxssData.SubKeyCount))
-	if err != nil {
-		return nil, fmt.Errorf("failed to read lxss registry subkeys: %v", err)
-	}
-
-	distros = make(map[string]guid, len(subkeys))
-	for _, key := range subkeys {
-		guid, err := windows.GUIDFromString(key)
-		if err != nil {
-			continue // Not a WSL distro
-		}
-
-		name, err := distronameFromGUID(guid)
-		if err != nil {
-			return nil, err
-		}
-
-		distros[name] = guid
-	}
-
-	return distros, nil
-}
-
-// registeredDistros returns a slice of the registered distros.
-//
-// It is analogous to
-//
-//	`wsl.exe --list`
-func registeredDistros() (distros []Distro, err error) {
-	registeredDistros, err := distroGUIDs()
-	if err != nil {
-		return nil, fmt.Errorf("failed to obtain list of registered distros: %v", err)
-	}
-
-	distros = make([]Distro, 0, len(registeredDistros))
-	for name := range registeredDistros {
-		distros = append(distros, NewDistro(name))
-	}
-
-	return distros, nil
-}
-
-// distronameFromGUID returs the value of DistributionName
-// from the registry path:
-//
-//	`Software\Microsoft\Windows\CurrentVersion\Lxss\$GUID`.
-func distronameFromGUID(GUID windows.GUID) (string, error) {
-	keyPath := filepath.Join(lxssPath, strings.ToLower(GUID.String()))
-
-	key, err := registry.OpenKey(lxssRegistry, keyPath, registry.QUERY_VALUE)
-	if err != nil {
-		return "", fmt.Errorf("cannot find key %s: %v", keyPath, err)
-	}
-	defer key.Close()
-
-	target := "DistributionName"
-	name, _, err := key.GetStringValue(target)
-	if err != nil {
-		return "", fmt.Errorf("cannot find %s:%s : %v", keyPath, target, err)
-	}
-	return name, nil
+	return r.key.ReadSubKeyNames(int(keyInfo.SubKeyCount))
 }

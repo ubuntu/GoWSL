@@ -108,7 +108,15 @@ func (c *Cmd) Start() (err error) {
 		}
 	}
 
-	c.Process, err = c.startProcess()
+	c.Process, err = WslLaunch(
+		c.distro.Name(),
+		c.command,
+		c.UseCWD,
+		c.stdinR,
+		c.stdoutW,
+		c.stderrW,
+	)
+
 	if err != nil {
 		c.closeDescriptors(c.closeAfterStart)
 		c.closeDescriptors(c.closeAfterWait)
@@ -347,7 +355,7 @@ func (c *Cmd) readerDescriptor(r io.Reader) (f *os.File, err error) {
 	}
 
 	if f, ok := r.(*os.File); ok {
-		ft, err := fileType(f)
+		ft, err := queryFileType(f)
 		if err == nil && ft == fileTypePipe {
 			// It's a pipe: no need to create our own pipe.
 			return f, nil
@@ -390,7 +398,7 @@ func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
 	}
 
 	if f, ok := w.(*os.File); ok {
-		ft, err := fileType(f)
+		ft, err := queryFileType(f)
 		if err == nil && ft == fileTypePipe {
 			// It's a pipe: no need to create our own pipe.
 			return f, nil

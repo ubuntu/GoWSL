@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
-	"unsafe"
+
+	"github.com/google/uuid"
 )
 
 // Register is a wrapper around Win32's WslRegisterDistribution.
@@ -29,36 +29,59 @@ func (d *Distro) Register(rootFsPath string) (e error) {
 
 	r, err := d.IsRegistered()
 	if err != nil {
-		return errors.New("failed to detect if it is already installed")
+		return err
 	}
 	if r {
 		return errors.New("already registered")
 	}
 
-	distroUTF16, err := syscall.UTF16PtrFromString(d.Name())
-	if err != nil {
-		return errors.New("failed to convert distro name to UTF16")
-	}
-
-	rootFsPathUTF16, err := syscall.UTF16PtrFromString(rootFsPath)
-	if err != nil {
-		return fmt.Errorf("failed to convert rootfs '%q' to UTF16", rootFsPath)
-	}
-
-	r1, _, _ := wslRegisterDistribution.Call(
-		uintptr(unsafe.Pointer(distroUTF16)),
-		uintptr(unsafe.Pointer(rootFsPathUTF16)))
-
-	if r1 != 0 {
-		return fmt.Errorf("failed syscall to wslRegisterDistribution")
-	}
-
-	return nil
+	return wslRegisterDistribution(d.Name(), rootFsPath)
 }
 
 // RegisteredDistros returns a slice of the registered distros.
-func RegisteredDistros() ([]Distro, error) {
-	return registeredDistros()
+func RegisteredDistros() (distros []Distro, err error) {
+	names, err := registeredDistros()
+	if err != nil {
+		return distros, err
+	}
+	for name := range names {
+		distros = append(distros, NewDistro(name))
+	}
+	return distros, nil
+}
+
+// RegisteredDistros returns a map of the registered distros and their GUID.
+func registeredDistros() (distros map[string]uuid.UUID, err error) {
+	r, err := openRegistry(lxssPath)
+	if err != nil {
+		return nil, err
+	}
+	defer r.close()
+
+	subkeys, err := r.subkeyNames()
+
+	distros = make(map[string]uuid.UUID, len(subkeys))
+	for _, key := range subkeys {
+		guid, err := uuid.Parse(key)
+		if err != nil {
+			continue // Not a WSL distro
+		}
+
+		r, err = openRegistry(lxssPath, key)
+		if err != nil {
+			return nil, err
+		}
+		defer r.close()
+
+		name, err := r.field("DistributionName")
+		if err != nil {
+			return nil, err
+		}
+
+		distros[name] = guid
+	}
+
+	return distros, nil
 }
 
 // IsRegistered returns a boolean indicating whether a distro is registered or not.
@@ -100,17 +123,7 @@ func (d *Distro) Unregister() (e error) {
 		return errors.New("not registered")
 	}
 
-	distroUTF16, err := syscall.UTF16PtrFromString(d.Name())
-	if err != nil {
-		return errors.New("failed to convert distro name to UTF16")
-	}
-
-	r1, _, _ := wslUnregisterDistribution.Call(uintptr(unsafe.Pointer(distroUTF16)))
-
-	if r1 != 0 {
-		return fmt.Errorf("failed syscall to WslLaunchInteractive")
-	}
-	return nil
+	return wslUnregisterDistribution(d.Name())
 }
 
 // fixPath deals with the fact that WslRegisterDistribuion is

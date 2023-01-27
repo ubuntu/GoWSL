@@ -31,7 +31,7 @@ Contributions are made to this project via Issues and Pull Requests (PRs). A few
 
 ### Issues
 
-Issues should be used to report problems with the software, request a new feature, or to discuss potential changes before a PR is created. When you create a new Issue, a template will be loaded that will guide you through collecting and providing the information we need to investigate.
+Issues should be used to report problems with the software, request a new feature, or discuss potential changes before a PR is created. When you create a new Issue, a template will be loaded that will guide you through collecting and providing the information we need to investigate.
 
 If you find an Issue that addresses the problem you're having, please add your own reproduction information to the existing issue rather than creating a new one. Adding a [reaction](https://github.blog/2016-03-10-add-reactions-to-pull-requests-issues-and-comments/) can also help be indicating to our maintainers that a particular problem is affecting more than just the reporter.
 
@@ -39,17 +39,17 @@ If you find an Issue that addresses the problem you're having, please add your o
 
 PRs to our project are always welcome and can be a quick way to get your fix or improvement slated for the next release. In general, PRs should:
 
-* Only fix/add the functionality in question **OR** address wide-spread whitespace/style issues, not both.
+* Only fix/add the functionality in question **OR** address widespread whitespace/style issues, not both.
 * Add unit or integration tests for fixed or changed functionality.
 * Address a single concern in the least number of changed lines as possible.
 * Include documentation in the repository.
 * Be accompanied by a complete Pull Request template (loaded automatically when a PR is created).
 
-For changes that address core functionality or would require breaking changes (e.g. a major release), it's best to open an Issue to discuss your proposal first. This is not required but can save time creating and reviewing changes.
+For changes that address core functionality or would require breaking changes (e.g. a major release), it's best to open an Issue to discuss your proposal first. This is not required but can save time in creating and reviewing changes.
 
 In general, we follow the ["fork-and-pull" Git workflow](https://github.com/susam/gitpr)
 
-1. Fork the repository to your own Github account
+1. Fork the repository to your own GitHub account
 1. Clone the project to your machine
 1. Create a branch locally with a succinct but descriptive name
 1. Commit changes to the branch
@@ -63,7 +63,7 @@ In general, we follow the ["fork-and-pull" Git workflow](https://github.com/susa
 
 ### Required dependencies and setup
 
-You can set every thing manually if you want, it is quite simple (you can look at the CI for reference). But we also provide you with a way to
+You can set everything manually if you want, it is quite simple (you can look at the CI for reference). But we also provide you with a way to
 get it up and running automatically. You only need to install [Winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/). This will
 be used only in the setup, you can uninstall it later.
 
@@ -73,7 +73,7 @@ This setup is only necessary if you want to run an example or the test suite. If
 
 ### Building an example program
 
-You will find some example code in [the example folder](examples/demo.go). It consists of installing an ubuntu WSL distribution,
+You will find an example program in [the example folder](examples/demo.go). It consists of installing an ubuntu WSL distribution,
 running some asynchronous and interactive commands to it, and finally unregistering it.
 
 To run it, complete the setup explained in the previous section and simply run:
@@ -82,9 +82,9 @@ To run it, complete the setup explained in the previous section and simply run:
 go run .\examples\demo.go
 ```
 
-### About the testsuite
+### About the test suite
 
-The project includes a comprehensive testsuite made of unit and integration tests. All the tests must pass with and without the race detector.
+The project includes a comprehensive test suite made of unit and integration tests. All the tests must pass with and without the race detector.
 
 You can run all tests with: `go test ./...` (add `-race` for race detection).
 

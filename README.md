@@ -1,6 +1,5 @@
 # GoWSL
-
-This module ofers an idiomatic interface between your Go code and the Windows Subsystem for Linux (WSL) API (`wslApi.dll`  and ocasionally `wsl.exe`). It offers wrappers around common actions to manage WSL distros.
+This module offers an idiomatic interface between your Go code and the Windows Subsystem for Linux (WSL) API (`wslApi.dll`  and occasionally `wsl.exe`). It offers wrappers around common actions to manage WSL distros.
 
 [![Code quality](https://github.com/ubuntu/gowsl/workflows/Test/badge.svg)](https://github.com/ubuntu/gowsl/actions/workflows/test.yaml?query=workflow%3Atest)
 [![Go Reference](https://pkg.go.dev/badge/github.com/ubuntu/gowsl.svg)](https://pkg.go.dev/github.com/ubuntu/gowsl)
@@ -9,7 +8,7 @@ This module ofers an idiomatic interface between your Go code and the Windows Su
 
 ## Aim
 
-We aim not to extend the aforementioned API, but rather to provide a safe, idomatic, and easy-to-use wrapper around it. The goal is to enable the development of applications that build on top of it.
+We aim not to extend the aforementioned API, but rather to provide a safe, idiomatic, and easy-to-use wrapper around it. The goal is to enable the development of applications that build on top of it.
 
 ## Requirements
 

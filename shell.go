@@ -2,6 +2,8 @@ package gowsl
 
 import (
 	"fmt"
+
+	"github.com/ubuntu/decorate"
 )
 
 // ShellError returns error information when shell commands do not succeed.

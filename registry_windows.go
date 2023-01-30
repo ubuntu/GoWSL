@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/ubuntu/decorate"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -17,8 +18,8 @@ type registryKey struct {
 }
 
 const (
-	lxssReg  = registry.CURRENT_USER
-	lxssPath = `Software\Microsoft\Windows\CurrentVersion\Lxss\`
+	lxssReg  = registry.CURRENT_USER                             // Registry that is used
+	lxssPath = `Software\Microsoft\Windows\CurrentVersion\Lxss\` // Path to the Lxss registry key. All WSL info is under this path
 )
 
 // openRegistry opens a registry key at the chosen path. Multiple arguments will be
@@ -27,7 +28,11 @@ func openRegistry(path ...string) (r *registryKey, err error) {
 	r = &registryKey{
 		path: filepath.Join(path...),
 	}
-	return r, nil
+
+	defer decorate.OnError(&err, "registry: could not open HKEY_CURRENT_USER\\%s", r.path)
+
+	r.key, err = registry.OpenKey(lxssReg, r.path, registry.READ)
+	return r, err
 }
 
 // close releases the key.
@@ -38,6 +43,8 @@ func (r registryKey) close() (err error) {
 
 // field obtains the value of a field. The value must be a string.
 func (r registryKey) field(name string) (value string, err error) {
+	defer decorate.OnError(&err, "registry: could not access string field %s in HKEY_CURRENT_USER\\%s", name, r.path)
+
 	value, _, err = r.key.GetStringValue(name)
 	if errors.Is(err, syscall.ERROR_FILE_NOT_FOUND) {
 		return value, errors.New("field not found")

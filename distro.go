@@ -12,6 +12,7 @@ import (
 	"sort"
 
 	"github.com/google/uuid"
+	"github.com/ubuntu/decorate"
 )
 
 // Distro is an abstraction around a WSL distro.
@@ -32,16 +33,11 @@ func (d Distro) Name() string {
 
 // GUID returns the Global Unique IDentifier for the distro.
 func (d *Distro) GUID() (id uuid.UUID, err error) {
-	defer func() {
-		if err == nil {
-			return
-		}
-		err = fmt.Errorf("%s: GUID() returned error: %v", d.name, err)
-	}()
+	defer decorate.OnError(&err, "could not obtain GUID of %s", d.name)
 
 	distros, err := registeredDistros()
 	if err != nil {
-		return id, fmt.Errorf("error accessing the registry to obtain distro GUID: %v", err)
+		return id, err
 	}
 	id, ok := distros[d.Name()]
 	if !ok {
@@ -76,6 +72,8 @@ func (d Distro) SetAsDefault() error {
 
 // DefaultDistro gets the current default distribution.
 func DefaultDistro() (d Distro, err error) {
+	defer decorate.OnError(&err, "could not obtain the default distro")
+
 	// First, we find out the GUID of the default distro
 	r, err := openRegistry(lxssPath)
 	if err != nil {

@@ -4,7 +4,12 @@ go 1.20
 
 require golang.org/x/sys v0.5.0
 
-require github.com/google/uuid v1.3.0
+require (
+	github.com/google/uuid v1.3.0
+	github.com/ubuntu/decorate v0.0.0-20230125165522-2d5b0a9bb117
+)
+
+require github.com/sirupsen/logrus v1.9.0 // indirect
 
 require (
 	github.com/0xrawsec/golang-utils v1.3.2

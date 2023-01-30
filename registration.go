@@ -5,24 +5,20 @@ package gowsl
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/google/uuid"
+	"github.com/ubuntu/decorate"
 )
 
 // Register is a wrapper around Win32's WslRegisterDistribution.
 // It creates a new distro with a copy of the given tarball as
 // its filesystem.
-func (d *Distro) Register(rootFsPath string) (e error) {
-	defer func() {
-		if e != nil {
-			e = fmt.Errorf("error registering %q: %v", d.Name(), e)
-		}
-	}()
+func (d *Distro) Register(rootFsPath string) (err error) {
+	defer decorate.OnError(&err, "could not register %s from rootfs in %s", d.name, rootFsPath)
 
-	rootFsPath, err := fixPath(rootFsPath)
+	rootFsPath, err = fixPath(rootFsPath)
 	if err != nil {
 		return err
 	}
@@ -40,6 +36,8 @@ func (d *Distro) Register(rootFsPath string) (e error) {
 
 // RegisteredDistros returns a slice of the registered distros.
 func RegisteredDistros() (distros []Distro, err error) {
+	defer decorate.OnError(&err, "could not obtain registered distros")
+
 	names, err := registeredDistros()
 	if err != nil {
 		return distros, err
@@ -85,42 +83,29 @@ func registeredDistros() (distros map[string]uuid.UUID, err error) {
 }
 
 // IsRegistered returns a boolean indicating whether a distro is registered or not.
-func (d Distro) IsRegistered() (registered bool, e error) {
-	defer func() {
-		if e != nil {
-			e = fmt.Errorf("failed to detect if %q is registered: %v", d.Name(), e)
-		}
-	}()
+func (d Distro) IsRegistered() (registered bool, err error) {
+	defer decorate.OnError(&err, "could not determine if %s is registered", d.name)
 
-	distros, err := RegisteredDistros()
+	distros, err := registeredDistros()
 	if err != nil {
 		return false, err
 	}
 
-	for _, dist := range distros {
-		if dist.Name() != d.Name() {
-			continue
-		}
-		return true, nil
-	}
-	return false, nil
+	_, found := distros[d.Name()]
+	return found, nil
 }
 
 // Unregister is a wrapper around Win32's WslUnregisterDistribution.
 // It irreparably destroys a distro and its filesystem.
-func (d *Distro) Unregister() (e error) {
-	defer func() {
-		if e != nil {
-			e = fmt.Errorf("failed to unregister %q: %v", d.Name(), e)
-		}
-	}()
+func (d *Distro) Unregister() (err error) {
+	defer decorate.OnError(&err, "could not unregister %q")
 
 	r, err := d.IsRegistered()
 	if err != nil {
 		return err
 	}
 	if !r {
-		return errors.New("not registered")
+		return errors.New("distro is not registered")
 	}
 
 	return wslUnregisterDistribution(d.Name())
@@ -135,7 +120,7 @@ func fixPath(relative string) (string, error) {
 	}
 
 	if _, err := os.Stat(abs); errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("file %q does not exist", abs)
+		return "", errors.New("file not found")
 	}
 	return abs, nil
 }

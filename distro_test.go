@@ -152,15 +152,15 @@ configuration:
 			wants: fmt.Sprintf(`name: %s
 guid: distro is not registered
 configuration: |
-  error in GetConfiguration: failed syscall to WslGetDistributionConfiguration
-`, fakeDistro.Name()),
+  could not access configuration for %s: WslGetDistributionConfiguration: failed syscall
+`, fakeDistro.Name(), fakeDistro.Name()),
 		},
 		"wrong distro": {
 			distro: &wrongDistro,
 			wants: fmt.Sprintf(`name: %s
 guid: distro is not registered
 configuration: |
-  error in GetConfiguration: failed to convert %q to UTF16
+  could not access configuration for %s: WslGetDistributionConfiguration: could not convert distro name to UTF16
 `, wrongDistro.Name(), wrongDistro.Name())},
 	}
 

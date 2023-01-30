@@ -6,13 +6,16 @@ import (
 	"errors"
 	"math"
 	"os"
+
+	"github.com/ubuntu/decorate"
 )
 
 func queryFileType(f *os.File) (fileType, error) {
 	return 0, errors.New("not implemented")
 }
 
-func wslConfigureDistribution(distributionName string, defaultUID uint32, wslDistributionFlags wslFlags) error {
+func wslConfigureDistribution(distributionName string, defaultUID uint32, wslDistributionFlags wslFlags) (err error) {
+	defer decorate.OnError(&err, "WslConfigureDistribution")
 	return errors.New("not implemented")
 }
 
@@ -20,7 +23,8 @@ func wslGetDistributionConfiguration(distributionName string,
 	distributionVersion *uint8,
 	defaultUID *uint32,
 	wslDistributionFlags *wslFlags,
-	defaultEnvironmentVariables *map[string]string) error {
+	defaultEnvironmentVariables *map[string]string) (err error) {
+	defer decorate.OnError(&err, "WslGetDistributionConfiguration")
 	return errors.New("not implemented")
 }
 
@@ -30,17 +34,21 @@ func wslLaunch(distroName string,
 	stdin *os.File,
 	stdout *os.File,
 	stderr *os.File) (process *os.Process, err error) {
+	defer decorate.OnError(&err, "WslLaunch")
 	return nil, errors.New("not implemented")
 }
 
-func wslLaunchInteractive(distributionName string, command string, useCurrentWorkingDirectory bool) (uint32, error) {
+func wslLaunchInteractive(distributionName string, command string, useCurrentWorkingDirectory bool) (exitCode uint32, err error) {
+	defer decorate.OnError(&err, "WslLaunchInteractive")
 	return math.MaxUint32, errors.New("not implemented")
 }
 
-func wslRegisterDistribution(distributionName string, tarGzFilename string) error {
+func wslRegisterDistribution(distributionName string, tarGzFilename string) (err error) {
+	defer decorate.OnError(&err, "WslRegisterDistribution")
 	return errors.New("not implemented")
 }
 
-func wslUnregisterDistribution(distributionName string) error {
+func wslUnregisterDistribution(distributionName string) (err error) {
+	defer decorate.OnError(&err, "WslUnregisterDistribution")
 	return errors.New("not implemented")
 }

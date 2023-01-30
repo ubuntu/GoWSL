@@ -135,7 +135,9 @@ type Configuration struct {
 }
 
 // DefaultUID sets the user to the one specified.
-func (d *Distro) DefaultUID(uid uint32) error {
+func (d *Distro) DefaultUID(uid uint32) (err error) {
+	defer decorate.OnError(&err, "could not modify flag DEFAULT_UID for %s", d.name)
+
 	conf, err := d.GetConfiguration()
 	if err != nil {
 		return err
@@ -146,7 +148,9 @@ func (d *Distro) DefaultUID(uid uint32) error {
 
 // InteropEnabled sets the ENABLE_INTEROP flag to the provided value.
 // Enabling allows you to launch Windows executables from WSL.
-func (d *Distro) InteropEnabled(value bool) error {
+func (d *Distro) InteropEnabled(value bool) (err error) {
+	defer decorate.OnError(&err, "could not modify flag ENABLE_INTEROP for %s", d.name)
+
 	conf, err := d.GetConfiguration()
 	if err != nil {
 		return err
@@ -158,7 +162,9 @@ func (d *Distro) InteropEnabled(value bool) error {
 // PathAppended sets the APPEND_NT_PATH flag to the provided value.
 // Enabling it allows WSL to append /mnt/c/... (or wherever your mount
 // point is) in front of Windows executables.
-func (d *Distro) PathAppended(value bool) error {
+func (d *Distro) PathAppended(value bool) (err error) {
+	defer decorate.OnError(&err, "could not modify flag APPEND_NT_PATH for %s", d.name)
+
 	conf, err := d.GetConfiguration()
 	if err != nil {
 		return err
@@ -169,7 +175,9 @@ func (d *Distro) PathAppended(value bool) error {
 
 // DriveMountingEnabled sets the ENABLE_DRIVE_MOUNTING flag to the provided value.
 // Enabling it mounts the windows filesystem into WSL's.
-func (d *Distro) DriveMountingEnabled(value bool) error {
+func (d *Distro) DriveMountingEnabled(value bool) (err error) {
+	defer decorate.OnError(&err, "could not modify flag ENABLE_DRIVE_MOUNTING for %s", d.name)
+
 	conf, err := d.GetConfiguration()
 	if err != nil {
 		return err
@@ -180,16 +188,13 @@ func (d *Distro) DriveMountingEnabled(value bool) error {
 
 // GetConfiguration is a wrapper around Win32's WslGetDistributionConfiguration.
 // It returns a configuration object with information about the distro.
-func (d Distro) GetConfiguration() (c Configuration, e error) {
-	defer func() {
-		if e != nil {
-			e = fmt.Errorf("error in GetConfiguration: %v", e)
-		}
-	}()
+func (d Distro) GetConfiguration() (c Configuration, err error) {
+	defer decorate.OnError(&err, "could not access configuration for %s", d.name)
+
 	var conf Configuration
 	var flags wslFlags
 
-	err := wslGetDistributionConfiguration(
+	err = wslGetDistributionConfiguration(
 		d.Name(),
 		&conf.Version,
 		&conf.DefaultUID,
@@ -215,7 +220,7 @@ func (d Distro) String() string {
 // It exists to simplify the implementation of (Distro).String
 // If it errors out, the message is returned as the value in the yaml.
 func (d Distro) guidToString() string {
-	registered, err := d.IsRegistered()
+	registered, err := d.isRegistered()
 	if err != nil {
 		return fmt.Sprintf("guid: |\n  %v", err)
 	}

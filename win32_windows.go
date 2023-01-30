@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/ubuntu/decorate"
 	"golang.org/x/sys/windows"
 )
 
@@ -27,9 +28,8 @@ var (
 )
 
 // Windows' typedefs.
-type wBOOL = int     // Windows' BOOL
-type wULONG = uint32 // Windows' ULONG
-type char = byte     // Windows' CHAR (which is the same as C's char)
+type wBOOL = int // Windows' BOOL
+type char = byte // Windows' CHAR (which is the same as C's char)
 
 func queryFileType(f *os.File) (fileType, error) {
 	n, err := windows.GetFileType(windows.Handle(f.Fd()))
@@ -47,14 +47,16 @@ func wslLaunch(
 	stdin *os.File,
 	stdout *os.File,
 	stderr *os.File) (process *os.Process, err error) {
-	distroUTF16, err := syscall.UTF16PtrFromString(c.distro.Name())
+	defer decorate.OnError(&err, "WslLaunch")
+
+	distroUTF16, err := syscall.UTF16PtrFromString(distroName)
 	if err != nil {
-		return nil, errors.New("failed to convert distro name to UTF16")
+		return nil, errors.New("could not convert distro name to UTF16")
 	}
 
 	commandUTF16, err := syscall.UTF16PtrFromString(command)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert command %q to UTF16", c.command)
+		return nil, errors.New("could not convert command to UTF16")
 	}
 
 	var useCwdInt wBOOL
@@ -73,10 +75,10 @@ func wslLaunch(
 		uintptr(unsafe.Pointer(&handle)))
 
 	if r1 != 0 {
-		return nil, fmt.Errorf("failed syscall to WslLaunch")
+		return nil, errors.New("failed syscall")
 	}
 	if handle == windows.Handle(0) {
-		return nil, fmt.Errorf("syscall to WslLaunch returned a null handle")
+		return nil, errors.New("syscall returned a null handle")
 	}
 
 	pid, err := windows.GetProcessId(handle)
@@ -87,10 +89,12 @@ func wslLaunch(
 	return os.FindProcess(int(pid))
 }
 
-func wslConfigureDistribution(distributionName string, defaultUID uint32, wslDistributionFlags wslFlags) error {
+func wslConfigureDistribution(distributionName string, defaultUID uint32, wslDistributionFlags wslFlags) (err error) {
+	defer decorate.OnError(&err, "WslConfigureDistribution")
+
 	distroUTF16, err := syscall.UTF16PtrFromString(distributionName)
 	if err != nil {
-		return fmt.Errorf("failed to convert %q to UTF16", distributionName)
+		return errors.New("could not convert distro name to UTF16")
 	}
 
 	r1, _, _ := apiWslConfigureDistribution.Call(
@@ -100,7 +104,7 @@ func wslConfigureDistribution(distributionName string, defaultUID uint32, wslDis
 	)
 
 	if r1 != 0 {
-		return fmt.Errorf("failed syscall to WslConfigureDistribution")
+		return fmt.Errorf("failed syscall")
 	}
 
 	return nil
@@ -110,10 +114,12 @@ func wslGetDistributionConfiguration(distributionName string,
 	distributionVersion *uint8,
 	defaultUID *uint32,
 	wslDistributionFlags *wslFlags,
-	defaultEnvironmentVariables *map[string]string) error {
+	defaultEnvironmentVariables *map[string]string) (err error) {
+	defer decorate.OnError(&err, "WslGetDistributionConfiguration")
+
 	distroUTF16, err := syscall.UTF16PtrFromString(distributionName)
 	if err != nil {
-		return fmt.Errorf("failed to convert %q to UTF16", distributionName)
+		return errors.New("could not convert distro name to UTF16")
 	}
 
 	var (
@@ -131,7 +137,7 @@ func wslGetDistributionConfiguration(distributionName string,
 	)
 
 	if r1 != 0 {
-		return fmt.Errorf("failed syscall to WslGetDistributionConfiguration")
+		return fmt.Errorf("failed syscall")
 	}
 
 	*defaultEnvironmentVariables = processEnvVariables(envVarsBegin, envVarsLen)
@@ -139,15 +145,17 @@ func wslGetDistributionConfiguration(distributionName string,
 }
 
 func wslLaunchInteractive(distributionName string, command string, useCurrentWorkingDirectory bool) (exitCode uint32, err error) {
+	defer decorate.OnError(&err, "WslLaunchInteractive")
+
 	exitCode = math.MaxUint32
 	distroUTF16, err := syscall.UTF16PtrFromString(distributionName)
 	if err != nil {
-		return exitCode, errors.New("failed to convert distro name to UTF16")
+		return exitCode, errors.New("could not convert distro name to UTF16")
 	}
 
 	commandUTF16, err := syscall.UTF16PtrFromString(command)
 	if err != nil {
-		return exitCode, fmt.Errorf("failed to convert command %q to UTF16", command)
+		return exitCode, errors.New("could not convert command to UTF16")
 	}
 
 	var useCwd wBOOL
@@ -162,21 +170,23 @@ func wslLaunchInteractive(distributionName string, command string, useCurrentWor
 		uintptr(unsafe.Pointer(&exitCode)))
 
 	if r1 != 0 {
-		return exitCode, fmt.Errorf("failed syscall to WslLaunchInteractive")
+		return exitCode, fmt.Errorf("failed syscall")
 	}
 
 	return exitCode, nil
 }
 
-func wslRegisterDistribution(distributionName string, tarGzFilename string) error {
+func wslRegisterDistribution(distributionName string, tarGzFilename string) (err error) {
+	defer decorate.OnError(&err, "WslRegisterDistribution")
+
 	distroUTF16, err := syscall.UTF16PtrFromString(distributionName)
 	if err != nil {
-		return errors.New("failed to convert distro name to UTF16")
+		return errors.New("could not convert distro name to UTF16")
 	}
 
 	tarGzFilenameUTF16, err := syscall.UTF16PtrFromString(tarGzFilename)
 	if err != nil {
-		return fmt.Errorf("failed to convert rootfs '%q' to UTF16", tarGzFilename)
+		return errors.New("could not convert rootfs path to UTF16")
 	}
 
 	r1, _, _ := apiWslRegisterDistribution.Call(
@@ -184,22 +194,24 @@ func wslRegisterDistribution(distributionName string, tarGzFilename string) erro
 		uintptr(unsafe.Pointer(tarGzFilenameUTF16)))
 
 	if r1 != 0 {
-		return fmt.Errorf("failed syscall to wslRegisterDistribution")
+		return errors.New("failed syscall")
 	}
 
 	return nil
 }
 
-func wslUnregisterDistribution(distributionName string) error {
+func wslUnregisterDistribution(distributionName string) (err error) {
+	defer decorate.OnError(&err, "WslUnregisterDistribution")
+
 	distroUTF16, err := syscall.UTF16PtrFromString(distributionName)
 	if err != nil {
-		return errors.New("failed to convert distro name to UTF16")
+		return errors.New("could not convert distro name to UTF16")
 	}
 
 	r1, _, _ := apiWslUnregisterDistribution.Call(uintptr(unsafe.Pointer(distroUTF16)))
 
 	if r1 != 0 {
-		return fmt.Errorf("failed syscall to WslLaunchInteractive")
+		return fmt.Errorf("failed syscall")
 	}
 	return nil
 }

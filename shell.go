@@ -77,8 +77,10 @@ func WithCommand(cmd string) ShellOption {
 //	PS> "exit 5" | wsl.exe
 //
 // Can be used with optional helper parameters UseCWD and WithCommand.
-func (d *Distro) Shell(args ...ShellOption) error {
-	r, err := d.IsRegistered()
+func (d *Distro) Shell(args ...ShellOption) (err error) {
+	defer decorate.OnError(&err, "unsuccessful shell into distro %s", d.name)
+
+	r, err := d.isRegistered()
 	if err != nil {
 		return err
 	}

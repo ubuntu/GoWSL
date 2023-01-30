@@ -6,11 +6,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strconv"
 	"sync"
+
+	"github.com/ubuntu/decorate"
 )
 
 // Cmd is a wrapper around the Windows process spawned by WslLaunch.
@@ -75,17 +78,19 @@ func (d *Distro) Command(ctx context.Context, cmd string) *Cmd {
 // The Wait method will return the exit code and release associated resources
 // once the command exits.
 func (c *Cmd) Start() (err error) {
+	defer decorate.OnError(&err, "could not start Cmd on distro %s with command %q", c.distro.name, c.command)
+
 	// Based on exec/exec.go.
-	r, err := c.distro.IsRegistered()
+	r, err := c.distro.isRegistered()
 	if err != nil {
 		return err
 	}
 	if !r {
-		return errors.New("wsl: distro is not registered")
+		return errors.New("distro is not registered")
 	}
 
 	if c.Process != nil {
-		return errors.New("wsl: already started")
+		return errors.New("already started")
 	}
 
 	if c.ctx != nil {
@@ -155,10 +160,11 @@ func (c *Cmd) Start() (err error) {
 // Output runs the command and returns its standard output.
 // Any returned error will usually be of type *ExitError.
 // If c.Stderr was nil, Output populates ExitError.Stderr.
-func (c *Cmd) Output() ([]byte, error) {
+func (c *Cmd) Output() (out []byte, err error) {
 	// Taken from exec/exec.go.
+	// Not decorated to avoid stuttering when calling Run
 	if c.Stdout != nil {
-		return nil, errors.New("wsl: Stdout already set")
+		return nil, fmt.Errorf("in call to Cmd.Output on distro %s with command %q: Stdout already set", c.distro.name, c.command)
 	}
 	var stdout bytes.Buffer
 	c.Stdout = &stdout
@@ -168,14 +174,13 @@ func (c *Cmd) Output() ([]byte, error) {
 		c.Stderr = &prefixSuffixSaver{N: 32 << 10}
 	}
 
-	err := c.Run()
+	err = c.Run()
 	if err != nil && captureErr {
-		//nolint: errorlint
-		// copied from stdlib. (*Cmd).Wait returns an unwrapped *ExitError so there should be no issue
-		if ee, ok := err.(*exec.ExitError); ok {
+		target := &exec.ExitError{}
+		if errors.As(err, &target) {
 			//nolint: forcetypeassert
 			// copied from stdlib. We know this to be true because it is set further up in this same function
-			ee.Stderr = c.Stderr.(*prefixSuffixSaver).Bytes()
+			target.Stderr = c.Stderr.(*prefixSuffixSaver).Bytes()
 		}
 	}
 	return stdout.Bytes(), err
@@ -183,18 +188,19 @@ func (c *Cmd) Output() ([]byte, error) {
 
 // CombinedOutput runs the command and returns its combined standard
 // output and standard error.
-func (c *Cmd) CombinedOutput() ([]byte, error) {
+func (c *Cmd) CombinedOutput() (out []byte, err error) {
 	// Taken from exec/exec.go.
+	// Not decorated to avoid stuttering when calling Run
 	if c.Stdout != nil {
-		return nil, errors.New("wsl: Stdout already set")
+		return nil, fmt.Errorf("in call to Cmd.CombinedOutput on distro %s with command %q: Stdout already set", c.distro.name, c.command)
 	}
 	if c.Stderr != nil {
-		return nil, errors.New("wsl: Stderr already set")
+		return nil, fmt.Errorf("in call to Cmd.CombinedOutput on distro %s with command %q: Stderr already set", c.distro.name, c.command)
 	}
 	var b bytes.Buffer
 	c.Stdout = &b
 	c.Stderr = &b
-	err := c.Run()
+	err = c.Run()
 	return b.Bytes(), err
 }
 
@@ -204,13 +210,15 @@ func (c *Cmd) CombinedOutput() ([]byte, error) {
 // A caller need only call Close to force the pipe to close sooner.
 // For example, if the command being run will not exit until standard input
 // is closed, the caller must close the pipe.
-func (c *Cmd) StdinPipe() (io.WriteCloser, error) {
+func (c *Cmd) StdinPipe() (w io.WriteCloser, err error) {
+	defer decorate.OnError(&err, "in call to Cmd.StdinPipe on distro %s with command %q", c.distro.name, c.command)
+
 	// Based on exec/exec.go.
 	if c.Stdin != nil {
-		return nil, errors.New("wsl: Stdin already set")
+		return nil, errors.New("Stdin already set")
 	}
 	if c.Process != nil {
-		return nil, errors.New("wsl: StdinPipe after process started")
+		return nil, errors.New("StdinPipe after process started")
 	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -249,13 +257,15 @@ func (c *closeOnce) close() {
 // need not close the pipe themselves. It is thus incorrect to call Wait
 // before all reads from the pipe have completed.
 // For the same reason, it is incorrect to call Run when using StdoutPipe.
-func (c *Cmd) StdoutPipe() (io.ReadCloser, error) {
+func (c *Cmd) StdoutPipe() (r io.ReadCloser, err error) {
+	defer decorate.OnError(&err, "in call to Cmd.StdoutPipe on distro %s with command %q", c.distro.name, c.command)
+
 	// Based on exec/exec.go.
 	if c.Stdout != nil {
-		return nil, errors.New("wsl: Stdout already set")
+		return nil, errors.New("Stdout already set")
 	}
 	if c.Process != nil {
-		return nil, errors.New("wsl: StdoutPipe after process started")
+		return nil, errors.New("StdoutPipe after process started")
 	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -274,13 +284,15 @@ func (c *Cmd) StdoutPipe() (io.ReadCloser, error) {
 // need not close the pipe themselves. It is thus incorrect to call Wait
 // before all reads from the pipe have completed.
 // For the same reason, it is incorrect to use Run when using StderrPipe.
-func (c *Cmd) StderrPipe() (io.ReadCloser, error) {
+func (c *Cmd) StderrPipe() (r io.ReadCloser, err error) {
+	defer decorate.OnError(&err, "in call to Cmd.StderrPipe on distro %s with command %q", c.distro.name, c.command)
+
 	// Based on exec/exec.go.
 	if c.Stderr != nil {
-		return nil, errors.New("wsl: Stderr already set")
+		return nil, errors.New("Stderr already set")
 	}
 	if c.Process != nil {
-		return nil, errors.New("wsl: StderrPipe after process started")
+		return nil, errors.New("StderrPipe after process started")
 	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -442,13 +454,15 @@ func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
 // for the respective I/O loop copying to or from the process to complete.
 //
 // Wait releases any resources associated with the Cmd.
-func (c *Cmd) Wait() error {
+func (c *Cmd) Wait() (err error) {
+	defer decorate.OnError(&err, "in call to Cmd.Wait on distro %s with command %q", c.distro.name, c.command)
+
 	// Based on exec/exec.go.
 	if c.Process == nil {
-		return errors.New("wsl: not started")
+		return errors.New("not started")
 	}
 	if c.finished {
-		return errors.New("wsl: Wait was already called")
+		return errors.New("Wait was already called")
 	}
 	c.finished = true
 
@@ -489,6 +503,7 @@ func (c *Cmd) Wait() error {
 // If the command fails to run or doesn't complete successfully, the error is of type *ExitError.
 func (c *Cmd) Run() error {
 	// Taken from exec/exec.go.
+	// Not decorated to avoid stuttering when calling Start/Wait
 	if err := c.Start(); err != nil {
 		return err
 	}

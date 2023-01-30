@@ -5,6 +5,7 @@ package gowsl
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -23,7 +24,7 @@ func (d *Distro) Register(rootFsPath string) (err error) {
 		return err
 	}
 
-	r, err := d.IsRegistered()
+	r, err := d.isRegistered()
 	if err != nil {
 		return err
 	}
@@ -84,8 +85,17 @@ func registeredDistros() (distros map[string]uuid.UUID, err error) {
 
 // IsRegistered returns a boolean indicating whether a distro is registered or not.
 func (d Distro) IsRegistered() (registered bool, err error) {
-	defer decorate.OnError(&err, "could not determine if %s is registered", d.name)
+	r, err := d.isRegistered()
+	if err != nil {
+		return false, fmt.Errorf("%s: %v", d.name, err)
+	}
+	return r, nil
+}
 
+// isRegistered is the internal way of detecting whether a distro is registered or
+// not. Use this one internally to avoid repeating error information.
+func (d Distro) isRegistered() (registered bool, err error) {
+	defer decorate.OnError(&err, "could not determine if distro is registered")
 	distros, err := registeredDistros()
 	if err != nil {
 		return false, err
@@ -98,9 +108,9 @@ func (d Distro) IsRegistered() (registered bool, err error) {
 // Unregister is a wrapper around Win32's WslUnregisterDistribution.
 // It irreparably destroys a distro and its filesystem.
 func (d *Distro) Unregister() (err error) {
-	defer decorate.OnError(&err, "could not unregister %q")
+	defer decorate.OnError(&err, "could not unregister %q", d.name)
 
-	r, err := d.IsRegistered()
+	r, err := d.isRegistered()
 	if err != nil {
 		return err
 	}

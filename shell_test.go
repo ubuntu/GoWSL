@@ -59,46 +59,26 @@ func TestShell(t *testing.T) {
 				defer keepAwake(t, context.Background(), &realDistro)()
 			}
 
+			var opts []wsl.ShellOption
+			if tc.withCommand != nil {
+				opts = append(opts, wsl.WithCommand(*tc.withCommand))
+			}
+			if tc.withCwd {
+				opts = append(opts, wsl.UseCWD())
+			}
+
 			// Because Shell is an interactive command, it needs to be quit from
 			// outside. This goroutine sets a fuse before shutting down the distro.
-			// Some commands can escape on their own. Using `done` skips the
-			// termination, preventing unsuccessful exit codes.
-			timeout := make(chan time.Duration)
-			done := make(chan struct{})
-			go func() {
-				time.Sleep(<-timeout)
-				select {
-				case <-done:
-				default:
-					t.Logf("Command timed out")
-					err := d.Terminate()
-					if err != nil {
-						t.Log(err)
-					}
-					<-done
+			tk := time.AfterFunc(3*time.Second, func() {
+				t.Logf("Command timed out")
+				err := d.Terminate()
+				if err != nil {
+					t.Log(err)
 				}
-			}()
+			})
 
-			var err error
-			if tc.withCwd && tc.withCommand != nil {
-				timeout <- 3 * time.Second
-				err = d.Shell(wsl.WithCommand(*tc.withCommand), wsl.UseCWD())
-				done <- struct{}{}
-			} else if tc.withCwd {
-				timeout <- 3 * time.Second
-				err = d.Shell(wsl.UseCWD())
-				done <- struct{}{}
-			} else if tc.withCommand != nil {
-				timeout <- 3 * time.Second
-				err = d.Shell(wsl.WithCommand(*tc.withCommand))
-				done <- struct{}{}
-			} else {
-				timeout <- 3 * time.Second
-				err = d.Shell()
-				done <- struct{}{}
-			}
-			close(timeout)
-			close(done)
+			err := d.Shell(opts...)
+			tk.Stop()
 
 			if !tc.wantError {
 				require.NoError(t, err, "Unexpected error after Distro.Shell")

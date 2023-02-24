@@ -33,6 +33,8 @@ func (err *ShellError) ExitCode() uint32 {
 	return err.exitCode
 }
 
+type ShellOption func(*shellOptions)
+
 type shellOptions struct {
 	command string
 	useCWD  bool
@@ -41,7 +43,7 @@ type shellOptions struct {
 // UseCWD is an optional parameter for (*Distro).Shell that makes it so the
 // shell is started on the current working directory. Otherwise, it starts
 // at the distro's $HOME.
-func UseCWD() func(*shellOptions) {
+func UseCWD() ShellOption {
 	return func(o *shellOptions) {
 		o.useCWD = true
 	}
@@ -50,7 +52,7 @@ func UseCWD() func(*shellOptions) {
 // WithCommand is an optional parameter for (*Distro).Shell that allows you
 // to shell into WSL with the specified command. Particularly useful to choose
 // what shell to use. Otherwise, it use's the distro's default shell.
-func WithCommand(cmd string) func(*shellOptions) {
+func WithCommand(cmd string) ShellOption {
 	return func(o *shellOptions) {
 		o.command = cmd
 	}
@@ -74,7 +76,7 @@ func WithCommand(cmd string) func(*shellOptions) {
 //	PS> "exit 5" | wsl.exe
 //
 // Can be used with optional helper parameters UseCWD and WithCommand.
-func (d *Distro) Shell(opts ...func(*shellOptions)) error {
+func (d *Distro) Shell(opts ...ShellOption) error {
 	r, err := d.IsRegistered()
 	if err != nil {
 		return err

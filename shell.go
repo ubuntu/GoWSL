@@ -33,6 +33,8 @@ func (err *ShellError) ExitCode() uint32 {
 	return err.exitCode
 }
 
+// ShellOption is an optional parameter for (*Distro).Shell. Use any of the
+// provided functions such as UseCWD().
 type ShellOption func(*shellOptions)
 
 type shellOptions struct {
@@ -51,7 +53,7 @@ func UseCWD() ShellOption {
 
 // WithCommand is an optional parameter for (*Distro).Shell that allows you
 // to shell into WSL with the specified command. Particularly useful to choose
-// what shell to use. Otherwise, it use's the distro's default shell.
+// what shell to use. Otherwise, it uses the distro's default shell.
 func WithCommand(cmd string) ShellOption {
 	return func(o *shellOptions) {
 		o.command = cmd

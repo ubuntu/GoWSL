@@ -78,7 +78,7 @@ func WithCommand(cmd string) ShellOption {
 //	PS> "exit 5" | wsl.exe
 //
 // Can be used with optional helper parameters UseCWD and WithCommand.
-func (d *Distro) Shell(opts ...ShellOption) error {
+func (d *Distro) Shell(args ...ShellOption) error {
 	r, err := d.IsRegistered()
 	if err != nil {
 		return err
@@ -91,8 +91,8 @@ func (d *Distro) Shell(opts ...ShellOption) error {
 		command: "",
 		useCWD:  false,
 	}
-	for _, o := range opts {
-		o(&options)
+	for _, f := range args {
+		f(&options)
 	}
 
 	distroUTF16, err := syscall.UTF16PtrFromString(d.Name())

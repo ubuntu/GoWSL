@@ -30,9 +30,8 @@ const (
 )
 
 // Windows' typedefs.
-type wBOOL = int     // Windows' BOOL
-type wULONG = uint32 // Windows' ULONG
-type char = byte     // Windows' CHAR (which is the same as C's char)
+type wBOOL = int // Windows' BOOL
+type char = byte // Windows' CHAR (which is the same as C's char)
 
 func coTaskMemFree(p unsafe.Pointer) {
 	windows.CoTaskMemFree(p)

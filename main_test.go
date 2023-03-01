@@ -35,7 +35,6 @@ func TestMain(m *testing.M) {
 	}
 	defer restore()
 
-	rand.Seed(time.Now().UnixNano())
 	exitVal := m.Run()
 
 	err = wsl.Shutdown()

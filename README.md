@@ -13,7 +13,7 @@ We aim not to extend the aforementioned API, but rather to provide a safe, idiom
 ## Requirements
 
 - Windows Subsystem for Linux must be installed ([documentation](https://learn.microsoft.com/en-us/windows/wsl/install)) and enabled.
-- Go version must be equal to or above 1.18.
+- Go version must be equal to or above 1.20.
 
 ## Development
 

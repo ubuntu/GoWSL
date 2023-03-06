@@ -165,7 +165,7 @@ func TestUnregister(t *testing.T) {
 // called in order to deallocate resources. You can call cancel multiple times without
 // adverse effect.
 //
-//nolint: revive // No, I wont' put the context before the *testing.T.
+//nolint:revive // No, I wont' put the context before the *testing.T.
 func wslShutdownTimeout(t *testing.T, ctx context.Context, timeout time.Duration) (cancel func()) {
 	t.Helper()
 

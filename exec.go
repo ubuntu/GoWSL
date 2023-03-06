@@ -145,7 +145,7 @@ func (c *Cmd) Start() (err error) {
 		go func() {
 			select {
 			case <-c.ctx.Done():
-				//nolint: errcheck // Mimicking behaviour from stdlib
+				//nolint:errcheck // Mimicking behaviour from stdlib
 				c.Process.Kill()
 				// We deviate from the stdlib: "context cancelled" is more useful than "exit code 1"
 				c.ctxErr = c.ctx.Err()
@@ -178,7 +178,7 @@ func (c *Cmd) Output() (out []byte, err error) {
 	if err != nil && captureErr {
 		target := &exec.ExitError{}
 		if errors.As(err, &target) {
-			//nolint: forcetypeassert
+			//nolint:forcetypeassert
 			// copied from stdlib. We know this to be true because it is set further up in this same function
 			target.Stderr = c.Stderr.(*prefixSuffixSaver).Bytes()
 		}

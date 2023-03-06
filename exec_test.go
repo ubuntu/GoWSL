@@ -612,7 +612,7 @@ print("Your text was", v)
 			// - In the happy path (all checks pass) we'll have waited on the command already, so
 			//   this second wait is superfluous.
 			// - If a check fails, we don't really care about any subsequent errors like this one.
-			defer cmd.Wait() //nolint: errcheck
+			defer cmd.Wait() //nolint:errcheck
 
 			buffer := make([]byte, 1024)
 
@@ -642,7 +642,7 @@ print("Your text was", v)
 			require.NoError(t, err, "Unexpected error on command wait")
 
 			if tc.readFrom == readFromPipe {
-				err = stdin.(io.WriteCloser).Close() //nolint: forcetypeassert
+				err = stdin.(io.WriteCloser).Close() //nolint:forcetypeassert
 				require.NoError(t, err, "Failed to close stdin pipe multiple times")
 			}
 		})

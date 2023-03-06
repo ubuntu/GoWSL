@@ -26,6 +26,6 @@ func selectBackend(ctx context.Context) backend.Backend {
 		return windows.Backend{}
 	}
 
-	//nolint: forcetypeassert // The panic is expected and welcome
+	//nolint:forcetypeassert // The panic is expected and welcome
 	return v.(backend.Backend)
 }

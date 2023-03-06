@@ -116,12 +116,9 @@ func DefaultDistro(ctx context.Context) (d Distro, err error) {
 
 // Configuration is the configuration of the distro.
 type Configuration struct {
-	Version                     uint8             // Type of filesystem used (lxfs vs. wslfs, relevant only to WSL1)
-	DefaultUID                  uint32            // User ID of default user
-	InteropEnabled              bool              // Whether interop with windows is enabled
-	PathAppended                bool              // Whether Windows paths are appended
-	DriveMountingEnabled        bool              // Whether drive mounting is enabled
-	undocumentedWSLVersion      uint8             // Undocumented variable. WSL1 vs. WSL2.
+	Version    uint8  // Type of filesystem used (lxfs vs. wslfs, relevant only to WSL1)
+	DefaultUID uint32 // User ID of default user
+	flags.Unpacked
 	DefaultEnvironmentVariables map[string]string // Environment variables passed to the distro by default
 }
 
@@ -183,21 +180,21 @@ func (d Distro) GetConfiguration() (c Configuration, err error) {
 	defer decorate.OnError(&err, "could not access configuration for %s", d.name)
 
 	var conf Configuration
-	var flags flags.WslFlags
+	var f flags.WslFlags
 
 	err = d.backend.WslGetDistributionConfiguration(
 		d.Name(),
 		&conf.Version,
 		&conf.DefaultUID,
-		&flags,
+		&f,
 		&conf.DefaultEnvironmentVariables,
 	)
 
 	if err != nil {
 		return conf, err
 	}
+	conf.Unpacked = flags.Unpack(f)
 
-	conf.unpackFlags(flags)
 	return conf, nil
 }
 
@@ -256,7 +253,7 @@ func (d Distro) configToString() string {
   - DriveMountingEnabled: %t
   - undocumentedWSLVersion: %d
   - DefaultEnvironmentVariables:%s`, c.Version, c.DefaultUID, c.InteropEnabled, c.PathAppended,
-		c.DriveMountingEnabled, c.undocumentedWSLVersion, fmtEnvs)
+		c.DriveMountingEnabled, c.UndocumentedWSLVersion, fmtEnvs)
 }
 
 // configure is a wrapper around Win32's WslConfigureDistribution.
@@ -266,60 +263,10 @@ func (d Distro) configToString() string {
 //   - PathAppended
 //   - DriveMountingEnabled
 func (d *Distro) configure(config Configuration) error {
-	flags, err := config.packFlags()
+	flags, err := config.Pack()
 	if err != nil {
 		return err
 	}
 
 	return d.backend.WslConfigureDistribution(d.Name(), config.DefaultUID, flags)
-}
-
-// unpackFlags examines a winWslFlags object and stores its findings in the Configuration.
-func (conf *Configuration) unpackFlags(f flags.WslFlags) {
-	conf.InteropEnabled = false
-	if flags.ENABLE_INTEROP != 0 {
-		conf.InteropEnabled = true
-	}
-
-	conf.PathAppended = false
-	if f&flags.APPEND_NT_PATH != 0 {
-		conf.PathAppended = true
-	}
-
-	conf.DriveMountingEnabled = false
-	if f&flags.ENABLE_DRIVE_MOUNTING != 0 {
-		conf.DriveMountingEnabled = true
-	}
-
-	conf.undocumentedWSLVersion = 1
-	if f&flags.Undocumented_WSL_VERSION != 0 {
-		conf.undocumentedWSLVersion = 2
-	}
-}
-
-// packFlags generates a winWslFlags object from the Configuration.
-func (conf Configuration) packFlags() (flags.WslFlags, error) {
-	f := flags.NONE
-
-	if conf.InteropEnabled {
-		f = f | flags.ENABLE_INTEROP
-	}
-
-	if conf.PathAppended {
-		f = f | flags.APPEND_NT_PATH
-	}
-
-	if conf.DriveMountingEnabled {
-		f = f | flags.ENABLE_DRIVE_MOUNTING
-	}
-
-	switch conf.undocumentedWSLVersion {
-	case 1:
-	case 2:
-		f = f | flags.Undocumented_WSL_VERSION
-	default:
-		return f, fmt.Errorf("unknown WSL version %d", conf.undocumentedWSLVersion)
-	}
-
-	return f, nil
 }

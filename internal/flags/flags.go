@@ -12,13 +12,12 @@ type WslFlags int32
 const (
 	// All nolints are regarding the use of UPPPER_CASE.
 
-	NONE                  WslFlags = 0x0
-	ENABLE_INTEROP        WslFlags = 0x1 //nolint: revive
-	APPEND_NT_PATH        WslFlags = 0x2 //nolint: revive
-	ENABLE_DRIVE_MOUNTING WslFlags = 0x4 //nolint: revive
+	flag_ENABLE_INTEROP        WslFlags = 0x1 //nolint:revive
+	flag_APPEND_NT_PATH        WslFlags = 0x2 //nolint:revive
+	flag_ENABLE_DRIVE_MOUNTING WslFlags = 0x4 //nolint:revive
 
 	// Per the conversation at https://github.com/microsoft/WSL-DistroLauncher/issues/96
 	// the information about version 1 or 2 is on the 4th bit of the flags, which is
 	// currently referenced neither by the API nor the documentation.
-	Undocumented_WSL_VERSION WslFlags = 0x8 //nolint: revive
+	flag_undocumented_WSL_VERSION WslFlags = 0x8 //nolint:revive
 )

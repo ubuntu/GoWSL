@@ -1,7 +1,7 @@
 # This is for the CI. To run it, please use:
-# golangci-lint run -c .golangci-ci.yaml.
-
-# Please keep the list in sync with .golangci-ide.yaml. For rationale, see the other file.
+#     golangci-lint run -c .golangci-lint.yaml
+# Locally, you can use
+#     golangci-lint run -c .golangci-lint.yaml --fix
 
 linters:
   # linters to run in addition to default ones
@@ -13,11 +13,10 @@ linters:
     - exportloopref
     - forbidigo
     - forcetypeassert
-    # - gci # Fails on windows
+    - gci
     - godot
-    # - gofmt # Fails on windows
+    - gofmt
     - gosec
-    # - ifshort # Deprecated
     - misspell
     - nolintlint
     - revive
@@ -25,7 +24,6 @@ linters:
     - tparallel
     - unconvert
     - unparam
-    # - wastedassign # Disabled because of generics
     - whitespace
     ##- wrapcheck # To think properly about it
 

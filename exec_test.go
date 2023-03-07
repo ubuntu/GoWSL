@@ -17,8 +17,10 @@ import (
 )
 
 func TestCommandRun(t *testing.T) {
-	realDistro := newTestDistro(t, rootFs)
-	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
+	ctx := testContext(context.Background())
+
+	realDistro := newTestDistro(t, ctx, rootFs)
+	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
 
 	// Keeping distro awake so there are no unexpected timeouts
 	defer keepAwake(t, context.Background(), &realDistro)()
@@ -116,9 +118,11 @@ func TestCommandRun(t *testing.T) {
 }
 
 func TestCommandStartWait(t *testing.T) {
-	realDistro := newTestDistro(t, rootFs)
-	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
-	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "--IHaveA\x00NullChar!")
+	ctx := testContext(context.Background())
+
+	realDistro := newTestDistro(t, ctx, rootFs)
+	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
+	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"--IHaveA\x00NullChar!")
 
 	// Keeping distro awake so there are no unexpected timeouts
 	defer keepAwake(t, context.Background(), &realDistro)()
@@ -315,7 +319,8 @@ func bufferPipeOutput(t *testing.T, cmd *wsl.Cmd, pipeName string) *bytes.Buffer
 }
 
 func TestCommandOutPipes(t *testing.T) {
-	d := newTestDistro(t, rootFs)
+	ctx := testContext(context.Background())
+	d := newTestDistro(t, ctx, rootFs)
 
 	type stream int
 	const (
@@ -398,9 +403,11 @@ func TestCommandOutPipes(t *testing.T) {
 }
 
 func TestCommandOutput(t *testing.T) {
-	realDistro := newTestDistro(t, rootFs)
-	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
-	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "--IHaveA\x00NullChar!")
+	ctx := testContext(context.Background())
+
+	realDistro := newTestDistro(t, ctx, rootFs)
+	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
+	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"--IHaveA\x00NullChar!")
 
 	testCases := map[string]struct {
 		distro       *wsl.Distro
@@ -457,9 +464,11 @@ func TestCommandOutput(t *testing.T) {
 }
 
 func TestCommandCombinedOutput(t *testing.T) {
-	realDistro := newTestDistro(t, rootFs)
-	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
-	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "--IHaveA\x00NullChar!")
+	ctx := testContext(context.Background())
+
+	realDistro := newTestDistro(t, ctx, rootFs)
+	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
+	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"--IHaveA\x00NullChar!")
 
 	testCases := map[string]struct {
 		distro       *wsl.Distro
@@ -520,7 +529,8 @@ func TestCommandCombinedOutput(t *testing.T) {
 }
 
 func TestCommandStdin(t *testing.T) {
-	d := newTestDistro(t, rootFs)
+	ctx := testContext(context.Background())
+	d := newTestDistro(t, ctx, rootFs)
 
 	const (
 		readFromPipe int = iota

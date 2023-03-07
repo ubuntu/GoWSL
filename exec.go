@@ -367,8 +367,8 @@ func (c *Cmd) readerDescriptor(r io.Reader) (f *os.File, err error) {
 	}
 
 	if f, ok := r.(*os.File); ok {
-		ft, err := queryFileType(f)
-		if err == nil && ft == fileTypePipe {
+		isPipe, err := IsPipe(f)
+		if err == nil && isPipe {
 			// It's a pipe: no need to create our own pipe.
 			return f, nil
 		}
@@ -410,8 +410,8 @@ func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
 	}
 
 	if f, ok := w.(*os.File); ok {
-		ft, err := queryFileType(f)
-		if err == nil && ft == fileTypePipe {
+		isPipe, err := IsPipe(f)
+		if err == nil && isPipe {
 			// It's a pipe: no need to create our own pipe.
 			return f, nil
 		}

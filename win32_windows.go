@@ -28,15 +28,23 @@ var (
 )
 
 // Windows' typedefs.
-type wBOOL = int // Windows' BOOL
-type char = byte // Windows' CHAR (which is the same as C's char)
+type wBOOL = int            // Windows' BOOL
+type char = byte            // Windows' CHAR (which is the same as C's char)
+const fileTypePipe = 0x0003 // Windows' FILE_TYPE_PIPE
 
-func queryFileType(f *os.File) (fileType, error) {
+// IsPipe checks if a file's descriptor is a pipe vs. any other type of object.
+func IsPipe(f *os.File) (bool, error) {
 	n, err := windows.GetFileType(windows.Handle(f.Fd()))
 	if err != nil {
-		return fileTypeUnknown, err
+		return false, err
 	}
-	return fileType(n), nil
+
+	var isPipe bool
+	if n == fileTypePipe {
+		isPipe = true
+	}
+
+	return isPipe, nil
 }
 
 // wslLaunch replaces os.StartProcess with WSL commands.

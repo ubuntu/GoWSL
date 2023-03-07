@@ -10,8 +10,10 @@ import (
 	"github.com/ubuntu/decorate"
 )
 
-func queryFileType(f *os.File) (fileType, error) {
-	return 0, errors.New("not implemented")
+// IsPipe checks if a file's descriptor is a pipe vs. any other type of object.
+// This implementation will always fail on Linux.
+func IsPipe(f *os.File) (bool, error) {
+	return false, errors.New("not implemented")
 }
 
 func wslConfigureDistribution(distributionName string, defaultUID uint32, wslDistributionFlags wslFlags) (err error) {

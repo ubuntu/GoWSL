@@ -1,13 +1,12 @@
 package gowsl_test
 
 import (
-	wsl "github.com/ubuntu/gowsl"
-
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	wsl "github.com/ubuntu/gowsl"
 )
 
 func TestRegister(t *testing.T) {

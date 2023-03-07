@@ -1,8 +1,6 @@
 package gowsl_test
 
 import (
-	wsl "github.com/ubuntu/gowsl"
-
 	"bytes"
 	"context"
 	"errors"
@@ -15,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	wsl "github.com/ubuntu/gowsl"
 )
 
 func TestCommandRun(t *testing.T) {

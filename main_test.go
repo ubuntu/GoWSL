@@ -3,8 +3,6 @@ package gowsl_test
 // This file contains testing functionality
 
 import (
-	wsl "github.com/ubuntu/gowsl"
-
 	"bufio"
 	"bytes"
 	"context"
@@ -19,6 +17,7 @@ import (
 
 	"github.com/0xrawsec/golang-utils/log"
 	"github.com/stretchr/testify/require"
+	wsl "github.com/ubuntu/gowsl"
 )
 
 const (

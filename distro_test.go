@@ -1,9 +1,6 @@
 package gowsl_test
 
 import (
-	"github.com/google/uuid"
-	wsl "github.com/ubuntu/gowsl"
-
 	"context"
 	"fmt"
 	"os/exec"
@@ -11,8 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	wsl "github.com/ubuntu/gowsl"
 )
 
 func TestShutdown(t *testing.T) {

@@ -1,13 +1,12 @@
 package gowsl_test
 
 import (
-	wsl "github.com/ubuntu/gowsl"
-
 	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	wsl "github.com/ubuntu/gowsl"
 )
 
 func TestShell(t *testing.T) {

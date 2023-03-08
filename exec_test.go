@@ -14,10 +14,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	wsl "github.com/ubuntu/gowsl"
+	"github.com/ubuntu/gowsl/mock"
 )
 
 func TestCommandRun(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	realDistro := newTestDistro(t, ctx, rootFs)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -118,7 +122,10 @@ func TestCommandRun(t *testing.T) {
 }
 
 func TestCommandStartWait(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	realDistro := newTestDistro(t, ctx, rootFs)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -319,7 +326,11 @@ func bufferPipeOutput(t *testing.T, cmd *wsl.Cmd, pipeName string) *bytes.Buffer
 }
 
 func TestCommandOutPipes(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
+
 	d := newTestDistro(t, ctx, rootFs)
 
 	type stream int
@@ -403,7 +414,10 @@ func TestCommandOutPipes(t *testing.T) {
 }
 
 func TestCommandOutput(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	realDistro := newTestDistro(t, ctx, rootFs)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -464,7 +478,10 @@ func TestCommandOutput(t *testing.T) {
 }
 
 func TestCommandCombinedOutput(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	realDistro := newTestDistro(t, ctx, rootFs)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -529,7 +546,11 @@ func TestCommandCombinedOutput(t *testing.T) {
 }
 
 func TestCommandStdin(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
+
 	d := newTestDistro(t, ctx, rootFs)
 
 	const (

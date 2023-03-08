@@ -2,6 +2,8 @@
 #     golangci-lint run -c .golangci-lint.yaml
 # Locally, you can use
 #     golangci-lint run -c .golangci-lint.yaml --fix
+#
+# Use argument --build-tags="gowslmock" to lint the mock files.
 
 linters:
   # linters to run in addition to default ones

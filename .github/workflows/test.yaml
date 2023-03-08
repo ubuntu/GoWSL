@@ -37,11 +37,16 @@ jobs:
       shell: bash
       run: |
         go build ./...
-    - name: Lint
+    - name: Lint with mock back-end
       uses: golangci/golangci-lint-action@v3
       with:
         version: latest
-        args: --config=.golangci-lint.yaml
+        args: --config=.golangci-lint.yaml --build-tags="gowslmock"
+    - name: Lint with real back-end
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        args: --config=.golangci-lint.yaml 
 
   vm-setup:
     name: "Set up Azure VM"

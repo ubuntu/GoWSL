@@ -4,6 +4,7 @@ package gowsl
 // as well as utilities to query this status.
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ubuntu/decorate"
+	"github.com/ubuntu/gowsl/internal/backend"
 )
 
 // Register is a wrapper around Win32's WslRegisterDistribution.
@@ -32,32 +34,32 @@ func (d *Distro) Register(rootFsPath string) (err error) {
 		return errors.New("already registered")
 	}
 
-	return wslRegisterDistribution(d.Name(), rootFsPath)
+	return d.backend.WslRegisterDistribution(d.Name(), rootFsPath)
 }
 
 // RegisteredDistros returns a slice of the registered distros.
-func RegisteredDistros() (distros []Distro, err error) {
+func RegisteredDistros(ctx context.Context) (distros []Distro, err error) {
 	defer decorate.OnError(&err, "could not obtain registered distros")
 
-	names, err := registeredDistros()
+	names, err := registeredDistros(selectBackend(ctx))
 	if err != nil {
 		return distros, err
 	}
 	for name := range names {
-		distros = append(distros, NewDistro(name))
+		distros = append(distros, NewDistro(ctx, name))
 	}
 	return distros, nil
 }
 
 // RegisteredDistros returns a map of the registered distros and their GUID.
-func registeredDistros() (distros map[string]uuid.UUID, err error) {
-	r, err := openRegistry(lxssPath)
+func registeredDistros(backend backend.Backend) (distros map[string]uuid.UUID, err error) {
+	r, err := backend.OpenLxssRegistry(".")
 	if err != nil {
 		return nil, err
 	}
-	defer r.close()
+	defer r.Close()
 
-	subkeys, err := r.subkeyNames()
+	subkeys, err := r.SubkeyNames()
 
 	distros = make(map[string]uuid.UUID, len(subkeys))
 	for _, key := range subkeys {
@@ -66,13 +68,13 @@ func registeredDistros() (distros map[string]uuid.UUID, err error) {
 			continue // Not a WSL distro
 		}
 
-		r, err = openRegistry(lxssPath, key)
+		r, err = backend.OpenLxssRegistry(key)
 		if err != nil {
 			return nil, err
 		}
-		defer r.close()
+		defer r.Close()
 
-		name, err := r.field("DistributionName")
+		name, err := r.Field("DistributionName")
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +98,7 @@ func (d Distro) IsRegistered() (registered bool, err error) {
 // not. Use this one internally to avoid repeating error information.
 func (d Distro) isRegistered() (registered bool, err error) {
 	defer decorate.OnError(&err, "could not determine if distro is registered")
-	distros, err := registeredDistros()
+	distros, err := registeredDistros(d.backend)
 	if err != nil {
 		return false, err
 	}
@@ -118,7 +120,7 @@ func (d *Distro) Unregister() (err error) {
 		return errors.New("distro is not registered")
 	}
 
-	return wslUnregisterDistribution(d.Name())
+	return d.backend.WslUnregisterDistribution(d.Name())
 }
 
 // fixPath deals with the fact that WslRegisterDistribuion is

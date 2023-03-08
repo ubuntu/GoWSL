@@ -96,7 +96,7 @@ func (d *Distro) Shell(args ...ShellOption) (err error) {
 		f(&options)
 	}
 
-	exitCode, err := wslLaunchInteractive(d.Name(), options.command, options.useCWD)
+	exitCode, err := d.backend.WslLaunchInteractive(d.Name(), options.command, options.useCWD)
 	if err != nil {
 		return err
 	}

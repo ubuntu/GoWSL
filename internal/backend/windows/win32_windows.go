@@ -1,4 +1,4 @@
-package gowsl
+package windows
 
 // This file contains Win32 API definitions and imports.
 
@@ -13,6 +13,7 @@ import (
 	"unsafe"
 
 	"github.com/ubuntu/decorate"
+	"github.com/ubuntu/gowsl/internal/flags"
 	"golang.org/x/sys/windows"
 )
 
@@ -33,7 +34,7 @@ type char = byte            // Windows' CHAR (which is the same as C's char)
 const fileTypePipe = 0x0003 // Windows' FILE_TYPE_PIPE
 
 // IsPipe checks if a file's descriptor is a pipe vs. any other type of object.
-func IsPipe(f *os.File) (bool, error) {
+func (Backend) IsPipe(f *os.File) (bool, error) {
 	n, err := windows.GetFileType(windows.Handle(f.Fd()))
 	if err != nil {
 		return false, err
@@ -47,8 +48,9 @@ func IsPipe(f *os.File) (bool, error) {
 	return isPipe, nil
 }
 
-// wslLaunch replaces os.StartProcess with WSL commands.
-func wslLaunch(
+// WslLaunch is a wrapper around the WslLaunch
+// function in the wslApi.dll Win32 library.
+func (Backend) WslLaunch(
 	distroName string,
 	command string,
 	useCWD bool,
@@ -97,7 +99,9 @@ func wslLaunch(
 	return os.FindProcess(int(pid))
 }
 
-func wslConfigureDistribution(distributionName string, defaultUID uint32, wslDistributionFlags wslFlags) (err error) {
+// WslConfigureDistribution is a wrapper around the WslConfigureDistribution
+// function in the wslApi.dll Win32 library.
+func (Backend) WslConfigureDistribution(distributionName string, defaultUID uint32, wslDistributionFlags flags.WslFlags) (err error) {
 	defer decorate.OnError(&err, "WslConfigureDistribution")
 
 	distroUTF16, err := syscall.UTF16PtrFromString(distributionName)
@@ -118,10 +122,12 @@ func wslConfigureDistribution(distributionName string, defaultUID uint32, wslDis
 	return nil
 }
 
-func wslGetDistributionConfiguration(distributionName string,
+// WslGetDistributionConfiguration is a wrapper around the WslGetDistributionConfiguration
+// function in the wslApi.dll Win32 library.
+func (Backend) WslGetDistributionConfiguration(distributionName string,
 	distributionVersion *uint8,
 	defaultUID *uint32,
-	wslDistributionFlags *wslFlags,
+	wslDistributionFlags *flags.WslFlags,
 	defaultEnvironmentVariables *map[string]string) (err error) {
 	defer decorate.OnError(&err, "WslGetDistributionConfiguration")
 
@@ -152,7 +158,9 @@ func wslGetDistributionConfiguration(distributionName string,
 	return nil
 }
 
-func wslLaunchInteractive(distributionName string, command string, useCurrentWorkingDirectory bool) (exitCode uint32, err error) {
+// WslLaunchInteractive is a wrapper around the WslLaunchInteractive
+// function in the wslApi.dll Win32 library.
+func (Backend) WslLaunchInteractive(distributionName string, command string, useCurrentWorkingDirectory bool) (exitCode uint32, err error) {
 	defer decorate.OnError(&err, "WslLaunchInteractive")
 
 	exitCode = math.MaxUint32
@@ -184,7 +192,9 @@ func wslLaunchInteractive(distributionName string, command string, useCurrentWor
 	return exitCode, nil
 }
 
-func wslRegisterDistribution(distributionName string, tarGzFilename string) (err error) {
+// WslRegisterDistribution is a wrapper around the WslRegisterDistribution
+// function in the wslApi.dll Win32 library.
+func (Backend) WslRegisterDistribution(distributionName string, tarGzFilename string) (err error) {
 	defer decorate.OnError(&err, "WslRegisterDistribution")
 
 	distroUTF16, err := syscall.UTF16PtrFromString(distributionName)
@@ -208,7 +218,9 @@ func wslRegisterDistribution(distributionName string, tarGzFilename string) (err
 	return nil
 }
 
-func wslUnregisterDistribution(distributionName string) (err error) {
+// WslUnregisterDistribution is a wrapper around the WslUnregisterDistribution
+// function in the wslApi.dll Win32 library.
+func (Backend) WslUnregisterDistribution(distributionName string) (err error) {
 	defer decorate.OnError(&err, "WslUnregisterDistribution")
 
 	distroUTF16, err := syscall.UTF16PtrFromString(distributionName)

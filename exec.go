@@ -113,7 +113,7 @@ func (c *Cmd) Start() (err error) {
 		}
 	}
 
-	c.Process, err = WslLaunch(
+	c.Process, err = c.distro.backend.WslLaunch(
 		c.distro.Name(),
 		c.command,
 		c.UseCWD,
@@ -367,7 +367,7 @@ func (c *Cmd) readerDescriptor(r io.Reader) (f *os.File, err error) {
 	}
 
 	if f, ok := r.(*os.File); ok {
-		isPipe, err := IsPipe(f)
+		isPipe, err := c.distro.backend.IsPipe(f)
 		if err == nil && isPipe {
 			// It's a pipe: no need to create our own pipe.
 			return f, nil
@@ -410,7 +410,7 @@ func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
 	}
 
 	if f, ok := w.(*os.File); ok {
-		isPipe, err := IsPipe(f)
+		isPipe, err := c.distro.backend.IsPipe(f)
 		if err == nil && isPipe {
 			// It's a pipe: no need to create our own pipe.
 			return f, nil

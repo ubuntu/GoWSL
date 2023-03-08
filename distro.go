@@ -7,23 +7,30 @@ package gowsl
 // This file contains utilities to interact with a Distro and its configuration
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
 
 	"github.com/google/uuid"
 	"github.com/ubuntu/decorate"
+	"github.com/ubuntu/gowsl/internal/backend"
+	"github.com/ubuntu/gowsl/internal/flags"
 )
 
 // Distro is an abstraction around a WSL distro.
 type Distro struct {
-	name string
+	backend backend.Backend
+	name    string
 }
 
 // NewDistro declares a new distribution, but does not register it nor
 // check if it exists.
-func NewDistro(name string) Distro {
-	return Distro{name: name}
+func NewDistro(ctx context.Context, name string) Distro {
+	return Distro{
+		backend: selectBackend(ctx),
+		name:    name,
+	}
 }
 
 // Name is a getter for the DistroName as shown in "wsl.exe --list".
@@ -35,7 +42,7 @@ func (d Distro) Name() string {
 func (d *Distro) GUID() (id uuid.UUID, err error) {
 	defer decorate.OnError(&err, "could not obtain GUID of %s", d.name)
 
-	distros, err := registeredDistros()
+	distros, err := registeredDistros(d.backend)
 	if err != nil {
 		return id, err
 	}
@@ -50,38 +57,39 @@ func (d *Distro) GUID() (id uuid.UUID, err error) {
 // Equivalent to:
 //
 //	wsl --terminate <distro>
-func (d Distro) Terminate() error {
-	return terminate(d.Name())
+func (d *Distro) Terminate() error {
+	return d.backend.Terminate(d.Name())
 }
 
 // Shutdown powers off all of WSL, including all other distros.
 // Equivalent to:
 //
 //	wsl --shutdown
-func Shutdown() error {
-	return shutdown()
+func Shutdown(ctx context.Context) error {
+	return selectBackend(ctx).Shutdown()
 }
 
 // SetAsDefault sets a particular distribution as the default one.
 // Equivalent to:
 //
 //	wsl --set-default <distro>
-func (d Distro) SetAsDefault() error {
-	return setAsDefault(d.Name())
+func (d *Distro) SetAsDefault() error {
+	return d.backend.SetAsDefault(d.Name())
 }
 
 // DefaultDistro gets the current default distribution.
-func DefaultDistro() (d Distro, err error) {
+func DefaultDistro(ctx context.Context) (d Distro, err error) {
 	defer decorate.OnError(&err, "could not obtain the default distro")
+	backend := selectBackend(ctx)
 
 	// First, we find out the GUID of the default distro
-	r, err := openRegistry(lxssPath)
+	r, err := backend.OpenLxssRegistry(".")
 	if err != nil {
 		return d, err
 	}
-	defer r.close()
+	defer r.Close()
 
-	guid, err := r.field("DefaultDistribution")
+	guid, err := r.Field("DefaultDistribution")
 	if err != nil {
 		return d, err
 	}
@@ -92,36 +100,19 @@ func DefaultDistro() (d Distro, err error) {
 	}
 
 	// Last, we find out the name of the distro
-	r, err = openRegistry(lxssPath, guid)
+	r, err = backend.OpenLxssRegistry(guid)
 	if err != nil {
 		return d, err
 	}
-	defer r.close()
+	defer r.Close()
 
-	name, err := r.field("DistributionName")
+	name, err := r.Field("DistributionName")
 	if err != nil {
 		return d, err
 	}
 
-	return NewDistro(name), err
+	return NewDistro(ctx, name), err
 }
-
-// Windows' WSL_DISTRIBUTION_FLAGS
-// https://learn.microsoft.com/en-us/windows/win32/api/wslapi/ne-wslapi-wsl_distribution_flags
-type wslFlags int
-
-// Allowing underscores in names to keep it as close to Windows as possible.
-const (
-	flag_NONE                  wslFlags = 0x0 //nolint: revive
-	flag_ENABLE_INTEROP        wslFlags = 0x1 //nolint: revive
-	flag_APPEND_NT_PATH        wslFlags = 0x2 //nolint: revive
-	flag_ENABLE_DRIVE_MOUNTING wslFlags = 0x4 //nolint: revive
-
-	// Per the conversation at https://github.com/microsoft/WSL-DistroLauncher/issues/96
-	// the information about version 1 or 2 is on the 4th bit of the flags, which is
-	// currently referenced neither by the API nor the documentation.
-	flag_undocumented_WSL_VERSION wslFlags = 0x8 //nolint: revive
-)
 
 // Configuration is the configuration of the distro.
 type Configuration struct {
@@ -192,9 +183,9 @@ func (d Distro) GetConfiguration() (c Configuration, err error) {
 	defer decorate.OnError(&err, "could not access configuration for %s", d.name)
 
 	var conf Configuration
-	var flags wslFlags
+	var flags flags.WslFlags
 
-	err = wslGetDistributionConfiguration(
+	err = d.backend.WslGetDistributionConfiguration(
 		d.Name(),
 		&conf.Version,
 		&conf.DefaultUID,
@@ -280,55 +271,55 @@ func (d *Distro) configure(config Configuration) error {
 		return err
 	}
 
-	return wslConfigureDistribution(d.Name(), config.DefaultUID, flags)
+	return d.backend.WslConfigureDistribution(d.Name(), config.DefaultUID, flags)
 }
 
 // unpackFlags examines a winWslFlags object and stores its findings in the Configuration.
-func (conf *Configuration) unpackFlags(flags wslFlags) {
+func (conf *Configuration) unpackFlags(f flags.WslFlags) {
 	conf.InteropEnabled = false
-	if flags&flag_ENABLE_INTEROP != 0 {
+	if flags.ENABLE_INTEROP != 0 {
 		conf.InteropEnabled = true
 	}
 
 	conf.PathAppended = false
-	if flags&flag_APPEND_NT_PATH != 0 {
+	if f&flags.APPEND_NT_PATH != 0 {
 		conf.PathAppended = true
 	}
 
 	conf.DriveMountingEnabled = false
-	if flags&flag_ENABLE_DRIVE_MOUNTING != 0 {
+	if f&flags.ENABLE_DRIVE_MOUNTING != 0 {
 		conf.DriveMountingEnabled = true
 	}
 
 	conf.undocumentedWSLVersion = 1
-	if flags&flag_undocumented_WSL_VERSION != 0 {
+	if f&flags.Undocumented_WSL_VERSION != 0 {
 		conf.undocumentedWSLVersion = 2
 	}
 }
 
 // packFlags generates a winWslFlags object from the Configuration.
-func (conf Configuration) packFlags() (wslFlags, error) {
-	flags := flag_NONE
+func (conf Configuration) packFlags() (flags.WslFlags, error) {
+	f := flags.NONE
 
 	if conf.InteropEnabled {
-		flags = flags | flag_ENABLE_INTEROP
+		f = f | flags.ENABLE_INTEROP
 	}
 
 	if conf.PathAppended {
-		flags = flags | flag_APPEND_NT_PATH
+		f = f | flags.APPEND_NT_PATH
 	}
 
 	if conf.DriveMountingEnabled {
-		flags = flags | flag_ENABLE_DRIVE_MOUNTING
+		f = f | flags.ENABLE_DRIVE_MOUNTING
 	}
 
 	switch conf.undocumentedWSLVersion {
 	case 1:
 	case 2:
-		flags = flags | flag_undocumented_WSL_VERSION
+		f = f | flags.Undocumented_WSL_VERSION
 	default:
-		return flags, fmt.Errorf("unknown WSL version %d", conf.undocumentedWSLVersion)
+		return f, fmt.Errorf("unknown WSL version %d", conf.undocumentedWSLVersion)
 	}
 
-	return flags, nil
+	return f, nil
 }

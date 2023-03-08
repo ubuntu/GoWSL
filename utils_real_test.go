@@ -21,12 +21,6 @@ import (
 	wsl "github.com/ubuntu/gowsl"
 )
 
-// TestContext creates a context that will instruct GoWSL to use the right back-end
-// based on whether it was build with mocking enabled.
-func testContext(ctx context.Context) context.Context {
-	return ctx
-}
-
 // installDistro installs using powershell to decouple the tests from Distro.Register
 // CommandContext often fails to stop it, so a more aggressive approach is taken by rebooting WSL.
 //

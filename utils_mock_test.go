@@ -11,14 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	wsl "github.com/ubuntu/gowsl"
-	wslmock "github.com/ubuntu/gowsl/mock"
 )
-
-// TestContext creates a context that will instruct GoWSL to use the right back-end
-// based on whether it was build with mocking enabled.
-func testContext(ctx context.Context) context.Context {
-	return wsl.WithMock(ctx, wslmock.Backend{})
-}
 
 // installDistro installs using powershell to decouple the tests from Distro.Register
 // CommandContext sometimes fails to stop it, so a more aggressive approach is taken by rebooting WSL.

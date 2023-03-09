@@ -1,13 +1,13 @@
 package gowsl_test
 
 import (
-	wsl "github.com/ubuntu/gowsl"
-
+	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	wsl "github.com/ubuntu/gowsl"
 )
 
 func TestRegister(t *testing.T) {
@@ -26,15 +26,17 @@ func TestRegister(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			d := wsl.NewDistro(uniqueDistroName(t) + tc.distroSuffix)
+			ctx := testContext(context.Background())
+
+			d := wsl.NewDistro(ctx, uniqueDistroName(t)+tc.distroSuffix)
 			defer func() {
-				err := cleanUpWslInstance(d)
+				err := uninstallDistro(d)
 				if err != nil {
 					t.Logf("Cleanup: %v", err)
 				}
 			}()
 
-			cancel := wslShutdownTimeout(t, time.Minute)
+			cancel := wslShutdownTimeout(t, ctx, time.Minute)
 			t.Logf("Registering %q", d.Name())
 			err := d.Register(tc.rootfs)
 			cancel()
@@ -45,12 +47,12 @@ func TestRegister(t *testing.T) {
 				return
 			}
 			require.NoError(t, err, "Unexpected failure in registering distro %q.", d.Name())
-			list, err := registeredTestWslInstances()
+			list, err := testDistros(ctx)
 			require.NoError(t, err, "Failed to read list of registered test distros.")
 			require.Contains(t, list, d, "Failed to find distro in list of registered distros.")
 
 			// Testing double registration failure
-			cancel = wslShutdownTimeout(t, time.Minute)
+			cancel = wslShutdownTimeout(t, ctx, time.Minute)
 			t.Logf("Registering %q", d.Name())
 			err = d.Register(tc.rootfs)
 			cancel()
@@ -62,11 +64,13 @@ func TestRegister(t *testing.T) {
 }
 
 func TestRegisteredDistros(t *testing.T) {
-	d1 := newTestDistro(t, emptyRootFs)
-	d2 := newTestDistro(t, emptyRootFs)
-	d3 := wsl.NewDistro(uniqueDistroName(t))
+	ctx := testContext(context.Background())
 
-	list, err := wsl.RegisteredDistros()
+	d1 := newTestDistro(t, ctx, emptyRootFs)
+	d2 := newTestDistro(t, ctx, emptyRootFs)
+	d3 := wsl.NewDistro(ctx, uniqueDistroName(t))
+
+	list, err := wsl.RegisteredDistros(ctx)
 	require.NoError(t, err)
 
 	assert.Contains(t, list, d1)
@@ -91,11 +95,13 @@ func TestIsRegistered(t *testing.T) {
 		config := config
 
 		t.Run(name, func(t *testing.T) {
+			ctx := testContext(context.Background())
+
 			var distro wsl.Distro
 			if config.register {
-				distro = newTestDistro(t, emptyRootFs)
+				distro = newTestDistro(t, ctx, emptyRootFs)
 			} else {
-				distro = wsl.NewDistro(uniqueDistroName(t))
+				distro = wsl.NewDistro(ctx, uniqueDistroName(t))
 			}
 
 			reg, err := distro.IsRegistered()
@@ -115,9 +121,11 @@ func TestIsRegistered(t *testing.T) {
 }
 
 func TestUnregister(t *testing.T) {
-	realDistro := newTestDistro(t, emptyRootFs)
-	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
-	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "This Distro \x00 has a null char")
+	ctx := testContext(context.Background())
+
+	realDistro := newTestDistro(t, ctx, emptyRootFs)
+	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
+	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"This Distro \x00 has a null char")
 
 	testCases := map[string]struct {
 		distro    *wsl.Distro
@@ -133,7 +141,7 @@ func TestUnregister(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			d := *tc.distro
 
-			cancel := wslShutdownTimeout(t, time.Minute)
+			cancel := wslShutdownTimeout(t, ctx, time.Minute)
 			t.Logf("Unregistering %q", d.Name())
 			err := d.Unregister()
 			cancel()
@@ -145,7 +153,7 @@ func TestUnregister(t *testing.T) {
 				require.NoError(t, err, "Unexpected failure in unregistering distro %q.", d.Name())
 			}
 
-			list, err := registeredTestWslInstances()
+			list, err := testDistros(ctx)
 			require.NoError(t, err, "Failed to read list of registered test distros.")
 			require.NotContains(t, list, d, "Found allegedly unregistered distro in list of registered distros.")
 		})
@@ -156,7 +164,9 @@ func TestUnregister(t *testing.T) {
 // Use the returned function to cancel it. Even if you time out, cancel should be
 // called in order to deallocate resources. You can call cancel multiple times without
 // adverse effect.
-func wslShutdownTimeout(t *testing.T, timeout time.Duration) (cancel func()) {
+//
+//nolint:revive // No, I wont' put the context before the *testing.T.
+func wslShutdownTimeout(t *testing.T, ctx context.Context, timeout time.Duration) (cancel func()) {
 	t.Helper()
 
 	stop := make(chan struct{})
@@ -168,7 +178,7 @@ func wslShutdownTimeout(t *testing.T, timeout time.Duration) (cancel func()) {
 		case <-stop:
 		case <-timer.C:
 			t.Logf("wslShutdownTimeout timed out")
-			err := wsl.Shutdown()
+			err := wsl.Shutdown(ctx)
 			require.NoError(t, err, "Failed to shutdown WSL after it timed out")
 			<-stop
 		}

@@ -1,10 +1,9 @@
 package gowsl
 
 import (
-	"errors"
 	"fmt"
-	"syscall"
-	"unsafe"
+
+	"github.com/ubuntu/decorate"
 )
 
 // ShellError returns error information when shell commands do not succeed.
@@ -78,8 +77,10 @@ func WithCommand(cmd string) ShellOption {
 //	PS> "exit 5" | wsl.exe
 //
 // Can be used with optional helper parameters UseCWD and WithCommand.
-func (d *Distro) Shell(args ...ShellOption) error {
-	r, err := d.IsRegistered()
+func (d *Distro) Shell(args ...ShellOption) (err error) {
+	defer decorate.OnError(&err, "unsuccessful shell into distro %s", d.name)
+
+	r, err := d.isRegistered()
 	if err != nil {
 		return err
 	}
@@ -95,30 +96,9 @@ func (d *Distro) Shell(args ...ShellOption) error {
 		f(&options)
 	}
 
-	distroUTF16, err := syscall.UTF16PtrFromString(d.Name())
+	exitCode, err := d.backend.WslLaunchInteractive(d.Name(), options.command, options.useCWD)
 	if err != nil {
-		return fmt.Errorf("failed to convert distro name %q to UTF16", d.Name())
-	}
-
-	commandUTF16, err := syscall.UTF16PtrFromString(options.command)
-	if err != nil {
-		return fmt.Errorf("failed to convert command %q to UTF16: %v", options.command, err)
-	}
-
-	var useCwd wBOOL
-	if options.useCWD {
-		useCwd = 1
-	}
-
-	var exitCode uint32
-	r1, _, _ := wslLaunchInteractive.Call(
-		uintptr(unsafe.Pointer(distroUTF16)),
-		uintptr(unsafe.Pointer(commandUTF16)),
-		uintptr(useCwd),
-		uintptr(unsafe.Pointer(&exitCode)))
-
-	if r1 != 0 {
-		return errors.New("failed syscall to WslLaunchInteractive")
+		return err
 	}
 
 	if exitCode != 0 {

@@ -7,24 +7,30 @@ package gowsl
 // This file contains utilities to interact with a Distro and its configuration
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
-	"sync"
-	"syscall"
-	"unsafe"
+
+	"github.com/google/uuid"
+	"github.com/ubuntu/decorate"
+	"github.com/ubuntu/gowsl/internal/backend"
+	"github.com/ubuntu/gowsl/internal/flags"
 )
 
 // Distro is an abstraction around a WSL distro.
 type Distro struct {
-	name string
+	backend backend.Backend
+	name    string
 }
 
 // NewDistro declares a new distribution, but does not register it nor
 // check if it exists.
-func NewDistro(name string) Distro {
-	return Distro{name: name}
+func NewDistro(ctx context.Context, name string) Distro {
+	return Distro{
+		backend: selectBackend(ctx),
+		name:    name,
+	}
 }
 
 // Name is a getter for the DistroName as shown in "wsl.exe --list".
@@ -33,19 +39,14 @@ func (d Distro) Name() string {
 }
 
 // GUID returns the Global Unique IDentifier for the distro.
-func (d *Distro) GUID() (id guid, err error) {
-	defer func() {
-		if err == nil {
-			return
-		}
-		err = fmt.Errorf("%s: GUID() returned error: %v", d.name, err)
-	}()
+func (d *Distro) GUID() (id uuid.UUID, err error) {
+	defer decorate.OnError(&err, "could not obtain GUID of %s", d.name)
 
-	ids, err := distroGUIDs()
+	distros, err := registeredDistros(d.backend)
 	if err != nil {
-		return id, fmt.Errorf("error accessing the registry to obtain distro GUID: %v", err)
+		return id, err
 	}
-	id, ok := ids[d.Name()]
+	id, ok := distros[d.Name()]
 	if !ok {
 		return id, errors.New("distro is not registered")
 	}
@@ -56,62 +57,75 @@ func (d *Distro) GUID() (id guid, err error) {
 // Equivalent to:
 //
 //	wsl --terminate <distro>
-func (d Distro) Terminate() error {
-	return terminate(d.Name())
+func (d *Distro) Terminate() error {
+	return d.backend.Terminate(d.Name())
 }
 
 // Shutdown powers off all of WSL, including all other distros.
 // Equivalent to:
 //
 //	wsl --shutdown
-func Shutdown() error {
-	return shutdown()
+func Shutdown(ctx context.Context) error {
+	return selectBackend(ctx).Shutdown()
 }
 
 // SetAsDefault sets a particular distribution as the default one.
 // Equivalent to:
 //
 //	wsl --set-default <distro>
-func (d Distro) SetAsDefault() error {
-	return setAsDefault(d.Name())
+func (d *Distro) SetAsDefault() error {
+	return d.backend.SetAsDefault(d.Name())
 }
 
 // DefaultDistro gets the current default distribution.
-func DefaultDistro() (Distro, error) {
-	n, e := defaultDistro()
-	return NewDistro(n), e
+func DefaultDistro(ctx context.Context) (d Distro, err error) {
+	defer decorate.OnError(&err, "could not obtain the default distro")
+	backend := selectBackend(ctx)
+
+	// First, we find out the GUID of the default distro
+	r, err := backend.OpenLxssRegistry(".")
+	if err != nil {
+		return d, err
+	}
+	defer r.Close()
+
+	guid, err := r.Field("DefaultDistribution")
+	if err != nil {
+		return d, err
+	}
+
+	// Safety check: we ensure the gui is valid
+	if _, err = uuid.Parse(guid); err != nil {
+		return d, fmt.Errorf("registry returned invalid GUID: %s", guid)
+	}
+
+	// Last, we find out the name of the distro
+	r, err = backend.OpenLxssRegistry(guid)
+	if err != nil {
+		return d, err
+	}
+	defer r.Close()
+
+	name, err := r.Field("DistributionName")
+	if err != nil {
+		return d, err
+	}
+
+	return NewDistro(ctx, name), err
 }
-
-// Windows' WSL_DISTRIBUTION_FLAGS
-// https://learn.microsoft.com/en-us/windows/win32/api/wslapi/ne-wslapi-wsl_distribution_flags
-type wslFlags int
-
-// Allowing underscores in names to keep it as close to Windows as possible.
-const (
-	flag_NONE                  wslFlags = 0x0 //nolint: revive
-	flag_ENABLE_INTEROP        wslFlags = 0x1 //nolint: revive
-	flag_APPEND_NT_PATH        wslFlags = 0x2 //nolint: revive
-	flag_ENABLE_DRIVE_MOUNTING wslFlags = 0x4 //nolint: revive
-
-	// Per the conversation at https://github.com/microsoft/WSL-DistroLauncher/issues/96
-	// the information about version 1 or 2 is on the 4th bit of the flags, which is
-	// currently referenced neither by the API nor the documentation.
-	flag_undocumented_WSL_VERSION wslFlags = 0x8 //nolint: revive
-)
 
 // Configuration is the configuration of the distro.
 type Configuration struct {
-	Version                     uint8             // Type of filesystem used (lxfs vs. wslfs, relevant only to WSL1)
-	DefaultUID                  uint32            // User ID of default user
-	InteropEnabled              bool              // Whether interop with windows is enabled
-	PathAppended                bool              // Whether Windows paths are appended
-	DriveMountingEnabled        bool              // Whether drive mounting is enabled
-	undocumentedWSLVersion      uint8             // Undocumented variable. WSL1 vs. WSL2.
+	Version    uint8  // Type of filesystem used (lxfs vs. wslfs, relevant only to WSL1)
+	DefaultUID uint32 // User ID of default user
+	flags.Unpacked
 	DefaultEnvironmentVariables map[string]string // Environment variables passed to the distro by default
 }
 
 // DefaultUID sets the user to the one specified.
-func (d *Distro) DefaultUID(uid uint32) error {
+func (d *Distro) DefaultUID(uid uint32) (err error) {
+	defer decorate.OnError(&err, "could not modify flag DEFAULT_UID for %s", d.name)
+
 	conf, err := d.GetConfiguration()
 	if err != nil {
 		return err
@@ -122,7 +136,9 @@ func (d *Distro) DefaultUID(uid uint32) error {
 
 // InteropEnabled sets the ENABLE_INTEROP flag to the provided value.
 // Enabling allows you to launch Windows executables from WSL.
-func (d *Distro) InteropEnabled(value bool) error {
+func (d *Distro) InteropEnabled(value bool) (err error) {
+	defer decorate.OnError(&err, "could not modify flag ENABLE_INTEROP for %s", d.name)
+
 	conf, err := d.GetConfiguration()
 	if err != nil {
 		return err
@@ -134,7 +150,9 @@ func (d *Distro) InteropEnabled(value bool) error {
 // PathAppended sets the APPEND_NT_PATH flag to the provided value.
 // Enabling it allows WSL to append /mnt/c/... (or wherever your mount
 // point is) in front of Windows executables.
-func (d *Distro) PathAppended(value bool) error {
+func (d *Distro) PathAppended(value bool) (err error) {
+	defer decorate.OnError(&err, "could not modify flag APPEND_NT_PATH for %s", d.name)
+
 	conf, err := d.GetConfiguration()
 	if err != nil {
 		return err
@@ -145,7 +163,9 @@ func (d *Distro) PathAppended(value bool) error {
 
 // DriveMountingEnabled sets the ENABLE_DRIVE_MOUNTING flag to the provided value.
 // Enabling it mounts the windows filesystem into WSL's.
-func (d *Distro) DriveMountingEnabled(value bool) error {
+func (d *Distro) DriveMountingEnabled(value bool) (err error) {
+	defer decorate.OnError(&err, "could not modify flag ENABLE_DRIVE_MOUNTING for %s", d.name)
+
 	conf, err := d.GetConfiguration()
 	if err != nil {
 		return err
@@ -156,40 +176,25 @@ func (d *Distro) DriveMountingEnabled(value bool) error {
 
 // GetConfiguration is a wrapper around Win32's WslGetDistributionConfiguration.
 // It returns a configuration object with information about the distro.
-func (d Distro) GetConfiguration() (c Configuration, e error) {
-	defer func() {
-		if e != nil {
-			e = fmt.Errorf("error in GetConfiguration: %v", e)
-		}
-	}()
+func (d Distro) GetConfiguration() (c Configuration, err error) {
+	defer decorate.OnError(&err, "could not access configuration for %s", d.name)
+
 	var conf Configuration
+	var f flags.WslFlags
 
-	distroUTF16, err := syscall.UTF16PtrFromString(d.Name())
+	err = d.backend.WslGetDistributionConfiguration(
+		d.Name(),
+		&conf.Version,
+		&conf.DefaultUID,
+		&f,
+		&conf.DefaultEnvironmentVariables,
+	)
+
 	if err != nil {
-		return conf, fmt.Errorf("failed to convert %q to UTF16", d.Name())
+		return conf, err
 	}
+	conf.Unpacked = flags.Unpack(f)
 
-	var (
-		flags        wslFlags
-		envVarsBegin **char
-		envVarsLen   uint64 // size_t
-	)
-
-	r1, _, _ := wslGetDistributionConfiguration.Call(
-		uintptr(unsafe.Pointer(distroUTF16)),
-		uintptr(unsafe.Pointer(&conf.Version)),
-		uintptr(unsafe.Pointer(&conf.DefaultUID)),
-		uintptr(unsafe.Pointer(&flags)),
-		uintptr(unsafe.Pointer(&envVarsBegin)),
-		uintptr(unsafe.Pointer(&envVarsLen)),
-	)
-
-	if r1 != 0 {
-		return conf, fmt.Errorf("failed syscall to WslGetDistributionConfiguration")
-	}
-
-	conf.unpackFlags(flags)
-	conf.DefaultEnvironmentVariables = processEnvVariables(envVarsBegin, envVarsLen)
 	return conf, nil
 }
 
@@ -203,7 +208,7 @@ func (d Distro) String() string {
 // It exists to simplify the implementation of (Distro).String
 // If it errors out, the message is returned as the value in the yaml.
 func (d Distro) guidToString() string {
-	registered, err := d.IsRegistered()
+	registered, err := d.isRegistered()
 	if err != nil {
 		return fmt.Sprintf("guid: |\n  %v", err)
 	}
@@ -248,7 +253,7 @@ func (d Distro) configToString() string {
   - DriveMountingEnabled: %t
   - undocumentedWSLVersion: %d
   - DefaultEnvironmentVariables:%s`, c.Version, c.DefaultUID, c.InteropEnabled, c.PathAppended,
-		c.DriveMountingEnabled, c.undocumentedWSLVersion, fmtEnvs)
+		c.DriveMountingEnabled, c.UndocumentedWSLVersion, fmtEnvs)
 }
 
 // configure is a wrapper around Win32's WslConfigureDistribution.
@@ -258,147 +263,10 @@ func (d Distro) configToString() string {
 //   - PathAppended
 //   - DriveMountingEnabled
 func (d *Distro) configure(config Configuration) error {
-	distroUTF16, err := syscall.UTF16PtrFromString(d.Name())
-	if err != nil {
-		return fmt.Errorf("failed to convert %q to UTF16", d.Name())
-	}
-
-	flags, err := config.packFlags()
+	flags, err := config.Pack()
 	if err != nil {
 		return err
 	}
 
-	r1, _, _ := wslConfigureDistribution.Call(
-		uintptr(unsafe.Pointer(distroUTF16)),
-		uintptr(config.DefaultUID),
-		uintptr(flags),
-	)
-
-	if r1 != 0 {
-		return fmt.Errorf("failed syscall to WslConfigureDistribution")
-	}
-
-	return nil
-}
-
-// unpackFlags examines a winWslFlags object and stores its findings in the Configuration.
-func (conf *Configuration) unpackFlags(flags wslFlags) {
-	conf.InteropEnabled = false
-	if flags&flag_ENABLE_INTEROP != 0 {
-		conf.InteropEnabled = true
-	}
-
-	conf.PathAppended = false
-	if flags&flag_APPEND_NT_PATH != 0 {
-		conf.PathAppended = true
-	}
-
-	conf.DriveMountingEnabled = false
-	if flags&flag_ENABLE_DRIVE_MOUNTING != 0 {
-		conf.DriveMountingEnabled = true
-	}
-
-	conf.undocumentedWSLVersion = 1
-	if flags&flag_undocumented_WSL_VERSION != 0 {
-		conf.undocumentedWSLVersion = 2
-	}
-}
-
-// packFlags generates a winWslFlags object from the Configuration.
-func (conf Configuration) packFlags() (wslFlags, error) {
-	flags := flag_NONE
-
-	if conf.InteropEnabled {
-		flags = flags | flag_ENABLE_INTEROP
-	}
-
-	if conf.PathAppended {
-		flags = flags | flag_APPEND_NT_PATH
-	}
-
-	if conf.DriveMountingEnabled {
-		flags = flags | flag_ENABLE_DRIVE_MOUNTING
-	}
-
-	switch conf.undocumentedWSLVersion {
-	case 1:
-	case 2:
-		flags = flags | flag_undocumented_WSL_VERSION
-	default:
-		return flags, fmt.Errorf("unknown WSL version %d", conf.undocumentedWSLVersion)
-	}
-
-	return flags, nil
-}
-
-// processEnvVariables takes the (**char, length) obtained from Win32's API and returs a
-// map[variableName]variableValue. It also deallocates each of the *char strings as well
-// as the **char array.
-func processEnvVariables(cStringArray **char, len uint64) map[string]string {
-	stringPtrs := unsafe.Slice(cStringArray, len)
-
-	env := make(chan struct {
-		key   string
-		value string
-	})
-
-	wg := sync.WaitGroup{}
-	for _, cStr := range stringPtrs {
-		cStr := cStr
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			goStr := stringCtoGo(cStr, 32768)
-			idx := strings.Index(goStr, "=")
-			env <- struct {
-				key   string
-				value string
-			}{
-				key:   strings.Clone(goStr[:idx]),
-				value: strings.Clone(goStr[idx+1:]),
-			}
-			coTaskMemFree(unsafe.Pointer(cStr))
-		}()
-	}
-
-	// Cleanup
-	go func() {
-		wg.Wait()
-		coTaskMemFree(unsafe.Pointer(cStringArray))
-		close(env)
-	}()
-
-	// Collecting results
-	m := map[string]string{}
-
-	for kv := range env {
-		m[kv.key] = kv.value
-	}
-
-	return m
-}
-
-// stringCtoGo converts a null-terminated *char into a string
-// maxlen is the max distance that will searched. It is meant
-// to prevent or mitigate buffer overflows.
-func stringCtoGo(cString *char, maxlen uint64) (goString string) {
-	size := strnlen(cString, maxlen)
-	return string(unsafe.Slice(cString, size))
-}
-
-// strnlen finds the null terminator to determine *char length.
-// The null terminator itself is not counted towards the length.
-// maxlen is the max distance that will searched. It is meant to
-// prevent or mitigate buffer overflows.
-func strnlen(ptr *char, maxlen uint64) (length uint64) {
-	length = 0
-	for ; *ptr != 0 && length <= maxlen; ptr = charNext(ptr) {
-		length++
-	}
-	return length
-}
-
-// charNext advances *char by one position.
-func charNext(ptr *char) *char {
-	return (*char)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr)) + unsafe.Sizeof(char(0))))
+	return d.backend.WslConfigureDistribution(d.Name(), config.DefaultUID, flags)
 }

@@ -12,11 +12,11 @@ import (
 )
 
 func main() {
-	distro := wsl.NewDistro("Ubuntu-GoWSL-demo")
+	distro := wsl.NewDistro(context.Background(), "Ubuntu-GoWSL-demo")
 
 	// Registering a new distro
 	fmt.Printf("Registering a new distro %q\n", distro.Name())
-	if err := distro.Register(`.\images\rootfs.tar.gz`); err != nil {
+	if err := distro.Register(`images/rootfs.tar.gz`); err != nil {
 		fmt.Fprintf(os.Stderr, "Unexpected error: %v\n", err)
 		return
 	}

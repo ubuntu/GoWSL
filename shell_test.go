@@ -1,19 +1,20 @@
 package gowsl_test
 
 import (
-	wsl "github.com/ubuntu/gowsl"
-
 	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	wsl "github.com/ubuntu/gowsl"
 )
 
 func TestShell(t *testing.T) {
-	realDistro := newTestDistro(t, rootFs)
-	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
-	wrongDistro := wsl.NewDistro("I have a \x00 null char in my name")
+	ctx := testContext(context.Background())
+
+	realDistro := newTestDistro(t, ctx, rootFs)
+	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
+	wrongDistro := wsl.NewDistro(ctx, "I have a \x00 null char in my name")
 
 	cmdExit0 := "exit 0"
 	cmdExit42 := "exit 42"

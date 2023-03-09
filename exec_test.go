@@ -1,8 +1,6 @@
 package gowsl_test
 
 import (
-	wsl "github.com/ubuntu/gowsl"
-
 	"bytes"
 	"context"
 	"errors"
@@ -15,11 +13,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	wsl "github.com/ubuntu/gowsl"
 )
 
 func TestCommandRun(t *testing.T) {
-	realDistro := newTestDistro(t, rootFs)
-	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
+	ctx := testContext(context.Background())
+
+	realDistro := newTestDistro(t, ctx, rootFs)
+	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
 
 	// Keeping distro awake so there are no unexpected timeouts
 	defer keepAwake(t, context.Background(), &realDistro)()
@@ -117,9 +118,11 @@ func TestCommandRun(t *testing.T) {
 }
 
 func TestCommandStartWait(t *testing.T) {
-	realDistro := newTestDistro(t, rootFs)
-	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
-	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "--IHaveA\x00NullChar!")
+	ctx := testContext(context.Background())
+
+	realDistro := newTestDistro(t, ctx, rootFs)
+	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
+	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"--IHaveA\x00NullChar!")
 
 	// Keeping distro awake so there are no unexpected timeouts
 	defer keepAwake(t, context.Background(), &realDistro)()
@@ -316,7 +319,8 @@ func bufferPipeOutput(t *testing.T, cmd *wsl.Cmd, pipeName string) *bytes.Buffer
 }
 
 func TestCommandOutPipes(t *testing.T) {
-	d := newTestDistro(t, rootFs)
+	ctx := testContext(context.Background())
+	d := newTestDistro(t, ctx, rootFs)
 
 	type stream int
 	const (
@@ -399,9 +403,11 @@ func TestCommandOutPipes(t *testing.T) {
 }
 
 func TestCommandOutput(t *testing.T) {
-	realDistro := newTestDistro(t, rootFs)
-	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
-	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "--IHaveA\x00NullChar!")
+	ctx := testContext(context.Background())
+
+	realDistro := newTestDistro(t, ctx, rootFs)
+	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
+	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"--IHaveA\x00NullChar!")
 
 	testCases := map[string]struct {
 		distro       *wsl.Distro
@@ -458,9 +464,11 @@ func TestCommandOutput(t *testing.T) {
 }
 
 func TestCommandCombinedOutput(t *testing.T) {
-	realDistro := newTestDistro(t, rootFs)
-	fakeDistro := wsl.NewDistro(uniqueDistroName(t))
-	wrongDistro := wsl.NewDistro(uniqueDistroName(t) + "--IHaveA\x00NullChar!")
+	ctx := testContext(context.Background())
+
+	realDistro := newTestDistro(t, ctx, rootFs)
+	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
+	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"--IHaveA\x00NullChar!")
 
 	testCases := map[string]struct {
 		distro       *wsl.Distro
@@ -521,7 +529,8 @@ func TestCommandCombinedOutput(t *testing.T) {
 }
 
 func TestCommandStdin(t *testing.T) {
-	d := newTestDistro(t, rootFs)
+	ctx := testContext(context.Background())
+	d := newTestDistro(t, ctx, rootFs)
 
 	const (
 		readFromPipe int = iota
@@ -603,7 +612,7 @@ print("Your text was", v)
 			// - In the happy path (all checks pass) we'll have waited on the command already, so
 			//   this second wait is superfluous.
 			// - If a check fails, we don't really care about any subsequent errors like this one.
-			defer cmd.Wait() //nolint: errcheck
+			defer cmd.Wait() //nolint:errcheck
 
 			buffer := make([]byte, 1024)
 
@@ -633,7 +642,7 @@ print("Your text was", v)
 			require.NoError(t, err, "Unexpected error on command wait")
 
 			if tc.readFrom == readFromPipe {
-				err = stdin.(io.WriteCloser).Close() //nolint: forcetypeassert
+				err = stdin.(io.WriteCloser).Close() //nolint:forcetypeassert
 				require.NoError(t, err, "Failed to close stdin pipe multiple times")
 			}
 		})

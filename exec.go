@@ -49,9 +49,9 @@ type Cmd struct {
 	ProcessState *os.ProcessState // Status of the process. Cached because it cannot be read after the process is closed.
 
 	// Context management
-	ctx      context.Context // Context to kill the process before it finishes
-	ctxErr   error           // We deviate from the stdlib: "context cancelled" is more useful than "exit code 1"
-	waitDone chan struct{}   // This chanel prevents the context from attempting to kill the process when it is closed already
+	ctx context.Context // Context to kill the process before it finishes
+
+	waitDone chan struct{} // This chanel prevents the context from attempting to kill the process when it is closed already
 }
 
 // Command returns the Cmd struct to execute the named program with
@@ -147,8 +147,6 @@ func (c *Cmd) Start() (err error) {
 			case <-c.ctx.Done():
 				//nolint:errcheck // Mimicking behaviour from stdlib
 				c.Process.Kill()
-				// We deviate from the stdlib: "context cancelled" is more useful than "exit code 1"
-				c.ctxErr = c.ctx.Err()
 			case <-c.waitDone:
 			}
 		}()
@@ -481,10 +479,10 @@ func (c *Cmd) Wait() (err error) {
 
 	c.closeDescriptors(c.closeAfterWait)
 
-	if c.ctxErr != nil {
+	if c.ctx.Err() != nil {
 		// This if block does not exist in the stdlib. We deviate because
 		// printing "context cancelled" is more useful than "exit code 1".
-		return c.ctxErr
+		return c.ctx.Err()
 	}
 
 	if err != nil {

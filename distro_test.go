@@ -130,47 +130,17 @@ func TestDistroString(t *testing.T) {
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
 	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"_\x00_invalid_name")
 
-	realID, err := realDistro.GUID()
+	realGUID, err := realDistro.GUID()
 	require.NoError(t, err, "could not get the test distro's GUID")
 
 	testCases := map[string]struct {
-		distro     *wsl.Distro
-		withoutEnv bool
-		wants      string
+		distro *wsl.Distro
+
+		want string
 	}{
-		"nominal": {
-			distro: &realDistro,
-			wants: fmt.Sprintf(`name: %s
-guid: '%v'
-configuration:
-  - Version: 2
-  - DefaultUID: 0
-  - InteropEnabled: true
-  - PathAppended: true
-  - DriveMountingEnabled: true
-  - undocumentedWSLVersion: 2
-  - DefaultEnvironmentVariables:
-    - HOSTTYPE: x86_64
-    - LANG: en_US.UTF-8
-    - PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
-    - TERM: xterm-256color
-`, realDistro.Name(), realID),
-		},
-		"fake distro": {
-			distro: &fakeDistro,
-			wants: fmt.Sprintf(`name: %s
-guid: distro is not registered
-configuration: |
-  could not access configuration for %s: WslGetDistributionConfiguration: failed syscall
-`, fakeDistro.Name(), fakeDistro.Name()),
-		},
-		"wrong distro": {
-			distro: &wrongDistro,
-			wants: fmt.Sprintf(`name: %s
-guid: distro is not registered
-configuration: |
-  could not access configuration for %s: WslGetDistributionConfiguration: could not convert distro name to UTF16
-`, wrongDistro.Name(), wrongDistro.Name())},
+		"registered distro": {distro: &realDistro, want: fmt.Sprintf(`WSL distro %q (%s)`, realDistro.Name(), realGUID)},
+		"fake distro":       {distro: &fakeDistro, want: fmt.Sprintf(`WSL distro %q (not registered)`, fakeDistro.Name())},
+		"wrong distro":      {distro: &wrongDistro, want: fmt.Sprintf(`WSL distro %q (not registered)`, wrongDistro.Name())},
 	}
 
 	for name, tc := range testCases {
@@ -178,7 +148,7 @@ configuration: |
 		t.Run(name, func(t *testing.T) {
 			d := *tc.distro
 			got := d.String()
-			require.Equal(t, tc.wants, got)
+			require.Equal(t, tc.want, got)
 		})
 	}
 }

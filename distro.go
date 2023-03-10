@@ -10,7 +10,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 
 	"github.com/google/uuid"
 	"github.com/ubuntu/decorate"
@@ -201,59 +200,11 @@ func (d Distro) GetConfiguration() (c Configuration, err error) {
 // String deserializes a distro its GUID and its configuration as a yaml string.
 // If there is an error, it is printed as part of the yaml.
 func (d Distro) String() string {
-	return fmt.Sprintf("name: %s\n%s\n%s", d.Name(), d.guidToString(), d.configToString())
-}
-
-// guidToString shows the GUID as a yaml string.
-// It exists to simplify the implementation of (Distro).String
-// If it errors out, the message is returned as the value in the yaml.
-func (d Distro) guidToString() string {
-	registered, err := d.isRegistered()
+	guid, err := d.GUID()
 	if err != nil {
-		return fmt.Sprintf("guid: |\n  %v", err)
+		return fmt.Sprintf("WSL distro %q (not registered)", d.Name())
 	}
-	if !registered {
-		return "guid: distro is not registered"
-	}
-
-	id, err := d.GUID()
-	if err != nil {
-		return fmt.Sprintf("guid: |\n  %v", err)
-	}
-	return fmt.Sprintf("guid: '%v'", id)
-}
-
-// configToString shows the configuration as a yaml string.
-// It exists to simplify the implementation of (Distro).String
-// If it errors out, the message is returned as the value in the yaml.
-func (d Distro) configToString() string {
-	c, err := d.GetConfiguration()
-	if err != nil {
-		return fmt.Sprintf("configuration: |\n  %v\n", err)
-	}
-
-	// Get sorted list of environment variables
-	envKeys := []string{}
-	for k := range c.DefaultEnvironmentVariables {
-		envKeys = append(envKeys, k)
-	}
-	sort.Strings(envKeys)
-
-	fmtEnvs := "\n"
-	for _, k := range envKeys {
-		fmtEnvs = fmt.Sprintf("%s    - %s: %s\n", fmtEnvs, k, c.DefaultEnvironmentVariables[k])
-	}
-
-	// Generate the string
-	return fmt.Sprintf(`configuration:
-  - Version: %d
-  - DefaultUID: %d
-  - InteropEnabled: %t
-  - PathAppended: %t
-  - DriveMountingEnabled: %t
-  - undocumentedWSLVersion: %d
-  - DefaultEnvironmentVariables:%s`, c.Version, c.DefaultUID, c.InteropEnabled, c.PathAppended,
-		c.DriveMountingEnabled, c.UndocumentedWSLVersion, fmtEnvs)
+	return fmt.Sprintf("WSL distro %q (%s)", d.Name(), guid)
 }
 
 // configure is a wrapper around Win32's WslConfigureDistribution.

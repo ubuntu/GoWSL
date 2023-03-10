@@ -124,16 +124,16 @@ func keepAwake(t *testing.T, ctx context.Context, d *wsl.Distro) context.CancelF
 
 // testDistros finds all distros with a mangled name.
 func testDistros(ctx context.Context) (distros []wsl.Distro, err error) {
-	distros, err = registeredDistros(ctx)
+	registered, err := registeredDistros(ctx)
 	if err != nil {
-		return distros, err
+		return registered, err
 	}
 
-	for idx := range distros {
-		if !strings.HasPrefix(distros[idx].Name(), namePrefix) {
+	for idx := range registered {
+		if !strings.HasPrefix(registered[idx].Name(), namePrefix) {
 			continue
 		}
-		distros = append(distros, distros[idx])
+		distros = append(distros, registered[idx])
 	}
 
 	return distros, nil

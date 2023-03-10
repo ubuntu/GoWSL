@@ -15,6 +15,7 @@ import (
 	"github.com/ubuntu/decorate"
 	"github.com/ubuntu/gowsl/internal/backend"
 	"github.com/ubuntu/gowsl/internal/flags"
+	"github.com/ubuntu/gowsl/internal/state"
 )
 
 // Distro is an abstraction around a WSL distro.
@@ -22,6 +23,18 @@ type Distro struct {
 	backend backend.Backend
 	name    string
 }
+
+// State is the state of a particular distro as seen in `wsl.exe -l -v`.
+type State = state.State
+
+// The states here reported are the ones obtained via `wsl.exe -l -v`,
+// with the addition of NonRegistered.
+const (
+	Stopped       = state.Stopped
+	Running       = state.Running
+	Installing    = state.Installing
+	NonRegistered = state.NotRegistered
+)
 
 // NewDistro declares a new distribution, but does not register it nor
 // check if it exists.
@@ -50,6 +63,21 @@ func (d *Distro) GUID() (id uuid.UUID, err error) {
 		return id, errors.New("distro is not registered")
 	}
 	return id, nil
+}
+
+// State returns the current state of the distro.
+func (d *Distro) State() (s State, err error) {
+	defer decorate.OnError(&err, "could not get distro %q's state", d.Name())
+
+	registered, err := d.isRegistered()
+	if err != nil {
+		return s, err
+	}
+	if !registered {
+		return state.NotRegistered, nil
+	}
+
+	return d.backend.State(d.Name())
 }
 
 // Terminate powers off the distro.

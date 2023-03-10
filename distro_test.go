@@ -295,6 +295,7 @@ func TestConfigurationSetters(t *testing.T) {
 	}
 
 	for name, tc := range tests {
+		tc := tc
 		t.Run(name, func(t *testing.T) {
 			// This test has two phases:
 			// 1. Changes one of the default settings and asserts that it has changed, and the others have not.

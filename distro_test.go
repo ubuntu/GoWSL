@@ -19,6 +19,7 @@ import (
 func TestShutdown(t *testing.T) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Skip("Skipping test because back-end does not implement it")
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 
@@ -35,6 +36,7 @@ func TestShutdown(t *testing.T) {
 func TestTerminate(t *testing.T) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Skip("Skipping test because back-end does not implement it")
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 
@@ -474,6 +476,9 @@ func TestDistroState(t *testing.T) {
 			switch tc.action {
 			case none:
 			case install:
+				if wsl.MockAvailable() {
+					t.Skip("Skipping because mock registers instantly")
+				}
 				d := asyncNewTestDistro(t, ctx, emptyRootFs)
 				tc.distro = &d
 				require.Eventually(t, func() bool {

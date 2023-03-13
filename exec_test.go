@@ -554,6 +554,7 @@ func TestCommandCombinedOutput(t *testing.T) {
 func TestCommandStdin(t *testing.T) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Skip("Skipping test because back-end does not implement it")
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 

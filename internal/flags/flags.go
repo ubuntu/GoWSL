@@ -1,7 +1,5 @@
 // Package flags contains the enum used by WSL to display
 // some configuration of a WSL distro.
-//
-// TODO: This can probably be moved to the back-end.
 package flags
 
 // WslFlags is an alias for Windows' WSL_DISTRIBUTION_FLAGS

@@ -4,73 +4,321 @@ package mock
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 
+	"github.com/google/uuid"
 	"github.com/ubuntu/decorate"
 	"github.com/ubuntu/gowsl/internal/flags"
+	"github.com/ubuntu/gowsl/mock/internal/distroState"
 )
 
+// When something fails Windows-side, it returns (1<<32 - 1).
+const windowsError = math.MaxUint32
+
 // IsPipe mocks checking if a file's descriptor is a pipe vs. any other type of object.
-//
-// TODO: Not implemented.
-func (Backend) IsPipe(f *os.File) (bool, error) {
+func (*Backend) IsPipe(f *os.File) (bool, error) {
 	return false, errors.New("not implemented")
 }
 
 // WslConfigureDistribution mocks the WslConfigureDistribution call to the Win32 API.
-//
-// TODO: Not implemented.
-func (Backend) WslConfigureDistribution(distributionName string, defaultUID uint32, wslDistributionFlags flags.WslFlags) (err error) {
+func (b *Backend) WslConfigureDistribution(distributionName string, defaultUID uint32, wslDistributionFlags flags.WslFlags) (err error) {
 	defer decorate.OnError(&err, "WslConfigureDistribution")
-	return errors.New("not implemented")
+
+	if err := validDistroName(distributionName); err != nil {
+		return err
+	}
+
+	_, key := b.findDistroKey(distributionName)
+	if key == nil {
+		return errors.New("failed syscall: distro not registered")
+	}
+
+	key.mu.Lock()
+	defer key.mu.Unlock()
+
+	key.data["Flags"] = wslDistributionFlags
+	key.data["DefaultUid"] = defaultUID
+
+	return nil
 }
 
 // WslGetDistributionConfiguration mocks the WslGetDistributionConfiguration call to the Win32 API.
-//
-// TODO: Not implemented.
-func (Backend) WslGetDistributionConfiguration(distributionName string,
+func (b *Backend) WslGetDistributionConfiguration(distributionName string,
 	distributionVersion *uint8,
 	defaultUID *uint32,
 	wslDistributionFlags *flags.WslFlags,
 	defaultEnvironmentVariables *map[string]string) (err error) {
 	defer decorate.OnError(&err, "WslGetDistributionConfiguration")
-	return errors.New("not implemented")
+
+	if err := validDistroName(distributionName); err != nil {
+		return err
+	}
+
+	b.lxssRootKey.mu.RLock()
+	defer b.lxssRootKey.mu.RUnlock()
+
+	_, key := b.findDistroKey(distributionName)
+	if key == nil {
+		return errors.New("failed syscall: not registered")
+	}
+
+	key.mu.RLock()
+	defer key.mu.RUnlock()
+
+	// Ignoring tipe assert linter because we're the only ones with access to these fields
+	*distributionVersion = key.data["Version"].(uint8)         //nolint: forcetypeassert
+	*defaultUID = key.data["DefaultUid"].(uint32)              //nolint: forcetypeassert
+	*wslDistributionFlags = key.data["Flags"].(flags.WslFlags) //nolint: forcetypeassert
+
+	*defaultEnvironmentVariables = map[string]string{
+		"HOSTTYPE": "x86_64",
+		"LANG":     "en_US.UTF-8",
+		"PATH":     "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games",
+		"TERM":     "xterm-256color",
+	}
+
+	return nil
 }
 
 // WslLaunch mocks the WslLaunch call to the Win32 API.
-//
-// TODO: Not implemented.
-func (Backend) WslLaunch(distroName string,
+func (b *Backend) WslLaunch(distributionName string,
 	command string,
 	useCWD bool,
 	stdin *os.File,
 	stdout *os.File,
 	stderr *os.File) (process *os.Process, err error) {
 	defer decorate.OnError(&err, "WslLaunch")
-	return nil, errors.New("not implemented")
+
+	if err := validWin32String(distributionName); err != nil {
+		return nil, err
+	}
+
+	if err := validWin32String(command); err != nil {
+		return nil, err
+	}
+
+	b.lxssRootKey.mu.RLock()
+
+	_, distroKey := b.findDistroKey(distributionName)
+	if distroKey == nil {
+		b.lxssRootKey.mu.RUnlock()
+		return nil, errors.New("Failed syscall: distro does not exist")
+	}
+
+	b.lxssRootKey.mu.RUnlock()
+
+	if isPipe, err := b.IsPipe(stdin); err == nil && isPipe {
+		panic("Stdin must be a pipe")
+	}
+	if isPipe, err := b.IsPipe(stdout); err == nil && isPipe {
+		panic("Stdout must be a pipe")
+	}
+	if isPipe, err := b.IsPipe(stderr); err == nil && isPipe {
+		panic("Stderr must be a pipe")
+	}
+
+	p, err := newMockedCommand(command).start(stdin, stdout, stderr)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := distroKey.state.AttachProcess(p); err != nil {
+		_ = p.Kill()
+		return nil, err
+	}
+
+	return p, nil
 }
 
 // WslLaunchInteractive mocks the WslLaunchInteractive call to the Win32 API.
-//
-// TODO: Not implemented.
-func (Backend) WslLaunchInteractive(distributionName string, command string, useCurrentWorkingDirectory bool) (exitCode uint32, err error) {
+func (b *Backend) WslLaunchInteractive(distributionName string, command string, useCurrentWorkingDirectory bool) (exitCode uint32, err error) {
 	defer decorate.OnError(&err, "WslLaunchInteractive")
-	return math.MaxUint32, errors.New("not implemented")
+
+	if err := validWin32String(distributionName); err != nil {
+		return windowsError, err
+	}
+
+	if err := validWin32String(command); err != nil {
+		return windowsError, err
+	}
+
+	b.lxssRootKey.mu.RLock()
+
+	_, distroKey := b.findDistroKey(distributionName)
+	if distroKey == nil {
+		b.lxssRootKey.mu.RUnlock()
+		return windowsError, errors.New("failed syscall: distro not found")
+	}
+
+	b.lxssRootKey.mu.RUnlock()
+
+	if err := distroKey.state.Touch(); err != nil {
+		return windowsError, fmt.Errorf("failed syscall: %v", err)
+	}
+
+	switch command {
+	case "":
+		s, err := distroKey.state.NewShell()
+		if err != nil {
+			return windowsError, err
+		}
+		exit := s.Wait()
+
+		return exit, nil
+	case "exit 0":
+		return 0, nil
+	case "exit 42":
+		return 42, nil
+	case "[ `pwd` = /root ]":
+		if useCurrentWorkingDirectory {
+			// We are wherever wsl.exe was called from
+			return 1, nil
+		}
+		// We are home (hence /root)
+		return 0, nil
+	case "[ `pwd` != /root ]":
+		if useCurrentWorkingDirectory {
+			// We are wherever wsl.exe was called from
+			return 0, nil
+		}
+		// We are home (hence /root)
+		return 1, nil
+	default:
+		panic(fmt.Sprintf("WslLaunchInteractive command not supported: %q", command))
+	}
 }
 
 // WslRegisterDistribution mocks the WslRegisterDistribution call to the Win32 API.
-//
-// TODO: Not implemented.
-func (Backend) WslRegisterDistribution(distributionName string, tarGzFilename string) (err error) {
+func (b *Backend) WslRegisterDistribution(distributionName string, tarGzFilename string) (err error) {
 	defer decorate.OnError(&err, "WslRegisterDistribution")
-	return errors.New("not implemented")
+
+	if err := validDistroName(distributionName); err != nil {
+		return err
+	}
+
+	if err := validWin32String(tarGzFilename); err != nil {
+		return err
+	}
+
+	b.lxssRootKey.mu.Lock()
+	defer b.lxssRootKey.mu.Unlock()
+
+	if _, key := b.findDistroKey(distributionName); key != nil {
+		return errors.New("failed syscall: distro already exists")
+	}
+
+	GUID, err := uuid.NewRandom()
+	if err != nil {
+		return fmt.Errorf("could not generate UUID: %v", err)
+	}
+
+	guidStr := fmt.Sprintf("{%s}", GUID.String())
+
+	b.lxssRootKey.children[guidStr] = &RegistryKey{
+		path: filepath.Join("HKEY_CURRENT_USER", lxssPath, guidStr),
+		data: map[string]any{
+			"DistributionName": distributionName,
+			"Flags":            flags.WslFlags(0xf),
+			"Version":          uint8(2),
+			"DefaultUid":       uint32(0),
+		},
+		state: distroState.New(),
+	}
+
+	// When registering the first distro, DefaultDistribution
+	// is updated with its GUID
+
+	if b.lxssRootKey.data["DefaultDistribution"] == "" {
+		b.lxssRootKey.data["DefaultDistribution"] = guidStr
+	}
+
+	return nil
 }
 
 // WslUnregisterDistribution mocks the WslUnregisterDistribution call to the Win32 API.
-//
-// TODO: Not implemented.
-func (Backend) WslUnregisterDistribution(distributionName string) (err error) {
+func (b *Backend) WslUnregisterDistribution(distributionName string) (err error) {
 	defer decorate.OnError(&err, "WslUnregisterDistribution")
-	return errors.New("not implemented")
+
+	if err := validDistroName(distributionName); err != nil {
+		return err
+	}
+
+	b.lxssRootKey.mu.Lock()
+	defer b.lxssRootKey.mu.Unlock()
+
+	GUID, key := b.findDistroKey(distributionName)
+	if key == nil {
+		return errors.New("failed syscall: distro not registered")
+	}
+
+	err = key.state.MarkUninstalled()
+	delete(b.lxssRootKey.children, GUID)
+
+	//  When you unregister the default distro, the one with the lowest GUID
+	// (lexicographically) is set as default. If there are none, the field is
+	// set to empty string.
+
+	if b.lxssRootKey.data["DefaultDistribution"] != GUID {
+		return nil
+	}
+
+	var firstGUID string
+	for GUID := range b.lxssRootKey.children {
+		if _, err := uuid.Parse(GUID); err != nil {
+			continue // Not a distro
+		}
+
+		if strings.Compare(GUID, firstGUID) == -1 {
+			firstGUID = GUID
+		}
+	}
+
+	b.lxssRootKey.data["DefaultDistribution"] = firstGUID
+
+	return err
+}
+
+func validWin32String(str string) error {
+	if strings.ContainsRune(str, rune(0)) {
+		return fmt.Errorf("could not convert %q to UTF-16", str)
+	}
+	return nil
+}
+
+func validDistroName(distroName string) error {
+	if err := validWin32String(distroName); err != nil {
+		return err
+	}
+
+	p := regexp.MustCompile(`^[A-Za-z0-9-_\.]+$`)
+	if !p.MatchString(distroName) {
+		return errors.New("name contains invalid characters")
+	}
+
+	return nil
+}
+
+func (b *Backend) findDistroKey(distroName string) (GUID string, key *RegistryKey) {
+	for GUID, key := range b.lxssRootKey.children {
+		if _, err := uuid.Parse(GUID); err != nil {
+			continue // Not a distro
+		}
+
+		name, ok := key.data["DistributionName"]
+		if !ok {
+			continue
+		}
+		if name != distroName {
+			continue
+		}
+
+		return GUID, key
+	}
+
+	return "", nil
 }

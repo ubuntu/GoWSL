@@ -12,6 +12,10 @@ import (
 )
 
 func TestRegister(t *testing.T) {
+	if wsl.MockAvailable() {
+		t.Parallel()
+	}
+
 	testCases := map[string]struct {
 		distroSuffix string
 		rootfs       string
@@ -29,6 +33,7 @@ func TestRegister(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 			if wsl.MockAvailable() {
+				t.Parallel()
 				ctx = wsl.WithMock(ctx, mock.New())
 			}
 
@@ -70,6 +75,7 @@ func TestRegister(t *testing.T) {
 func TestRegisteredDistros(t *testing.T) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Parallel()
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 
@@ -86,6 +92,10 @@ func TestRegisteredDistros(t *testing.T) {
 }
 
 func TestIsRegistered(t *testing.T) {
+	if wsl.MockAvailable() {
+		t.Parallel()
+	}
+
 	tests := map[string]struct {
 		distroSuffix   string
 		register       bool
@@ -104,6 +114,7 @@ func TestIsRegistered(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 			if wsl.MockAvailable() {
+				t.Parallel()
 				ctx = wsl.WithMock(ctx, mock.New())
 			}
 
@@ -133,6 +144,7 @@ func TestIsRegistered(t *testing.T) {
 func TestUnregister(t *testing.T) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Parallel()
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 

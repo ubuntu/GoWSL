@@ -89,6 +89,7 @@ func isTestLinuxProcessAlive(d *wsl.Distro) bool {
 func TestDefaultDistro(t *testing.T) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Parallel()
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 
@@ -105,6 +106,7 @@ func TestDefaultDistro(t *testing.T) {
 func TestDistroSetAsDefault(t *testing.T) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Parallel()
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 
@@ -140,6 +142,7 @@ func TestDistroSetAsDefault(t *testing.T) {
 func TestDistroString(t *testing.T) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Parallel()
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 
@@ -182,6 +185,7 @@ func TestGUID(t *testing.T) {
 	// struct.
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Parallel()
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 
@@ -230,6 +234,10 @@ func TestGUID(t *testing.T) {
 }
 
 func TestConfigurationSetters(t *testing.T) {
+	if wsl.MockAvailable() {
+		t.Parallel()
+	}
+
 	type testedSetting uint
 	const (
 		DefaultUID testedSetting = iota
@@ -251,7 +259,7 @@ func TestConfigurationSetters(t *testing.T) {
 		wantErr bool
 	}{
 		// DefaultUID
-		"success DefaultUID":             {setting: DefaultUID},
+		"success DefaultUID":             {setting: DefaultUID, distro: DistroRegistered},
 		"fail DefaultUID \\0 in name":    {setting: DefaultUID, distro: DistroInvalidName, wantErr: true},
 		"fail DefaultUID not registered": {setting: DefaultUID, distro: DistroNotRegistered, wantErr: true},
 
@@ -292,6 +300,7 @@ func TestConfigurationSetters(t *testing.T) {
 
 			ctx := context.Background()
 			if wsl.MockAvailable() {
+				t.Parallel()
 				ctx = wsl.WithMock(ctx, mock.New())
 			}
 
@@ -386,6 +395,7 @@ func TestConfigurationSetters(t *testing.T) {
 func TestGetConfiguration(t *testing.T) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Parallel()
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 

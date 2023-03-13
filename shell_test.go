@@ -13,6 +13,7 @@ import (
 func TestShell(t *testing.T) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Parallel()
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 

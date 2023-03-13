@@ -20,6 +20,7 @@ import (
 func TestCommandRun(t *testing.T) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Parallel()
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 
@@ -57,14 +58,14 @@ func TestCommandRun(t *testing.T) {
 		"linux error with timeout long enough": {cmd: "exit 42", timeout: 10 * time.Second, wantError: true, wantExitCode: 42},
 		"fake distro with timeout long enough": {cmd: "exit 0", fakeDistro: true, wantError: true},
 		"timeout before Run":                   {cmd: "exit 0", timeout: 1 * time.Nanosecond, wantError: true},
-		"timeout during Run":                   {cmd: "sleep 3 && exit 0", timeout: 2 * time.Second, wantError: true},
+		"timeout during Run":                   {cmd: "sleep 5", timeout: 2 * time.Second, wantError: true},
 
 		// cancel cases
 		"success with no cancel": {cmd: "exit 0", cancelOn: CancelAfterRun},
 		"linux error no cancel":  {cmd: "exit 42", cancelOn: CancelAfterRun, wantError: true, wantExitCode: 42},
 		"fake distro no cancel":  {cmd: "exit 42", cancelOn: CancelAfterRun, fakeDistro: true, wantError: true},
 		"cancel before Run":      {cmd: "exit 0", cancelOn: CancelBeforeRun, wantError: true},
-		"cancel during Run":      {cmd: "sleep 5 && exit 0", cancelOn: CancelDuringRun, wantError: true},
+		"cancel during Run":      {cmd: "sleep 5", cancelOn: CancelDuringRun, wantError: true},
 	}
 
 	for name, tc := range testCases {
@@ -183,13 +184,13 @@ func TestCommandStartWait(t *testing.T) {
 		"success with empty stdout": {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
 		"success with stdout":       {distro: &realDistro, cmd: "echo 'Hello!'", stdoutPipe: true, wantStdout: "Hello!\n"},
 		"success with empty stderr": {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
-		"success with stderr":       {distro: &realDistro, cmd: "echo 'Error!' 1>&2", stderrPipe: true, wantStderr: "Error!\n"},
-		"success with both pipes":   {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n"},
+		"success with stderr":       {distro: &realDistro, cmd: "echo 'Error!' >&2", stderrPipe: true, wantStderr: "Error!\n"},
+		"success with both pipes":   {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n"},
 
 		// Pipe failure
-		"failure exit code with stdout": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", wantErrOn: AfterWait, wantExitError: 42},
-		"failure exit code with stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2 && exit 42", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
-		"failure exit code both pipes":  {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' 1>&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
+		"failure exit code with stdout": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", wantErrOn: AfterWait, wantExitError: 42},
+		"failure exit code with stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
+		"failure exit code both pipes":  {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
 
 		// Timeout context
 		"timeout success":          {distro: &realDistro, cmd: "exit 0", timeout: 10 * time.Second},
@@ -287,10 +288,12 @@ func TestCommandStartWait(t *testing.T) {
 			}
 
 			if stdout != nil {
-				assert.Equal(t, tc.wantStdout, stdout.String(), "Mismatch in piped stdout")
+				got := strings.ReplaceAll(stdout.String(), "\r\n", "\n")
+				assert.Equal(t, tc.wantStdout, got, "Mismatch in piped stdout")
 			}
 			if stderr != nil {
-				assert.Equal(t, tc.wantStderr, stderr.String(), "Mismatch in piped stderr")
+				got := strings.ReplaceAll(stderr.String(), "\r\n", "\n")
+				assert.Equal(t, tc.wantStderr, got, "Mismatch in piped stderr")
 			}
 
 			err = cmd.Wait()
@@ -328,6 +331,7 @@ func bufferPipeOutput(t *testing.T, cmd *wsl.Cmd, pipeName string) *bytes.Buffer
 func TestCommandOutPipes(t *testing.T) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Parallel()
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 
@@ -351,24 +355,24 @@ func TestCommandOutPipes(t *testing.T) {
 		"all discarded": {},
 
 		// Writing to buffer
-		"stdout to a buffer":            {stdout: buffer, wantInBuffer: "Hello stdout\n"},
-		"stderr to a buffer":            {stderr: buffer, wantInBuffer: "Hello stderr\n"},
-		"stdout and stderr to a buffer": {stdout: buffer, stderr: buffer, wantInBuffer: "Hello stdout\nHello stderr\n"},
+		"stdout to a buffer":            {stdout: buffer, wantInBuffer: "Hello!\n"},
+		"stderr to a buffer":            {stderr: buffer, wantInBuffer: "Error!\n"},
+		"stdout and stderr to a buffer": {stdout: buffer, stderr: buffer, wantInBuffer: "Hello!\nError!\n"},
 
 		// Writing to file
-		"stdout to file":            {stdout: file, wantInFile: "Hello stdout\n"},
-		"stderr to file":            {stderr: file, wantInFile: "Hello stderr\n"},
-		"stdout and stderr to file": {stdout: file, stderr: file, wantInFile: "Hello stdout\nHello stderr\n"},
+		"stdout to file":            {stdout: file, wantInFile: "Hello!\n"},
+		"stderr to file":            {stderr: file, wantInFile: "Error!\n"},
+		"stdout and stderr to file": {stdout: file, stderr: file, wantInFile: "Hello!\nError!\n"},
 
 		// Mixed
-		"stdout to file, stderr to buffer": {stdout: file, stderr: buffer, wantInFile: "Hello stdout\n", wantInBuffer: "Hello stderr\n"},
-		"stdout to buffer, stderr to file": {stdout: buffer, stderr: file, wantInFile: "Hello stderr\n", wantInBuffer: "Hello stdout\n"},
+		"stdout to file, stderr to buffer": {stdout: file, stderr: buffer, wantInFile: "Hello!\n", wantInBuffer: "Error!\n"},
+		"stdout to buffer, stderr to file": {stdout: buffer, stderr: file, wantInFile: "Error!\n", wantInBuffer: "Hello!\n"},
 	}
 
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			cmd := d.Command(context.Background(), "echo 'Hello stdout' >&1 && sleep 1 && echo 'Hello stderr' >&2")
+			cmd := d.Command(context.Background(), "echo 'Hello!' && sleep 1 && echo 'Error!' >&2")
 
 			bufferRW := &bytes.Buffer{}
 			fileRW, err := os.CreateTemp(t.TempDir(), "log_*.txt")
@@ -416,6 +420,7 @@ func TestCommandOutPipes(t *testing.T) {
 func TestCommandOutput(t *testing.T) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Parallel()
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 
@@ -437,12 +442,12 @@ func TestCommandOutput(t *testing.T) {
 		wantStderr   string
 	}{
 		"happy path":                                   {distro: &realDistro, cmd: "exit 0"},
-		"happy path with stdout":                       {distro: &realDistro, cmd: "echo Hello", want: "Hello\n"},
+		"happy path with stdout":                       {distro: &realDistro, cmd: "echo 'Hello!'", want: "Hello!\n"},
 		"unregistered distro":                          {distro: &fakeDistro, cmd: "exit 0", wantErr: true},
 		"null char in distro name":                     {distro: &wrongDistro, cmd: "exit 0", wantErr: true},
 		"non-zero return value":                        {distro: &realDistro, cmd: "exit 42", wantErr: true, wantExitError: true, wantExitCode: 42},
 		"non-zero return value with stderr":            {distro: &realDistro, cmd: "echo 'Error!' >&2 && exit 42", wantErr: true, wantExitError: true, wantExitCode: 42, wantStderr: "Error!\n"},
-		"non-zero return value with stdout and stderr": {distro: &realDistro, cmd: "echo Hello && sleep 1 && echo 'Error!' >&2 && exit 42", wantErr: true, wantExitError: true, wantExitCode: 42, want: "Hello\n", wantStderr: "Error!\n"},
+		"non-zero return value with stdout and stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", wantErr: true, wantExitError: true, wantExitCode: 42, want: "Hello!\n", wantStderr: "Error!\n"},
 		"error stdout already set":                     {distro: &realDistro, cmd: "exit 0", presetStdout: os.Stdout, wantErr: true},
 	}
 
@@ -480,6 +485,7 @@ func TestCommandOutput(t *testing.T) {
 func TestCommandCombinedOutput(t *testing.T) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
+		t.Parallel()
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 
@@ -501,12 +507,12 @@ func TestCommandCombinedOutput(t *testing.T) {
 		wantExitCode int
 	}{
 		"happy path":                                   {distro: &realDistro, cmd: "exit 0"},
-		"happy path with stdout":                       {distro: &realDistro, cmd: "echo Hello", want: "Hello\n"},
+		"happy path with stdout":                       {distro: &realDistro, cmd: "echo 'Hello!'", want: "Hello!\n"},
 		"unregistered distro":                          {distro: &fakeDistro, cmd: "exit 0", wantError: true},
 		"null char in distro name":                     {distro: &wrongDistro, cmd: "exit 0", wantError: true},
 		"non-zero return value":                        {distro: &realDistro, cmd: "exit 42", wantError: true, wantExitError: true, wantExitCode: 42},
 		"non-zero return value with stderr":            {distro: &realDistro, cmd: "echo 'Error!' >&2 && exit 42", wantError: true, wantExitError: true, wantExitCode: 42, want: "Error!\n"},
-		"non-zero return value with stdout and stderr": {distro: &realDistro, cmd: "echo Hello && sleep 1 && echo 'Error!' >&2 && exit 42", wantError: true, wantExitError: true, wantExitCode: 42, want: "Hello\nError!\n"},
+		"non-zero return value with stdout and stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", wantError: true, wantExitError: true, wantExitCode: 42, want: "Hello!\nError!\n"},
 		"error stdout already set":                     {distro: &realDistro, cmd: "exit 0", presetStdout: os.Stdout, wantError: true},
 		"error stderr already set":                     {distro: &realDistro, cmd: "exit 0", presetStderr: os.Stderr, wantError: true},
 	}

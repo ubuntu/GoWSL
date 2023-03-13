@@ -28,53 +28,19 @@ func testContext(ctx context.Context) context.Context {
 }
 
 // installDistro installs using powershell to decouple the tests from Distro.Register
-// CommandContext sometimes fails to stop it, so a more aggressive approach is taken by rebooting WSL.
-// TODO: Consider if we want to retry.
+// CommandContext often fails to stop it, so a more aggressive approach is taken by rebooting WSL.
 //
 //nolint:revive // No, I wont' put the context before the *testing.T.//nolint:revive
 func installDistro(t *testing.T, ctx context.Context, distroName, location, rootfs string) {
 	t.Helper()
 
-	// Timeout to attempt a graceful failure
-	const gracefulTimeout = 60 * time.Second
+	defer wslExeGuard(2 * time.Minute)()
 
-	// Timeout to shutdown WSL
-	const aggressiveTimeout = gracefulTimeout + 10*time.Second
+	cmd := fmt.Sprintf("$env:WSL_UTF8=1 ;  wsl --import %q %q %q", distroName, location, rootfs)
 
-	// Cannot use context.WithTimeout because I want to quit by doing wsl --shutdown
-	expired := time.After(aggressiveTimeout)
-
-	type combinedOutput struct {
-		output string
-		err    error
-	}
-	cmdOut := make(chan combinedOutput)
-
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), gracefulTimeout)
-		defer cancel()
-		cmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --import %s %s %s", distroName, location, rootfs)
-		o, e := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd).CombinedOutput() //nolint:gosec
-
-		cmdOut <- combinedOutput{output: string(o), err: e}
-		close(cmdOut)
-	}()
-
-	var output combinedOutput
-	select {
-	case <-expired:
-		t.Logf("Setup: installation of WSL distro %s got stuck. Rebooting WSL.", distroName)
-		e := exec.Command("wsl.exe", "--shutdown").Run()
-		require.NoError(t, e, "Setup: failed to shutdown WSL after distro installation got stuck")
-
-		// Almost guaranteed to error out here
-		output = <-cmdOut
-		require.NoError(t, output.err, output.output)
-
-		require.Fail(t, "Setup: unknown state: successfully registered while WSL was shut down, stdout+stderr:", output.output)
-	case output = <-cmdOut:
-	}
-	require.NoErrorf(t, output.err, "Setup: failed to register %q: %s", distroName, output.output)
+	//nolint:gosec // Code injection is not a concern in tests.
+	out, err := exec.Command("powershell.exe", "-Command", cmd).CombinedOutput()
+	require.NoErrorf(t, err, "Setup: failed to register %q: %s", distroName, out)
 }
 
 // uninstallDistro checks if a distro exists and if it does, it unregisters it.
@@ -86,6 +52,7 @@ func uninstallDistro(distro wsl.Distro, allowShutdown bool) (err error) {
 	}
 
 	unregisterCmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --unregister %q", distro.Name())
+	defer wslExeGuard(2 * time.Minute)()
 
 	// 1. Attempt unregistering
 
@@ -139,6 +106,8 @@ func uninstallDistro(distro wsl.Distro, allowShutdown bool) (err error) {
 
 // testDistros finds all distros with a mangled name.
 func registeredDistros(ctx context.Context) (distros []wsl.Distro, err error) {
+	defer wslExeGuard(5 * time.Second)()
+
 	outp, err := exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1 ; wsl.exe --list --quiet --all").Output()
 	if err != nil {
 		return distros, err
@@ -154,6 +123,8 @@ func registeredDistros(ctx context.Context) (distros []wsl.Distro, err error) {
 // defaultDistro gets the default distro's name via wsl.exe to bypass wsl.DefaultDistro in order to
 // better decouple tests.
 func defaultDistro(ctx context.Context) (string, error) {
+	defer wslExeGuard(5 * time.Second)()
+
 	out, err := exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1; wsl.exe --list --verbose").CombinedOutput()
 	if err != nil {
 		if target := (&exec.ExitError{}); !errors.As(err, &target) {
@@ -189,6 +160,8 @@ func defaultDistro(ctx context.Context) (string, error) {
 
 // setDefaultDistro sets a distro as default using Powershell.
 func setDefaultDistro(ctx context.Context, distroName string) error {
+	defer wslExeGuard(5 * time.Second)()
+
 	// No threat of code injection, wsl.exe will only interpret this text as a distro name
 	// and throw Wsl/Service/WSL_E_DISTRO_NOT_FOUND if it does not exist.
 	out, err := exec.Command("wsl.exe", "--set-default", distroName).CombinedOutput()
@@ -196,4 +169,26 @@ func setDefaultDistro(ctx context.Context, distroName string) error {
 		return fmt.Errorf("failed to set distro %q back as default: %v. Output: %s", distroName, err, out)
 	}
 	return nil
+}
+
+// wslExeGuard guards against the occasional freezing of wsl.exe. Sometimes, for no
+// apparent reason, wsl.exe stops responding, and cancelling the context of the command
+// is not enough to unfreeze it. The only known workaround is to call `wsl --shutdown`
+// from elsewhere.
+//
+// This function does just that when the timeout is exceeded.
+func wslExeGuard(timeout time.Duration) (cancel func()) {
+	gentleTimeout := time.AfterFunc(timeout, func() {
+		fmt.Fprintf(os.Stderr, "wslExec guard triggered, shutting WSL down")
+		_ = exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1 ; wsl.exe --shutdown").Run()
+	})
+
+	panicTimeout := time.AfterFunc(timeout+30*time.Second, func() {
+		panic("WSL froze and couldn't be stopped. Tests aborted.")
+	})
+
+	return func() {
+		gentleTimeout.Stop()
+		panicTimeout.Stop()
+	}
 }

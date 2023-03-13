@@ -400,3 +400,77 @@ func TestGetConfiguration(t *testing.T) {
 		})
 	}
 }
+
+func TestDistroState(t *testing.T) {
+	ctx := testContext(context.Background())
+
+	realDistro := newTestDistro(t, ctx, rootFs)
+	nonRegisteredDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
+
+	type action int
+	const (
+		none = iota
+		install
+		command
+		terminate
+	)
+
+	testCases := map[string]struct {
+		distro *wsl.Distro
+		action action
+
+		want wsl.State
+	}{
+		"non-registered distro":     {distro: &nonRegisteredDistro, action: none, want: wsl.NonRegistered},
+		"real distro is stopped":    {distro: &realDistro, action: terminate, want: wsl.Stopped},
+		"real distro is running":    {distro: &realDistro, action: command, want: wsl.Running},
+		"distro is being installed": {distro: nil, action: install, want: wsl.Installing},
+	}
+
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			switch tc.action {
+			case none:
+			case install:
+				d := asyncNewTestDistro(t, ctx, emptyRootFs)
+				tc.distro = &d
+				require.Eventually(t, func() bool {
+					r, err := d.IsRegistered()
+					return err == nil && r
+				}, 3*time.Second, 100*time.Millisecond, "Setup: distro never started installing")
+			case command:
+				_, err := tc.distro.Command(ctx, "exit 0").Output()
+				require.NoError(t, err, "Setup: distro.Command should not return an error")
+			case terminate:
+				_ = tc.distro.Terminate()
+			default:
+				require.Failf(t, "Setup: unknown action enum", "Value: %d", tc.action)
+			}
+
+			got, err := tc.distro.State()
+			require.NoError(t, err, "distro.State should not return an error")
+
+			require.Equal(t, tc.want.String(), got.String(), "distro.State() does not match expected value")
+		})
+	}
+}
+
+//nolint:revive // No, I wont' put the context before the *testing.T.
+func asyncNewTestDistro(t *testing.T, ctx context.Context, rootFs string) wsl.Distro {
+	t.Helper()
+
+	d := wsl.NewDistro(ctx, uniqueDistroName(t))
+
+	go func() {
+		if err := d.Register(rootFs); err != nil {
+			t.Logf("Setup: %v", err)
+		}
+	}()
+
+	t.Cleanup(func() {
+		_ = d.Unregister()
+	})
+
+	return d
+}

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/ubuntu/gowsl/internal/flags"
+	"github.com/ubuntu/gowsl/internal/state"
 )
 
 // RegistryKey mocks a very small subset of behaviours of a Windows Registry key, enough
@@ -22,6 +23,7 @@ type Backend interface {
 	OpenLxssRegistry(path string) (RegistryKey, error)
 
 	// wsl.exe
+	State(distributionName string) (state.State, error)
 	Shutdown() error
 	Terminate(distroName string) error
 	SetAsDefault(distroName string) error

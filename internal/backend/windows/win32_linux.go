@@ -11,12 +11,6 @@ import (
 	"github.com/ubuntu/gowsl/internal/flags"
 )
 
-// IsPipe checks if a file's descriptor is a pipe vs. any other type of object.
-// This implementation will always fail on Linux.
-func (Backend) IsPipe(f *os.File) (bool, error) {
-	return false, errors.New("not implemented")
-}
-
 // WslConfigureDistribution is a wrapper around the WslConfigureDistribution
 // function in the wslApi.dll Win32 library.
 // This implementation will always fail on Linux.

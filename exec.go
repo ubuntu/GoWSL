@@ -365,8 +365,7 @@ func (c *Cmd) readerDescriptor(r io.Reader) (f *os.File, err error) {
 	}
 
 	if f, ok := r.(*os.File); ok {
-		isPipe, err := c.distro.backend.IsPipe(f)
-		if err == nil && isPipe {
+		if isPipe(f) {
 			// It's a pipe: no need to create our own pipe.
 			return f, nil
 		}
@@ -408,8 +407,7 @@ func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
 	}
 
 	if f, ok := w.(*os.File); ok {
-		isPipe, err := c.distro.backend.IsPipe(f)
-		if err == nil && isPipe {
+		if isPipe(f) {
 			// It's a pipe: no need to create our own pipe.
 			return f, nil
 		}
@@ -589,4 +587,19 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// isPipe checks if a file's descriptor is a pipe vs. any other type of object.
+// If we cannot ensure it is a pipe, we err on the side caution and return false.
+func isPipe(f *os.File) bool {
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+
+	if info.Mode()&os.ModeNamedPipe == 0 {
+		return false
+	}
+
+	return true
 }

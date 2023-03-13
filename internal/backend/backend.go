@@ -29,7 +29,6 @@ type Backend interface {
 	SetAsDefault(distroName string) error
 
 	// Win32
-	IsPipe(f *os.File) (bool, error)
 	WslConfigureDistribution(distributionName string, defaultUID uint32, wslDistributionFlags flags.WslFlags) error
 	WslGetDistributionConfiguration(distroName string, distributionVersion *uint8, defaultUID *uint32, wslDistributionFlags *flags.WslFlags, defaultEnvironmentVariables *map[string]string) error
 	WslLaunch(distroName string, command string, useCWD bool, stdin *os.File, stdout *os.File, stderr *os.File) (*os.Process, error)

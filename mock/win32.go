@@ -20,11 +20,6 @@ import (
 // When something fails Windows-side, it returns (1<<32 - 1).
 const windowsError = math.MaxUint32
 
-// IsPipe mocks checking if a file's descriptor is a pipe vs. any other type of object.
-func (*Backend) IsPipe(f *os.File) (bool, error) {
-	return false, errors.New("not implemented")
-}
-
 // WslConfigureDistribution mocks the WslConfigureDistribution call to the Win32 API.
 func (b *Backend) WslConfigureDistribution(distributionName string, defaultUID uint32, wslDistributionFlags flags.WslFlags) (err error) {
 	defer decorate.OnError(&err, "WslConfigureDistribution")

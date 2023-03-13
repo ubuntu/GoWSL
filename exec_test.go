@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -403,7 +404,8 @@ func TestCommandOutPipes(t *testing.T) {
 			require.NoError(t, err, "Did not expect an error during (*Cmd).Run")
 
 			// Testing buffer contents
-			assert.Equal(t, tc.wantInBuffer, bufferRW.String())
+			got := strings.ReplaceAll(bufferRW.String(), "\r\n", "\n")
+			assert.Equal(t, tc.wantInBuffer, got)
 
 			// Testing file contents
 			err = fileRW.Close()
@@ -412,7 +414,8 @@ func TestCommandOutPipes(t *testing.T) {
 			contents, err := os.ReadFile(fileRW.Name())
 			require.NoError(t, err, "failed to read file before testing contents")
 
-			require.Equal(t, tc.wantInFile, string(contents))
+			got = strings.ReplaceAll(string(contents), "\r\n", "\n")
+			require.Equal(t, tc.wantInFile, got)
 		})
 	}
 }
@@ -467,7 +470,8 @@ func TestCommandOutput(t *testing.T) {
 			}
 
 			if tc.want != "" {
-				require.Equal(t, tc.want, string(stdout), "Unexpected contents in stdout")
+				got := strings.ReplaceAll(string(stdout), "\r\n", "\n")
+				require.Equal(t, tc.want, got, "Unexpected contents in stdout")
 			}
 
 			if !tc.wantExitError {
@@ -477,7 +481,9 @@ func TestCommandOutput(t *testing.T) {
 			target := &exec.ExitError{}
 			require.ErrorAsf(t, err, &target, "Unexpected error type. Expected an ExitError.")
 			require.Equal(t, target.ExitCode(), tc.wantExitCode, "Unexpected value for ExitError.Code.")
-			require.Equal(t, tc.wantStderr, string(target.Stderr), "Unexpected contents in stderr")
+
+			got := strings.ReplaceAll(string(target.Stderr), "\r\n", "\n")
+			require.Equal(t, tc.wantStderr, got, "Unexpected contents in stderr")
 		})
 	}
 }
@@ -537,7 +543,8 @@ func TestCommandCombinedOutput(t *testing.T) {
 			if tc.want != "" {
 				// Cannot check for all outputs, because some are localized (e.g. when the distro does not exist)
 				// So we only check when one is specified.
-				require.Equal(t, tc.want, string(output), "Unexpected contents in stdout")
+				got := strings.ReplaceAll(string(output), "\r\n", "\n")
+				require.Equal(t, tc.want, got, "Unexpected contents in stdout")
 			}
 
 			if !tc.wantExitError {

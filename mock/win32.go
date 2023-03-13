@@ -107,13 +107,13 @@ func (b *Backend) WslLaunch(distributionName string,
 
 	b.lxssRootKey.mu.RUnlock()
 
-	if isPipe, err := b.IsPipe(stdin); err == nil && isPipe {
+	if !isPipeOrNull(stdin) {
 		panic("Stdin must be a pipe")
 	}
-	if isPipe, err := b.IsPipe(stdout); err == nil && isPipe {
+	if !isPipeOrNull(stdout) {
 		panic("Stdout must be a pipe")
 	}
-	if isPipe, err := b.IsPipe(stderr); err == nil && isPipe {
+	if !isPipeOrNull(stderr) {
 		panic("Stderr must be a pipe")
 	}
 
@@ -316,4 +316,35 @@ func (b *Backend) findDistroKey(distroName string) (GUID string, key *RegistryKe
 	}
 
 	return "", nil
+}
+
+// isPipeOrNull checks whether f is a pipe or a null device
+// These are the types of file WslLaunch will write on.
+func isPipeOrNull(f *os.File) bool {
+	// Option 1: it is a pipe
+	fStat, err := f.Stat()
+	if err != nil {
+		panic(fmt.Sprintf("Could not stat %q: %v", f.Name(), err))
+	}
+
+	if fStat.Mode()&os.ModeNamedPipe != 0 {
+		return true
+	}
+
+	// Option 2: it is the null device
+	null, err := os.Open(os.DevNull)
+	if err != nil {
+		panic(fmt.Sprintf("Failed call to open null device: %v", err))
+	}
+
+	nullStat, err := null.Stat()
+	if err != nil {
+		panic(fmt.Sprintf("Could not stat null device: %v", err))
+	}
+
+	if os.SameFile(fStat, nullStat) {
+		return true
+	}
+
+	return false
 }

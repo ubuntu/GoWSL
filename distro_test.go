@@ -468,17 +468,17 @@ func asyncNewTestDistro(t *testing.T, ctx context.Context, rootFs string) wsl.Di
 	d := wsl.NewDistro(ctx, uniqueDistroName(t))
 	loc := t.TempDir()
 
+	go func() {
+		defer wg.Done()
+		installDistro(t, ctx, d.Name(), loc, rootFs)
+	}()
+
 	t.Cleanup(func() {
 		wg.Wait()
 		if err := uninstallDistro(d, false); err != nil {
 			t.Logf("Cleanup: %v", err)
 		}
 	})
-
-	go func() {
-		defer wg.Done()
-		installDistro(t, ctx, d.Name(), loc, rootFs)
-	}()
 
 	return d
 }

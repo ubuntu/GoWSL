@@ -12,6 +12,7 @@ const (
 	Stopped State = iota
 	Running
 	Installing
+	Uninstalling
 	NotRegistered
 )
 
@@ -25,6 +26,8 @@ func NewFromString(s string) (State, error) {
 		return Running, nil
 	case "Installing":
 		return Installing, nil
+	case "Uninstalling":
+		return Uninstalling, nil
 	}
 
 	return -1, fmt.Errorf("could not parse state %q", s)
@@ -40,6 +43,8 @@ func (s State) String() string {
 		return "Installing"
 	case NotRegistered:
 		return "NotRegistered"
+	case Uninstalling:
+		return "Uninstalling"
 	}
 
 	return fmt.Sprintf("Unknown state %d", s)

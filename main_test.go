@@ -20,6 +20,9 @@ const (
 func TestMain(m *testing.M) {
 	ctx := testContext(context.Background())
 
+	// In case a previous run was interrupted
+	cleanUpTestWslInstances(ctx)
+
 	restore, err := backUpDefaultDistro(ctx)
 	if err != nil {
 		log.Errorf("setup: %v", err)
@@ -33,6 +36,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Warnf("cleanup: Failed to shutdown WSL")
 	}
+
 	cleanUpTestWslInstances(ctx)
 
 	os.Exit(exitVal)

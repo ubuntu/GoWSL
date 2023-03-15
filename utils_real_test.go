@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/ubuntu/decorate"
 	wsl "github.com/ubuntu/gowsl"
 )
 
@@ -77,38 +78,62 @@ func installDistro(t *testing.T, ctx context.Context, distroName, location, root
 }
 
 // uninstallDistro checks if a distro exists and if it does, it unregisters it.
-func uninstallDistro(distro wsl.Distro, allowShutdown bool) error {
+func uninstallDistro(distro wsl.Distro, allowShutdown bool) (err error) {
+	defer decorate.OnError(&err, "could not uninstall %q", distro.Name())
+
 	if r, err := distro.IsRegistered(); err == nil && !r {
 		return nil
 	}
 
-	// 1. Attempt unregistering
 	unregisterCmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --unregister %q", distro.Name())
-	err := exec.Command("powershell.exe", "-Command", unregisterCmd).Run() //nolint:gosec
-	if err == nil {
+
+	// 1. Attempt unregistering
+
+	e := exec.Command("powershell.exe", "-Command", unregisterCmd).Run() //nolint:gosec
+	if e == nil {
 		return nil
 	}
+	// Failed unregistration
+	err = errors.Join(err, fmt.Errorf("could not unregister: %v", e))
 
 	// 2. Attempt terminate, then unregister
+
 	cmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --terminate %q", distro.Name())
-	_ = exec.Command("powershell.exe", "-Command", cmd).Run()                      //nolint:gosec
-	out, err := exec.Command("powershell.exe", "-Command", unregisterCmd).Output() //nolint:gosec
-	if err == nil {
-		return nil
+	if out, e := exec.Command("powershell.exe", "-Command", cmd).CombinedOutput(); e != nil { //nolint:gosec
+		// Failed to terminate
+		err = errors.Join(err, fmt.Errorf("could not terminate after failing to unregister: %v. Output: %s", e, string(out)))
+	} else {
+		// Terminated, retry unregistration
+		out, e := exec.Command("powershell.exe", "-Command", unregisterCmd).CombinedOutput() //nolint:gosec
+		if e != nil {
+			return nil
+		}
+
+		// Failed unregistration
+		err = errors.Join(err, fmt.Errorf("could not unregister after terminating: %v. Output: %s", e, string(out)))
 	}
 
 	if !allowShutdown {
-		return fmt.Errorf("failed to clean up test WSL distro %q: %v\nOutput: %v", distro.Name(), err, string(out))
+		return err
 	}
 
 	// 3. Attempt shutdown, then unregister
-	fmt.Fprintf(os.Stderr, "Could not unregister %q, shutting down WSL and retrying", distro.Name())
-	_ = exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1 ; wsl.exe --shutdown").Run()
-	out, err = exec.Command("powershell.exe", "-Command", unregisterCmd).Output() //nolint:gosec
-	if err != nil {
-		return fmt.Errorf("failed to clean up test WSL distro %q: %v\nOutput: %v", distro.Name(), err, string(out))
+
+	fmt.Fprintf(os.Stderr, "Could not unregister %q, shutting down WSL and retrying.", distro.Name())
+
+	if out, e := exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1 ; wsl.exe --shutdown").CombinedOutput(); e != nil {
+		// Failed to shut down WSL
+		return errors.Join(err, fmt.Errorf("could not shut down WSL after failing to unregister: %v. Output: %s", e, string(out)))
 	}
 
+	// WSL has been shut down, retry unregistration
+	out, e := exec.Command("powershell.exe", "-Command", unregisterCmd).Output() //nolint:gosec
+	if e != nil {
+		// Failed unregistration
+		return errors.Join(err, fmt.Errorf("could not unregister after shutdown: %v\nOutput: %v", e, string(out)))
+	}
+
+	// Success
 	return nil
 }
 

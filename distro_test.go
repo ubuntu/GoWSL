@@ -470,7 +470,7 @@ func asyncNewTestDistro(t *testing.T, ctx context.Context, rootFs string) wsl.Di
 
 	t.Cleanup(func() {
 		wg.Wait()
-		if err := uninstallDistro(d); err != nil {
+		if err := uninstallDistro(d, false); err != nil {
 			t.Logf("Cleanup: %v", err)
 		}
 	})

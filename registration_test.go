@@ -30,7 +30,7 @@ func TestRegister(t *testing.T) {
 
 			d := wsl.NewDistro(ctx, uniqueDistroName(t)+tc.distroSuffix)
 			defer func() {
-				err := uninstallDistro(d)
+				err := uninstallDistro(d, false)
 				if err != nil {
 					t.Logf("Cleanup: %v", err)
 				}

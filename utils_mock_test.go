@@ -35,7 +35,7 @@ func installDistro(t *testing.T, ctx context.Context, distroName, location, root
 // uninstallDistro checks if a distro exists and if it does, it unregisters it.
 //
 // TODO: Implement mock.
-func uninstallDistro(distro wsl.Distro) error {
+func uninstallDistro(distro wsl.Distro, allowShutdown bool) error {
 	return errors.New("uninstallDistro not implemented for mock back-end")
 }
 

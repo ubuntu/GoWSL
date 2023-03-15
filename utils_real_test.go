@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -76,21 +77,44 @@ func installDistro(t *testing.T, ctx context.Context, distroName, location, root
 }
 
 // uninstallDistro checks if a distro exists and if it does, it unregisters it.
-func uninstallDistro(distro wsl.Distro) error {
+func uninstallDistro(distro wsl.Distro, allowShutdown bool) error {
 	if r, err := distro.IsRegistered(); err == nil && !r {
 		return nil
 	}
-	cmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --unregister %s", distro.Name())
-	_, err := exec.Command("powershell.exe", "-command", cmd).CombinedOutput() //nolint:gosec
-	if err != nil {
-		return fmt.Errorf("failed to clean up test WSL distro %q: %v", distro.Name(), err)
+
+	// 1. Attempt unregistering
+	unregisterCmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --unregister %q", distro.Name())
+	err := exec.Command("powershell.exe", "-Command", unregisterCmd).Run() //nolint:gosec
+	if err == nil {
+		return nil
 	}
+
+	// 2. Attempt terminate, then unregister
+	cmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --terminate %q", distro.Name())
+	_ = exec.Command("powershell.exe", "-Command", cmd).Run()                      //nolint:gosec
+	out, err := exec.Command("powershell.exe", "-Command", unregisterCmd).Output() //nolint:gosec
+	if err == nil {
+		return nil
+	}
+
+	if !allowShutdown {
+		return fmt.Errorf("failed to clean up test WSL distro %q: %v\nOutput: %v", distro.Name(), err, string(out))
+	}
+
+	// 3. Attempt shutdown, then unregister
+	fmt.Fprintf(os.Stderr, "Could not unregister %q, shutting down WSL and retrying", distro.Name())
+	_ = exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1 ; wsl.exe --shutdown").Run()
+	out, err = exec.Command("powershell.exe", "-Command", unregisterCmd).Output() //nolint:gosec
+	if err != nil {
+		return fmt.Errorf("failed to clean up test WSL distro %q: %v\nOutput: %v", distro.Name(), err, string(out))
+	}
+
 	return nil
 }
 
 // testDistros finds all distros with a mangled name.
 func registeredDistros(ctx context.Context) (distros []wsl.Distro, err error) {
-	outp, err := exec.Command("powershell.exe", "-command", "$env:WSL_UTF8=1 ; wsl.exe --list --quiet").Output()
+	outp, err := exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1 ; wsl.exe --list --quiet").Output()
 	if err != nil {
 		return distros, err
 	}

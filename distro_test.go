@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"regexp"
+	"sync"
 	"testing"
 	"time"
 
@@ -460,17 +461,24 @@ func TestDistroState(t *testing.T) {
 func asyncNewTestDistro(t *testing.T, ctx context.Context, rootFs string) wsl.Distro {
 	t.Helper()
 
-	d := wsl.NewDistro(ctx, uniqueDistroName(t))
+	// This waitgroup ensures we don't try to clean up before installDistro has returned
+	var wg sync.WaitGroup
+	wg.Add(1)
 
-	go func() {
-		if err := d.Register(rootFs); err != nil {
-			t.Logf("Setup: %v", err)
-		}
-	}()
+	d := wsl.NewDistro(ctx, uniqueDistroName(t))
+	loc := t.TempDir()
 
 	t.Cleanup(func() {
-		_ = d.Unregister()
+		wg.Wait()
+		if err := uninstallDistro(d); err != nil {
+			t.Logf("Cleanup: %v", err)
+		}
 	})
+
+	go func() {
+		defer wg.Done()
+		installDistro(t, ctx, d.Name(), loc, rootFs)
+	}()
 
 	return d
 }

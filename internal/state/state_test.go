@@ -16,9 +16,10 @@ func TestStateFromString(t *testing.T) {
 		want    state.State
 		wantErr bool
 	}{
-		"Stopped":    {input: "Stopped", want: state.Stopped},
-		"Running":    {input: "Running", want: state.Running},
-		"Installing": {input: "Installing", want: state.Installing},
+		"Stopped":     {input: "Stopped", want: state.Stopped},
+		"Running":     {input: "Running", want: state.Running},
+		"Installing":  {input: "Installing", want: state.Installing},
+		"Unistalling": {input: "Uninstalling", want: state.Uninstalling},
 
 		// Error cases
 		"Error with made-up state": {input: "Discombobulating", wantErr: true},
@@ -52,6 +53,7 @@ func TestString(t *testing.T) {
 		"Stopped":       {input: state.Stopped, want: "Stopped"},
 		"Running":       {input: state.Running, want: "Running"},
 		"Installing":    {input: state.Installing, want: "Installing"},
+		"Unistalling":   {input: state.Uninstalling, want: "Uninstalling"},
 		"NotRegistered": {input: state.NotRegistered, want: "NotRegistered"},
 
 		// Error case

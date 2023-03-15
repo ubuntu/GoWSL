@@ -30,7 +30,7 @@ func testContext(ctx context.Context) context.Context {
 // TODO: Consider if we want to retry.
 //
 //nolint:revive // No, I wont' put the context before the *testing.T.//nolint:revive
-func installDistro(t *testing.T, ctx context.Context, distroName string, rootfs string) {
+func installDistro(t *testing.T, ctx context.Context, distroName, location, rootfs string) {
 	t.Helper()
 
 	// Timeout to attempt a graceful failure
@@ -51,7 +51,7 @@ func installDistro(t *testing.T, ctx context.Context, distroName string, rootfs 
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), gracefulTimeout)
 		defer cancel()
-		cmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --import %s %s %s", distroName, t.TempDir(), rootfs)
+		cmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --import %s %s %s", distroName, location, rootfs)
 		o, e := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd).CombinedOutput() //nolint:gosec
 
 		cmdOut <- combinedOutput{output: string(o), err: e}

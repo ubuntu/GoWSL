@@ -26,7 +26,7 @@ func testContext(ctx context.Context) context.Context {
 // TODO: Implement mock.
 //
 //nolint:revive // No, I wont' put the context before the *testing.T.
-func installDistro(t *testing.T, ctx context.Context, distroName string, rootfs string) {
+func installDistro(t *testing.T, ctx context.Context, distroName, location, rootfs string) {
 	t.Helper()
 
 	require.Fail(t, "Mock not implemented")

@@ -39,7 +39,7 @@ func newTestDistro(t *testing.T, ctx context.Context, rootfs string) wsl.Distro 
 	d := wsl.NewDistro(ctx, uniqueDistroName(t))
 	t.Logf("Setup: Registering %q\n", d.Name())
 
-	installDistro(t, ctx, d.Name(), rootfs)
+	installDistro(t, ctx, d.Name(), t.TempDir(), rootfs)
 
 	t.Cleanup(func() {
 		err := uninstallDistro(d)

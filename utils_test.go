@@ -39,10 +39,10 @@ func newTestDistro(t *testing.T, ctx context.Context, rootfs string) wsl.Distro 
 	d := wsl.NewDistro(ctx, uniqueDistroName(t))
 	t.Logf("Setup: Registering %q\n", d.Name())
 
-	installDistro(t, ctx, d.Name(), rootfs)
+	installDistro(t, ctx, d.Name(), t.TempDir(), rootfs)
 
 	t.Cleanup(func() {
-		err := uninstallDistro(d)
+		err := uninstallDistro(d, false)
 		if err != nil {
 			t.Logf("Cleanup: %v\n", err)
 		}
@@ -68,7 +68,7 @@ func cleanUpTestWslInstances(ctx context.Context) {
 	}
 
 	for _, d := range testInstances {
-		err := uninstallDistro(d)
+		err := uninstallDistro(d, true)
 		if err != nil {
 			log.Warnf("Cleanup: %v\n", err)
 		}

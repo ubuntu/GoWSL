@@ -114,7 +114,7 @@ func uninstallDistro(distro wsl.Distro, allowShutdown bool) error {
 
 // testDistros finds all distros with a mangled name.
 func registeredDistros(ctx context.Context) (distros []wsl.Distro, err error) {
-	outp, err := exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1 ; wsl.exe --list --quiet").Output()
+	outp, err := exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1 ; wsl.exe --list --quiet --all").Output()
 	if err != nil {
 		return distros, err
 	}

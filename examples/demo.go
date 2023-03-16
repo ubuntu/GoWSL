@@ -38,9 +38,9 @@ func main() {
 	// that the user can interact with. This is presumably what wsl.exe uses.
 	// It is a blocking call.
 	if err := distro.Shell(wsl.WithCommand("sh -c 'powershell.exe'")); err != nil {
-		fmt.Printf("Interactive session unsuccesful: %v\n", err)
+		fmt.Printf("Interactive session unsuccessful: %v\n", err)
 	} else {
-		fmt.Println("Interactive session succesful")
+		fmt.Println("Interactive session successful")
 	}
 
 	// Launching async command 1
@@ -56,9 +56,9 @@ func main() {
 	target := &exec.ExitError{}
 	switch err := cmd1.Wait(); {
 	case err == nil:
-		fmt.Printf("Succesful async command!\n")
+		fmt.Printf("Successful async command!\n")
 	case errors.As(err, &target):
-		fmt.Printf("Unsuccesful async command: %v\n", err)
+		fmt.Printf("Unsuccessful async command: %v\n", err)
 	default:
 		fmt.Fprintf(os.Stderr, "Unexpected error: %v\n", err)
 		return

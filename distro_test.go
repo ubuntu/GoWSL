@@ -13,10 +13,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	wsl "github.com/ubuntu/gowsl"
+	"github.com/ubuntu/gowsl/mock"
 )
 
 func TestShutdown(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		t.Skip("Skipping test because back-end does not implement it")
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	d := newTestDistro(t, ctx, rootFs) // Will terminate
 
@@ -29,7 +34,11 @@ func TestShutdown(t *testing.T) {
 }
 
 func TestTerminate(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		t.Skip("Skipping test because back-end does not implement it")
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	sampleDistro := newTestDistro(t, ctx, rootFs)  // Will terminate
 	controlDistro := newTestDistro(t, ctx, rootFs) // Will not terminate, used to assert other distros are unaffected
@@ -80,7 +89,11 @@ func isTestLinuxProcessAlive(d *wsl.Distro) bool {
 }
 
 func TestDefaultDistro(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		t.Parallel()
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	want := newTestDistro(t, ctx, emptyRootFs)
 
@@ -93,7 +106,11 @@ func TestDefaultDistro(t *testing.T) {
 }
 
 func TestDistroSetAsDefault(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		t.Parallel()
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	realDistro := newTestDistro(t, ctx, emptyRootFs)
 	fakeDistro := wsl.NewDistro(ctx, "This distro sure does not exist")
@@ -125,7 +142,11 @@ func TestDistroSetAsDefault(t *testing.T) {
 }
 
 func TestDistroString(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		t.Parallel()
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	realDistro := newTestDistro(t, ctx, rootFs)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -164,7 +185,11 @@ func TestGUID(t *testing.T) {
 	// format "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}", but syscall.GUID
 	// does not have such method and prints its contents like any other
 	// struct.
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		t.Parallel()
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	realDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -211,6 +236,10 @@ func TestGUID(t *testing.T) {
 }
 
 func TestConfigurationSetters(t *testing.T) {
+	if wsl.MockAvailable() {
+		t.Parallel()
+	}
+
 	type testedSetting uint
 	const (
 		DefaultUID testedSetting = iota
@@ -232,7 +261,7 @@ func TestConfigurationSetters(t *testing.T) {
 		wantErr bool
 	}{
 		// DefaultUID
-		"success DefaultUID":             {setting: DefaultUID},
+		"success DefaultUID":             {setting: DefaultUID, distro: DistroRegistered},
 		"fail DefaultUID \\0 in name":    {setting: DefaultUID, distro: DistroInvalidName, wantErr: true},
 		"fail DefaultUID not registered": {setting: DefaultUID, distro: DistroNotRegistered, wantErr: true},
 
@@ -266,12 +295,17 @@ func TestConfigurationSetters(t *testing.T) {
 	}
 
 	for name, tc := range tests {
+		tc := tc
 		t.Run(name, func(t *testing.T) {
 			// This test has two phases:
 			// 1. Changes one of the default settings and asserts that it has changed, and the others have not.
 			// 2. It changes this setting back to the default, and asserts that it has changed, and the others have not.
 
-			ctx := testContext(context.Background())
+			ctx := context.Background()
+			if wsl.MockAvailable() {
+				t.Parallel()
+				ctx = wsl.WithMock(ctx, mock.New())
+			}
 
 			// details has info about each of the settings
 			details := map[testedSetting]settingDetails{
@@ -362,7 +396,12 @@ func TestConfigurationSetters(t *testing.T) {
 	}
 }
 func TestGetConfiguration(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		t.Parallel()
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
+
 	d := newTestDistro(t, ctx, rootFs)
 
 	testCases := map[string]struct {
@@ -403,7 +442,11 @@ func TestGetConfiguration(t *testing.T) {
 }
 
 func TestDistroState(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		t.Parallel()
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	realDistro := newTestDistro(t, ctx, rootFs)
 	nonRegisteredDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -434,6 +477,9 @@ func TestDistroState(t *testing.T) {
 			switch tc.action {
 			case none:
 			case install:
+				if wsl.MockAvailable() {
+					t.Skip("Skipping because mock registers instantly")
+				}
 				d := asyncNewTestDistro(t, ctx, emptyRootFs)
 				tc.distro = &d
 				require.Eventually(t, func() bool {

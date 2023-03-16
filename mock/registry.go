@@ -2,9 +2,13 @@ package mock
 
 import (
 	"errors"
+	"io/fs"
 	"path/filepath"
+	"sync"
 
 	"github.com/ubuntu/decorate"
+	"github.com/ubuntu/gowsl/internal/backend"
+	"github.com/ubuntu/gowsl/mock/internal/distroState"
 )
 
 // RegistryKey wraps around a Windows registry key.
@@ -12,6 +16,13 @@ import (
 // This implementation is a mock used for testing.
 type RegistryKey struct {
 	path string
+
+	children map[string]*RegistryKey
+	data     map[string]any
+
+	state *distroState.DistroState
+
+	mu sync.RWMutex
 }
 
 const (
@@ -21,31 +32,60 @@ const (
 // OpenLxssRegistry opens a registry key at the chosen path subpath of the Lxss key.
 //
 // This implementation is a mock used for testing.
-func OpenLxssRegistry(path ...string) (r *RegistryKey, err error) {
-	r = &RegistryKey{
-		path: filepath.Join(append([]string{lxssPath}, path...)...),
+func (b Backend) OpenLxssRegistry(path string) (r backend.RegistryKey, err error) {
+	defer decorate.OnError(&err, "registry: could not open %s", filepath.Join("HKEY_CURRENT_USER", lxssPath, path))
+
+	b.lxssRootKey.mu.RLock()
+	if path == "." {
+		// We "leak" the locked mutex. The user is in charge of releasing it with .Close()
+		return b.lxssRootKey, nil
 	}
-	defer decorate.OnError(&err, "registry: could not open HKEY_CURRENT_USER/%s", r.path)
-	return nil, errors.New("Not implemented")
+
+	key, ok := b.lxssRootKey.children[path]
+	b.lxssRootKey.mu.RUnlock()
+	if !ok {
+		return nil, fs.ErrNotExist
+	}
+
+	key.mu.RLock()
+
+	return key, nil
 }
 
 // Close releases the key.
 // This implementation is a mock used for testing.
-func (r RegistryKey) Close() (err error) {
-	defer decorate.OnError(&err, "registry: could not close HKEY_CURRENT_USER/%s", r.path)
-	return errors.New("not implemented")
+func (r *RegistryKey) Close() (err error) {
+	r.mu.RUnlock()
+
+	return nil
 }
 
 // Field obtains the value of a Field. The value must be a string.
 // This implementation is a mock used for testing.
-func (r RegistryKey) Field(name string) (value string, err error) {
-	defer decorate.OnError(&err, "registry: could not access field %s in HKEY_CURRENT_USER/%s", name, r.path)
-	return "", errors.New("not implemented")
+func (r *RegistryKey) Field(name string) (value string, err error) {
+	defer decorate.OnError(&err, "registry: could not access field %q in %s", name, r.path)
+
+	v, ok := r.data[name]
+	if !ok {
+		return "", fs.ErrNotExist
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		return "", errors.New("field is not string")
+	}
+
+	return s, nil
 }
 
 // SubkeyNames returns a slice containing the names of the current key's children.
 // This implementation is a mock used for testing.
-func (r RegistryKey) SubkeyNames() (subkeys []string, err error) {
-	defer decorate.OnError(&err, "registry: could not access subkeys under HKEY_CURRENT_USER/%s", r.path)
-	return nil, errors.New("not implemented")
+func (r *RegistryKey) SubkeyNames() (subkeys []string, err error) {
+	defer decorate.OnError(&err, "registry: could not access subkeys under %s", r.path)
+
+	for key := range r.children {
+		subkeys = append(subkeys, key)
+	}
+
+	return subkeys, nil
 }

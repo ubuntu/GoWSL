@@ -6,57 +6,54 @@ package gowsl_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	wsl "github.com/ubuntu/gowsl"
-	wslmock "github.com/ubuntu/gowsl/mock"
 )
 
-// TestContext creates a context that will instruct GoWSL to use the right back-end
-// based on whether it was build with mocking enabled.
-func testContext(ctx context.Context) context.Context {
-	return wsl.WithMock(ctx, wslmock.Backend{})
-}
-
-// installDistro installs using powershell to decouple the tests from Distro.Register
-// CommandContext sometimes fails to stop it, so a more aggressive approach is taken by rebooting WSL.
-//
-// TODO: Implement mock.
+// installDistro installs a distro.
 //
 //nolint:revive // No, I wont' put the context before the *testing.T.
 func installDistro(t *testing.T, ctx context.Context, distroName, location, rootfs string) {
 	t.Helper()
 
-	require.Fail(t, "Mock not implemented")
+	d := wsl.NewDistro(ctx, distroName)
+	err := d.Register(rootfs)
+	require.NoError(t, err, "Setup: failed to register %q", distroName)
 }
 
 // uninstallDistro checks if a distro exists and if it does, it unregisters it.
 //
-// TODO: Implement mock.
+// allowShutdown is unused because it is not necessary in the mock.
 func uninstallDistro(distro wsl.Distro, allowShutdown bool) error {
-	return errors.New("uninstallDistro not implemented for mock back-end")
+	r, err := distro.IsRegistered()
+	if err != nil {
+		return err
+	}
+	if !r {
+		return nil
+	}
+
+	return distro.Unregister()
 }
 
-// testDistros finds all distros with a mangled name.
-//
-// TODO: Implement mock.
-func registeredDistros(ctx context.Context) (distros []wsl.Distro, err error) {
-	return nil, errors.New("registeredDistros not implemented for mock back-end")
+// testDistros finds all registered distros.
+func registeredDistros(ctx context.Context) ([]wsl.Distro, error) {
+	return wsl.RegisteredDistros(ctx)
 }
 
-// defaultDistro gets the default distro's name via wsl.exe to bypass wsl.DefaultDistro in order to
-// better decouple tests.
-//
-// TODO: Implement mock.
+// defaultDistro gets the default distro's name.
 func defaultDistro(ctx context.Context) (string, error) {
-	return "", errors.New("defaultDistro not implemented for mock back-end")
+	d, err := wsl.DefaultDistro(ctx)
+	if err != nil {
+		return "", nil
+	}
+	return d.Name(), nil
 }
 
-// setDefaultDistro sets a distro as default using Powershell.
-//
-// TODO: Implement mock.
+// setDefaultDistro sets the default distro.
 func setDefaultDistro(ctx context.Context, distroName string) error {
-	return errors.New("setDefaultDistro not implemented for mock back-end")
+	d := wsl.NewDistro(ctx, distroName)
+	return d.SetAsDefault()
 }

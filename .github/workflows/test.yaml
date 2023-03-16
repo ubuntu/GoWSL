@@ -46,7 +46,26 @@ jobs:
       uses: golangci/golangci-lint-action@v3
       with:
         version: latest
-        args: --config=.golangci-lint.yaml 
+        args: --config=.golangci-lint.yaml
+    - name: Test with mocks
+      shell: bash
+      run: |
+        # Prepare repo with mock rootfs and run mock tests
+
+        echo "::group::Setup"
+        mkdir -p images
+        touch images/empty.tar.gz
+        touch images/rootfs.tar.gz
+        echo "::endgroup::"
+
+        go test -tags="gowslmock"
+    - name: Test with mocks, race flag enabled
+      # We skip it on Windows because -race depends on Cgo, which is
+      # complicated to enable (it requires Cygwin, MSVC support is 
+      # broken)
+      if: ${{ matrix.os }} == "ubuntu"
+      shell: bash
+      run: go test -tags="gowslmock"
 
   vm-setup:
     name: "Set up Azure VM"

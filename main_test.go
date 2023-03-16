@@ -9,6 +9,7 @@ import (
 
 	"github.com/0xrawsec/golang-utils/log"
 	wsl "github.com/ubuntu/gowsl"
+	"github.com/ubuntu/gowsl/mock"
 )
 
 const (
@@ -18,7 +19,10 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	// In case a previous run was interrupted
 	cleanUpTestWslInstances(ctx)

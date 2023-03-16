@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -20,12 +21,6 @@ import (
 	"github.com/ubuntu/decorate"
 	wsl "github.com/ubuntu/gowsl"
 )
-
-// TestContext creates a context that will instruct GoWSL to use the right back-end
-// based on whether it was build with mocking enabled.
-func testContext(ctx context.Context) context.Context {
-	return ctx
-}
 
 // installDistro installs using powershell to decouple the tests from Distro.Register
 // CommandContext often fails to stop it, so a more aggressive approach is taken by rebooting WSL.
@@ -171,13 +166,19 @@ func setDefaultDistro(ctx context.Context, distroName string) error {
 	return nil
 }
 
-// wslExeGuard guards against the occasional freezing of wsl.exe. Sometimes, for no
-// apparent reason, wsl.exe stops responding, and cancelling the context of the command
-// is not enough to unfreeze it. The only known workaround is to call `wsl --shutdown`
-// from elsewhere.
+// wslExeGuard guards against common problems with wsl.exe, and should be called every time
+// wsl.exe is used. It solves:
+//   - Trying to use it from WSL can have unexpected results, so it panics when not on Windows.
+//   - wsl.exe occasionally freezing: sometimes, for no apparent reason, wsl.exe stops responding,
+//     and cancelling the context of the command is not enough to unfreeze it. The only known
+//     workaround is to call `wsl --shutdown` from elsewhere.
 //
 // This function does just that when the timeout is exceeded.
 func wslExeGuard(timeout time.Duration) (cancel func()) {
+	if runtime.GOOS != "windows" {
+		panic("You must use the mock back-end when not running on Windows")
+	}
+
 	gentleTimeout := time.AfterFunc(timeout, func() {
 		fmt.Fprintf(os.Stderr, "wslExec guard triggered, shutting WSL down")
 		_ = exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1 ; wsl.exe --shutdown").Run()

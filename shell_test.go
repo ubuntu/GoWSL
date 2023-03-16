@@ -7,10 +7,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 	wsl "github.com/ubuntu/gowsl"
+	"github.com/ubuntu/gowsl/mock"
 )
 
 func TestShell(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		t.Parallel()
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	realDistro := newTestDistro(t, ctx, rootFs)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))

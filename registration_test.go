@@ -8,9 +8,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	wsl "github.com/ubuntu/gowsl"
+	"github.com/ubuntu/gowsl/mock"
 )
 
 func TestRegister(t *testing.T) {
+	if wsl.MockAvailable() {
+		t.Parallel()
+	}
+
 	testCases := map[string]struct {
 		distroSuffix string
 		rootfs       string
@@ -26,7 +31,11 @@ func TestRegister(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			ctx := testContext(context.Background())
+			ctx := context.Background()
+			if wsl.MockAvailable() {
+				t.Parallel()
+				ctx = wsl.WithMock(ctx, mock.New())
+			}
 
 			d := wsl.NewDistro(ctx, uniqueDistroName(t)+tc.distroSuffix)
 			defer func() {
@@ -64,7 +73,11 @@ func TestRegister(t *testing.T) {
 }
 
 func TestRegisteredDistros(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		t.Parallel()
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	d1 := newTestDistro(t, ctx, emptyRootFs)
 	d2 := newTestDistro(t, ctx, emptyRootFs)
@@ -79,6 +92,10 @@ func TestRegisteredDistros(t *testing.T) {
 }
 
 func TestIsRegistered(t *testing.T) {
+	if wsl.MockAvailable() {
+		t.Parallel()
+	}
+
 	tests := map[string]struct {
 		distroSuffix   string
 		register       bool
@@ -95,7 +112,11 @@ func TestIsRegistered(t *testing.T) {
 		config := config
 
 		t.Run(name, func(t *testing.T) {
-			ctx := testContext(context.Background())
+			ctx := context.Background()
+			if wsl.MockAvailable() {
+				t.Parallel()
+				ctx = wsl.WithMock(ctx, mock.New())
+			}
 
 			var distro wsl.Distro
 			if config.register {
@@ -121,7 +142,11 @@ func TestIsRegistered(t *testing.T) {
 }
 
 func TestUnregister(t *testing.T) {
-	ctx := testContext(context.Background())
+	ctx := context.Background()
+	if wsl.MockAvailable() {
+		t.Parallel()
+		ctx = wsl.WithMock(ctx, mock.New())
+	}
 
 	realDistro := newTestDistro(t, ctx, emptyRootFs)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))

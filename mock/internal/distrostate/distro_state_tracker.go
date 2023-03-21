@@ -1,6 +1,6 @@
-// Package distroState implements the mocking of the state of the distro
+// Package distrostate implements the mocking of the state of the distro
 // (i.e. running, stopped, etc.).
-package distroState
+package distrostate
 
 import (
 	"errors"

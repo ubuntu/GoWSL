@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/ubuntu/decorate"
 	"github.com/ubuntu/gowsl/internal/flags"
-	"github.com/ubuntu/gowsl/mock/internal/distroState"
+	"github.com/ubuntu/gowsl/mock/internal/distrostate"
 )
 
 // When something fails Windows-side, it returns (1<<32 - 1).
@@ -222,7 +222,7 @@ func (b *Backend) WslRegisterDistribution(distributionName string, tarGzFilename
 			"Version":          uint8(2),
 			"DefaultUid":       uint32(0),
 		},
-		state: distroState.New(),
+		state: distrostate.New(),
 	}
 
 	// When registering the first distro, DefaultDistribution

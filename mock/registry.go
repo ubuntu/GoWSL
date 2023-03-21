@@ -8,7 +8,7 @@ import (
 
 	"github.com/ubuntu/decorate"
 	"github.com/ubuntu/gowsl/internal/backend"
-	"github.com/ubuntu/gowsl/mock/internal/distroState"
+	"github.com/ubuntu/gowsl/mock/internal/distrostate"
 )
 
 // RegistryKey wraps around a Windows registry key.
@@ -20,7 +20,7 @@ type RegistryKey struct {
 	children map[string]*RegistryKey
 	data     map[string]any
 
-	state *distroState.DistroState
+	state *distrostate.DistroState
 
 	mu sync.RWMutex
 }

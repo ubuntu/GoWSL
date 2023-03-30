@@ -41,12 +41,11 @@ jobs:
       uses: golangci/golangci-lint-action@v3
       with:
         version: v1.52.0
-        args: --config=.golangci-lint.yaml --build-tags="gowslmock"
+        args:  --build-tags="gowslmock"
     - name: Lint with real back-end
       uses: golangci/golangci-lint-action@v3
       with:
         version: v1.52.0
-        args: --config=.golangci-lint.yaml
     - name: Test with mocks
       shell: bash
       run: |
@@ -61,7 +60,7 @@ jobs:
         go test -tags="gowslmock"
     - name: Test with mocks, race flag enabled
       # We skip it on Windows because -race depends on Cgo, which is
-      # complicated to enable (it requires Cygwin, MSVC support is 
+      # complicated to enable (it requires Cygwin, MSVC support is
       # broken)
       if: ${{ matrix.os }} == "ubuntu"
       shell: bash

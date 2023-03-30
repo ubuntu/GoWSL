@@ -1,7 +1,7 @@
 # This is for the CI. To run it, please use:
-#     golangci-lint run -c .golangci-lint.yaml
+#     golangci-lint run
 # Locally, you can use
-#     golangci-lint run -c .golangci-lint.yaml --fix
+#     golangci-lint run --fix
 #
 # Use argument --build-tags="gowslmock" to lint the mock files.
 

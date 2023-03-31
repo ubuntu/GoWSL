@@ -18,6 +18,7 @@ func sanitizeDistroName(candidateName string) string {
 		`/`, `--`,
 		` `, `_`,
 		`\`, `--`,
+		`:`, `_`,
 	)
 	return r.Replace(candidateName)
 }

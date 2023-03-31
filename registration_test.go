@@ -12,40 +12,49 @@ import (
 )
 
 func TestRegister(t *testing.T) {
-	if wsl.MockAvailable() {
-		t.Parallel()
-	}
+	setupBackend(t, context.Background())
 
 	testCases := map[string]struct {
-		distroSuffix string
-		rootfs       string
-		wantError    bool
+		distroSuffix         string
+		rootfs               string
+		syscallError         bool
+		registryInaccessible bool
+
+		wantError bool
 	}{
-		"happy path":          {rootfs: rootFs},
-		"wrong name":          {rootfs: rootFs, distroSuffix: "--I contain whitespace", wantError: true},
-		"null char in name":   {rootfs: rootFs, distroSuffix: "--I \x00 contain a null char", wantError: true},
-		"null char in rootfs": {rootfs: "jammy\x00.tar.gz", wantError: true},
-		"inexistent rootfs":   {rootfs: "I am not a real file.tar.gz", wantError: true},
+		"Success": {rootfs: rootFs},
+
+		"Error when the distro name contains whitespace":       {rootfs: rootFs, distroSuffix: "--I contain whitespace", wantError: true},
+		"Error when the distro name contains a null character": {rootfs: rootFs, distroSuffix: "--I \x00 contain a null char", wantError: true},
+		"Error when the rootfs path contains a null character": {rootfs: "jammy\x00.tar.gz", wantError: true},
+		"Error when the rootfs path does not exist":            {rootfs: "I am not a real file.tar.gz", wantError: true},
+
+		// Mock-induced errors
+		"Error when the registry fails to open": {rootfs: rootFs, registryInaccessible: true, wantError: true},
+		"Error when the register syscall fails": {rootfs: rootFs, syscallError: true, wantError: true},
 	}
 
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			ctx := context.Background()
-			if wsl.MockAvailable() {
-				t.Parallel()
-				ctx = wsl.WithMock(ctx, mock.New())
+			ctx, modifyMock := setupBackend(t, context.Background())
+			if tc.syscallError || tc.registryInaccessible {
+				modifyMock(t, func(m *mock.Backend) {
+					m.WslRegisterDistributionError = tc.syscallError
+					m.OpenLxssKeyError = tc.registryInaccessible
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
 			}
 
 			d := wsl.NewDistro(ctx, uniqueDistroName(t)+tc.distroSuffix)
-			defer func() {
+			t.Cleanup(func() {
 				err := uninstallDistro(d, false)
 				if err != nil {
 					t.Logf("Cleanup: %v", err)
 				}
-			}()
+			})
 
-			cancel := wslShutdownTimeout(t, ctx, time.Minute)
+			cancel := wslExeGuard(time.Minute)
 			t.Logf("Registering %q", d.Name())
 			err := d.Register(tc.rootfs)
 			cancel()
@@ -61,7 +70,7 @@ func TestRegister(t *testing.T) {
 			require.Contains(t, list, d, "Failed to find distro in list of registered distros.")
 
 			// Testing double registration failure
-			cancel = wslShutdownTimeout(t, ctx, time.Minute)
+			cancel = wslExeGuard(time.Minute)
 			t.Logf("Registering %q", d.Name())
 			err = d.Register(tc.rootfs)
 			cancel()
@@ -73,66 +82,100 @@ func TestRegister(t *testing.T) {
 }
 
 func TestRegisteredDistros(t *testing.T) {
-	ctx := context.Background()
-	if wsl.MockAvailable() {
-		t.Parallel()
-		ctx = wsl.WithMock(ctx, mock.New())
+	testCases := map[string]struct {
+		registryInaccessible bool
+
+		wantErr bool
+	}{
+		"Success": {},
+
+		// Mock-induced errors
+		"Error when the registry cannot be accessed": {registryInaccessible: true, wantErr: true},
 	}
 
-	d1 := newTestDistro(t, ctx, emptyRootFs)
-	d2 := newTestDistro(t, ctx, emptyRootFs)
-	d3 := wsl.NewDistro(ctx, uniqueDistroName(t))
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			if tc.registryInaccessible && !wsl.MockAvailable() {
+				t.Skip("This test is only available with the mock enabled")
+			}
 
-	list, err := wsl.RegisteredDistros(ctx)
-	require.NoError(t, err)
+			ctx, modifyMock := setupBackend(t, context.Background())
 
-	assert.Contains(t, list, d1)
-	assert.Contains(t, list, d2)
-	assert.NotContains(t, list, d3)
+			d1 := newTestDistro(t, ctx, emptyRootFs)
+			d2 := newTestDistro(t, ctx, emptyRootFs)
+			d3 := wsl.NewDistro(ctx, uniqueDistroName(t))
+
+			if tc.registryInaccessible {
+				modifyMock(t, func(m *mock.Backend) {
+					m.OpenLxssKeyError = true
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
+			}
+
+			list, err := wsl.RegisteredDistros(ctx)
+			if tc.wantErr {
+				require.Error(t, err, "RegisteredDistros should have returned an error")
+				return
+			}
+			require.NoError(t, err, "RegisteredDistros should have returned no errors")
+
+			assert.Contains(t, list, d1)
+			assert.Contains(t, list, d2)
+			assert.NotContains(t, list, d3)
+		})
+	}
 }
 
 func TestIsRegistered(t *testing.T) {
-	if wsl.MockAvailable() {
-		t.Parallel()
-	}
+	setupBackend(t, context.Background())
 
-	tests := map[string]struct {
-		distroSuffix   string
-		register       bool
+	testCases := map[string]struct {
+		distroSuffix         string
+		register             bool
+		syscallError         bool
+		registryInaccessible bool
+
 		wantError      bool
 		wantRegistered bool
 	}{
-		"nominal":           {register: true, wantRegistered: true},
-		"inexistent":        {},
-		"null char in name": {distroSuffix: "Oh no, there is a \x00!"},
+		"Success with a registered distro":     {register: true, wantRegistered: true},
+		"Success with a non-registered distro": {},
+
+		"Error when the distro name has a null char": {distroSuffix: "Oh no, there is a \x00!"},
+
+		// Mock-induced errors
+		"Error when the registry cannot be accessed": {registryInaccessible: true, wantError: true},
 	}
 
-	for name, config := range tests {
+	for name, tc := range testCases {
 		name := name
-		config := config
+		tc := tc
 
 		t.Run(name, func(t *testing.T) {
-			ctx := context.Background()
-			if wsl.MockAvailable() {
-				t.Parallel()
-				ctx = wsl.WithMock(ctx, mock.New())
+			ctx, modifyMock := setupBackend(t, context.Background())
+			if tc.registryInaccessible {
+				modifyMock(t, func(m *mock.Backend) {
+					m.OpenLxssKeyError = true
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
 			}
 
 			var distro wsl.Distro
-			if config.register {
+			if tc.register {
 				distro = newTestDistro(t, ctx, emptyRootFs)
 			} else {
 				distro = wsl.NewDistro(ctx, uniqueDistroName(t))
 			}
 
 			reg, err := distro.IsRegistered()
-			if config.wantError {
+			if tc.wantError {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
 			}
 
-			if config.wantRegistered {
+			if tc.wantRegistered {
 				require.True(t, reg)
 			} else {
 				require.False(t, reg)
@@ -142,80 +185,65 @@ func TestIsRegistered(t *testing.T) {
 }
 
 func TestUnregister(t *testing.T) {
-	ctx := context.Background()
-	if wsl.MockAvailable() {
-		t.Parallel()
-		ctx = wsl.WithMock(ctx, mock.New())
-	}
-
-	realDistro := newTestDistro(t, ctx, emptyRootFs)
-	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
-	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"This Distro \x00 has a null char")
-
 	testCases := map[string]struct {
-		distro    *wsl.Distro
+		distroname           string
+		nonRegistered        bool
+		syscallError         bool
+		registryInaccessible bool
+
 		wantError bool
 	}{
-		"happy path":        {distro: &realDistro},
-		"not registered":    {distro: &fakeDistro, wantError: true},
-		"null char in name": {distro: &wrongDistro, wantError: true},
+		"Success": {},
+
+		"Error with a non-registered distro": {nonRegistered: true, wantError: true},
+		"Error with a null char in name":     {nonRegistered: true, distroname: "This Distro \x00 has a null char", wantError: true},
+
+		// Mock-induced errors
+		"Error when the registry fails to open": {registryInaccessible: true, wantError: true},
+		"Error when the syscall fails":          {syscallError: true, wantError: true},
 	}
 
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			d := *tc.distro
+			if (tc.syscallError || tc.registryInaccessible) && !wsl.MockAvailable() {
+				t.Skip("This test is only available with the mock enabled")
+			}
 
-			cancel := wslShutdownTimeout(t, ctx, time.Minute)
+			ctx, modifyMock := setupBackend(t, context.Background())
+
+			var d wsl.Distro
+			if tc.nonRegistered {
+				d = wsl.NewDistro(ctx, uniqueDistroName(t)+tc.distroname)
+			} else {
+				d = newTestDistro(t, ctx, emptyRootFs)
+			}
+
+			if tc.registryInaccessible || tc.syscallError {
+				modifyMock(t, func(m *mock.Backend) {
+					m.WslUnregisterDistributionError = tc.syscallError
+					m.OpenLxssKeyError = tc.registryInaccessible
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
+			}
+
 			t.Logf("Unregistering %q", d.Name())
+
+			cancel := wslExeGuard(time.Minute)
 			err := d.Unregister()
 			cancel()
+
 			t.Log("Unregistration completed")
 
 			if tc.wantError {
 				require.Errorf(t, err, "Unexpected success in unregistering distro %q.", d.Name())
-			} else {
-				require.NoError(t, err, "Unexpected failure in unregistering distro %q.", d.Name())
+				return
 			}
+			require.NoError(t, err, "Unexpected failure in unregistering distro %q.", d.Name())
 
 			list, err := testDistros(ctx)
 			require.NoError(t, err, "Failed to read list of registered test distros.")
 			require.NotContains(t, list, d, "Found allegedly unregistered distro in list of registered distros.")
 		})
-	}
-}
-
-// wslShutdownTimeout starts a timer. When the timer finishes, WSL is shut down.
-// Use the returned function to cancel it. Even if you time out, cancel should be
-// called in order to deallocate resources. You can call cancel multiple times without
-// adverse effect.
-//
-//nolint:revive // No, I wont' put the context before the *testing.T.
-func wslShutdownTimeout(t *testing.T, ctx context.Context, timeout time.Duration) (cancel func()) {
-	t.Helper()
-
-	stop := make(chan struct{})
-	var cancelled bool
-
-	go func() {
-		timer := time.NewTimer(timeout)
-		select {
-		case <-stop:
-		case <-timer.C:
-			t.Logf("wslShutdownTimeout timed out")
-			err := wsl.Shutdown(ctx)
-			require.NoError(t, err, "Failed to shutdown WSL after it timed out")
-			<-stop
-		}
-		timer.Stop()
-	}()
-
-	return func() {
-		if cancelled {
-			return
-		}
-		cancelled = true
-		stop <- struct{}{}
-		close(stop)
 	}
 }

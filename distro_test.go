@@ -181,10 +181,6 @@ func TestDistroString(t *testing.T) {
 //nolint:tparallel
 func TestGUID(t *testing.T) {
 	// This test validates that the GUID is properly obtained and printed.
-	// Note that windows.GUID has a String method printing the expected
-	// format "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}", but syscall.GUID
-	// does not have such method and prints its contents like any other
-	// struct.
 	ctx := context.Background()
 	if wsl.MockAvailable() {
 		t.Parallel()

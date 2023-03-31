@@ -9,7 +9,8 @@ type State int
 // The states here reported are the ones obtained via `wsl.exe -l -v`,
 // with the addition of NotRegistered.
 const (
-	Stopped State = iota
+	Error State = iota
+	Stopped
 	Running
 	Installing
 	Uninstalling
@@ -30,11 +31,13 @@ func NewFromString(s string) (State, error) {
 		return Uninstalling, nil
 	}
 
-	return -1, fmt.Errorf("could not parse state %q", s)
+	return Error, fmt.Errorf("could not parse state %q", s)
 }
 
 func (s State) String() string {
 	switch s {
+	case Error:
+		return "Error"
 	case Stopped:
 		return "Stopped"
 	case Running:

@@ -62,7 +62,7 @@ func setDefaultDistro(ctx context.Context, distroName string) error {
 
 // wslExeGuard guard is a dummy function so that the code compiles with mocks enabled.
 // It should never be triggered because wsl.exe is mocked and cannot freeze, so the
-// panic is there to indicate suposedly unreachable code.
+// panic is there to indicate supposedly unreachable code.
 func wslExeGuard(timeout time.Duration) (cancel func()) {
 	tk := time.AfterFunc(timeout, func() {
 		panic("wslExec guard triggered in mocks")

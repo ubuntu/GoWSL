@@ -23,7 +23,7 @@ linters:
     - nolintlint
     - revive
     - thelper
-    - tparallel
+    # - tparallel # Tests are non-parallel by default because they depend on the global state of WSL and the registry
     - unconvert
     - unparam
     - whitespace

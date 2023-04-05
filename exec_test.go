@@ -294,6 +294,12 @@ func TestCommandStartWait(t *testing.T) {
 			_, err = cmd.StderrPipe()
 			require.Error(t, err, "Unexpected success calling (*Cmd).StderrPipe after (*Cmd).Start")
 
+			tk := time.AfterFunc(30*time.Second, func() {
+				t.Log("Test timed out: killing process")
+				_ = cmd.Process.Kill()
+			})
+			defer tk.Stop()
+
 			if stdoutPipe != nil {
 				out := make([]byte, len(tc.wantStdout))
 				_, err := stdoutPipe.Read(out)

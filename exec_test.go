@@ -176,34 +176,34 @@ func TestCommandStartWait(t *testing.T) {
 
 	testCases := map[string]testCase{
 		// Background context
-		"success":                     {distro: &realDistro, cmd: "exit 0"},
-		"failure fake distro":         {distro: &fakeDistro, cmd: "exit 0", wantErrOn: AfterStart},
-		"failure null char in distro": {distro: &wrongDistro, cmd: "exit 0", wantErrOn: AfterStart},
-		"failure exit code":           {distro: &realDistro, cmd: "exit 42", wantErrOn: AfterWait, wantExitError: 42},
+		"Success":                                        {distro: &realDistro, cmd: "exit 0"},
+		"Error with a non-registered distro":             {distro: &fakeDistro, cmd: "exit 0", wantErrOn: AfterStart},
+		"Error with null char in distro name":            {distro: &wrongDistro, cmd: "exit 0", wantErrOn: AfterStart},
+		"Error when the command's exit code is non-zero": {distro: &realDistro, cmd: "exit 42", wantErrOn: AfterWait, wantExitError: 42},
 
 		// Pipe success
-		"success with empty stdout": {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
-		"success with stdout":       {distro: &realDistro, cmd: "echo 'Hello!'", stdoutPipe: true, wantStdout: "Hello!\n"},
-		"success with empty stderr": {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
-		"success with stderr":       {distro: &realDistro, cmd: "echo 'Error!' >&2", stderrPipe: true, wantStderr: "Error!\n"},
-		"success with both pipes":   {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n"},
+		"Success piping nothing from stdout":       {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
+		"Success piping stdout":                    {distro: &realDistro, cmd: "echo 'Hello!'", stdoutPipe: true, wantStdout: "Hello!\n"},
+		"Success piping nothing from empty stderr": {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
+		"Success piping stderr":                    {distro: &realDistro, cmd: "echo 'Error!' >&2", stderrPipe: true, wantStderr: "Error!\n"},
+		"Success piping stdout and stderr":         {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n"},
 
 		// Pipe failure
-		"failure exit code with stdout": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", wantErrOn: AfterWait, wantExitError: 42},
-		"failure exit code with stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
-		"failure exit code both pipes":  {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
+		"Error when the command returns non-zero and piping with stdout":            {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", wantErrOn: AfterWait, wantExitError: 42},
+		"Error when the command returns non-zero and piping with stderr":            {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
+		"Error when the command returns non-zero and piping both stdout and stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
 
 		// Timeout context
-		"timeout success":          {distro: &realDistro, cmd: "exit 0", timeout: 10 * time.Second},
-		"timeout exit code":        {distro: &realDistro, cmd: "exit 42", timeout: 10 * time.Second, wantErrOn: AfterWait, wantExitError: 42},
-		"timeout before execution": {distro: &realDistro, cmd: "exit 0", timeout: time.Nanosecond, wantErrOn: AfterStart},
-		"timeout during execution": {distro: &realDistro, cmd: "sleep 5", timeout: 3 * time.Second, wantErrOn: AfterWait},
+		"Success when not timing out":                            {distro: &realDistro, cmd: "exit 0", timeout: 10 * time.Second},
+		"Error when command returns non-zero without timing out": {distro: &realDistro, cmd: "exit 42", timeout: 10 * time.Second, wantErrOn: AfterWait, wantExitError: 42},
+		"Error when timing out before execution":                 {distro: &realDistro, cmd: "exit 0", timeout: time.Nanosecond, wantErrOn: AfterStart},
+		"Error when timing out during execution":                 {distro: &realDistro, cmd: "sleep 5", timeout: 3 * time.Second, wantErrOn: AfterWait},
 
 		// Cancel context
-		"cancel success":          {distro: &realDistro, cmd: "exit 0", cancelOn: AfterWait},
-		"cancel exit code":        {distro: &realDistro, cmd: "exit 42", cancelOn: AfterWait, wantErrOn: AfterWait, wantExitError: 42},
-		"cancel before execution": {distro: &realDistro, cmd: "exit 0", cancelOn: BeforeStart, wantErrOn: AfterStart},
-		"cancel during execution": {distro: &realDistro, cmd: "sleep 10", cancelOn: AfterStart, wantErrOn: AfterWait},
+		"Success without cancelling":                             {distro: &realDistro, cmd: "exit 0", cancelOn: AfterWait},
+		"Error when command returns non-zero without cancelling": {distro: &realDistro, cmd: "exit 42", cancelOn: AfterWait, wantErrOn: AfterWait, wantExitError: 42},
+		"Error when cancelling before execution":                 {distro: &realDistro, cmd: "exit 0", cancelOn: BeforeStart, wantErrOn: AfterStart},
+		"Error when cancelling during execution":                 {distro: &realDistro, cmd: "sleep 10", cancelOn: AfterStart, wantErrOn: AfterWait},
 	}
 
 	// requireErrors checks that an error is emitted when expected, and checks that it is the proper type.
@@ -251,18 +251,34 @@ func TestCommandStartWait(t *testing.T) {
 			if tc.cancelOn == BeforeStart {
 				cancel()
 			}
-			var stdout, stderr *bytes.Buffer
+
+			var stdout, stderr func() (string, error)
 			if tc.stdoutPipe {
-				stdout = bufferPipeOutput(t, cmd, "Stdout")
+				stdoutPipe, err := cmd.StdoutPipe()
+				require.NoErrorf(t, err, "Unexpected failure in call to (*Cmd).StdoutPipe")
+
+				_, err = cmd.StdoutPipe()
+				require.Errorf(t, err, "Unexpected success calling (*Cmd).StdoutPipe twice")
+
+				stdout = bufferPipe(stdoutPipe)
 			}
 			if tc.stderrPipe {
-				stderr = bufferPipeOutput(t, cmd, "Stderr")
+				stderrPipe, err := cmd.StderrPipe()
+				require.NoErrorf(t, err, "Unexpected failure in call to (*Cmd).StderrPipe")
+
+				_, err = cmd.StderrPipe()
+				require.Errorf(t, err, "Unexpected success calling (*Cmd).StderrPipe twice")
+
+				stderr = bufferPipe(stderrPipe)
 			}
 
 			err := cmd.Wait()
 			require.Error(t, err, "Unexpected success calling (*Cmd).Wait before (*Cmd).Start")
 
 			err = cmd.Start()
+
+			//nolint:errcheck // This call ensures resources are released, we don't care about success.
+			defer cmd.Wait()
 
 			// AfterStart block
 			if tc.cancelOn == AfterStart {
@@ -289,11 +305,17 @@ func TestCommandStartWait(t *testing.T) {
 			}
 
 			if stdout != nil {
-				got := strings.ReplaceAll(stdout.String(), "\r\n", "\n")
+				out, err := stdout()
+				require.NoError(t, err, "Reading stdout pipe should return no error")
+
+				got := strings.ReplaceAll(out, "\r\n", "\n")
 				assert.Equal(t, tc.wantStdout, got, "Mismatch in piped stdout")
 			}
 			if stderr != nil {
-				got := strings.ReplaceAll(stderr.String(), "\r\n", "\n")
+				out, err := stderr()
+				require.NoError(t, err, "Reading stderr pipe should return no error")
+
+				got := strings.ReplaceAll(out, "\r\n", "\n")
 				assert.Equal(t, tc.wantStderr, got, "Mismatch in piped stderr")
 			}
 
@@ -303,30 +325,23 @@ func TestCommandStartWait(t *testing.T) {
 	}
 }
 
-// bufferPipeOutput buffers the output stream of a command with an intermediate pipe.
-func bufferPipeOutput(t *testing.T, cmd *wsl.Cmd, pipeName string) *bytes.Buffer {
-	t.Helper()
-
-	buffer := bytes.NewBuffer([]byte{})
-
-	StdXPipe := (*cmd).StdoutPipe
-	if pipeName == "Stderr" {
-		StdXPipe = (*cmd).StderrPipe
-	}
-
-	pr, err := StdXPipe()
-	require.NoErrorf(t, err, "Unexpected failure in call to (*Cmd).%s", pipeName)
-
-	// Goroutine will be released on (*cmd).Wait
+// bufferPipe asyncronously reads from a provided pipe and stores its output.
+//
+// The returned function will block until the pipe is closed and return the stored output.
+func bufferPipe(pipe io.ReadCloser) func() (string, error) {
+	var buff bytes.Buffer
+	copyErr := make(chan error)
 	go func() {
-		t.Helper()
-		n, err := io.Copy(buffer, pr)
-		assert.NoErrorf(t, err, "async error copying %s after %d bytes", pipeName, n)
+		_, err := io.Copy(&buff, pipe)
+		copyErr <- err
+		close(copyErr)
 	}()
-	_, err = StdXPipe()
-	require.Errorf(t, err, "Unexpected success calling (*Cmd).%s twice", pipeName)
 
-	return buffer
+	return func() (string, error) {
+		// Channel must be read before the buffer to prevent a race
+		err := <-copyErr
+		return buff.String(), err
+	}
 }
 
 func TestCommandOutPipes(t *testing.T) {

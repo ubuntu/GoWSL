@@ -252,27 +252,24 @@ func TestCommandStartWait(t *testing.T) {
 				cancel()
 			}
 
-			var stdout, stderr func() (string, error)
+			var stdoutPipe, stderrPipe io.Reader
+			var err error
 			if tc.stdoutPipe {
-				stdoutPipe, err := cmd.StdoutPipe()
+				stdoutPipe, err = cmd.StdoutPipe()
 				require.NoErrorf(t, err, "Unexpected failure in call to (*Cmd).StdoutPipe")
 
 				_, err = cmd.StdoutPipe()
 				require.Errorf(t, err, "Unexpected success calling (*Cmd).StdoutPipe twice")
-
-				stdout = bufferPipe(stdoutPipe)
 			}
 			if tc.stderrPipe {
-				stderrPipe, err := cmd.StderrPipe()
+				stderrPipe, err = cmd.StderrPipe()
 				require.NoErrorf(t, err, "Unexpected failure in call to (*Cmd).StderrPipe")
 
 				_, err = cmd.StderrPipe()
 				require.Errorf(t, err, "Unexpected success calling (*Cmd).StderrPipe twice")
-
-				stderr = bufferPipe(stderrPipe)
 			}
 
-			err := cmd.Wait()
+			err = cmd.Wait()
 			require.Error(t, err, "Unexpected success calling (*Cmd).Wait before (*Cmd).Start")
 
 			err = cmd.Start()
@@ -297,6 +294,23 @@ func TestCommandStartWait(t *testing.T) {
 			_, err = cmd.StderrPipe()
 			require.Error(t, err, "Unexpected success calling (*Cmd).StderrPipe after (*Cmd).Start")
 
+			if stdoutPipe != nil {
+				out := make([]byte, len(tc.wantStdout))
+				_, err := stdoutPipe.Read(out)
+				require.NoError(t, err, "Reading stdout pipe should return no error")
+
+				got := strings.ReplaceAll(string(out), "\r\n", "\n")
+				assert.Equal(t, tc.wantStdout, got, "Mismatch in piped stdout")
+			}
+			if stderrPipe != nil {
+				out := make([]byte, len(tc.wantStderr))
+				_, err := stderrPipe.Read(out)
+				require.NoError(t, err, "Reading stderr pipe should return no error")
+
+				got := strings.ReplaceAll(string(out), "\r\n", "\n")
+				assert.Equal(t, tc.wantStderr, got, "Mismatch in piped stderr")
+			}
+
 			err = cmd.Wait()
 
 			// AfterWait block
@@ -304,43 +318,9 @@ func TestCommandStartWait(t *testing.T) {
 				return
 			}
 
-			if stdout != nil {
-				out, err := stdout()
-				require.NoError(t, err, "Reading stdout pipe should return no error")
-
-				got := strings.ReplaceAll(out, "\r\n", "\n")
-				assert.Equal(t, tc.wantStdout, got, "Mismatch in piped stdout")
-			}
-			if stderr != nil {
-				out, err := stderr()
-				require.NoError(t, err, "Reading stderr pipe should return no error")
-
-				got := strings.ReplaceAll(out, "\r\n", "\n")
-				assert.Equal(t, tc.wantStderr, got, "Mismatch in piped stderr")
-			}
-
 			err = cmd.Wait()
 			require.Error(t, err, "Unexpected success calling (*Cmd).Wait twice")
 		})
-	}
-}
-
-// bufferPipe asyncronously reads from a provided pipe and stores its output.
-//
-// The returned function will block until the pipe is closed and return the stored output.
-func bufferPipe(pipe io.ReadCloser) func() (string, error) {
-	var buff bytes.Buffer
-	copyErr := make(chan error)
-	go func() {
-		_, err := io.Copy(&buff, pipe)
-		copyErr <- err
-		close(copyErr)
-	}()
-
-	return func() (string, error) {
-		// Channel must be read before the buffer to prevent a race
-		err := <-copyErr
-		return buff.String(), err
 	}
 }
 

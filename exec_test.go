@@ -251,12 +251,25 @@ func TestCommandStartWait(t *testing.T) {
 			if tc.cancelOn == BeforeStart {
 				cancel()
 			}
-			var stdout, stderr *bytes.Buffer
+
+			var stdout, stderr func() (string, error)
 			if tc.stdoutPipe {
-				stdout = bufferPipeOutput(t, cmd, "Stdout")
+				stdoutPipe, err := cmd.StdoutPipe()
+				require.NoErrorf(t, err, "Unexpected failure in call to (*Cmd).StdoutPipe")
+
+				_, err = cmd.StdoutPipe()
+				require.Errorf(t, err, "Unexpected success calling (*Cmd).StdoutPipe twice")
+
+				stdout = bufferPipe(stdoutPipe)
 			}
 			if tc.stderrPipe {
-				stderr = bufferPipeOutput(t, cmd, "Stderr")
+				stderrPipe, err := cmd.StderrPipe()
+				require.NoErrorf(t, err, "Unexpected failure in call to (*Cmd).StderrPipe")
+
+				_, err = cmd.StderrPipe()
+				require.Errorf(t, err, "Unexpected success calling (*Cmd).StderrPipe twice")
+
+				stderr = bufferPipe(stderrPipe)
 			}
 
 			err := cmd.Wait()
@@ -292,11 +305,17 @@ func TestCommandStartWait(t *testing.T) {
 			}
 
 			if stdout != nil {
-				got := strings.ReplaceAll(stdout.String(), "\r\n", "\n")
+				out, err := stdout()
+				require.NoError(t, err, "Reading stdout pipe should return no error")
+
+				got := strings.ReplaceAll(out, "\r\n", "\n")
 				assert.Equal(t, tc.wantStdout, got, "Mismatch in piped stdout")
 			}
 			if stderr != nil {
-				got := strings.ReplaceAll(stderr.String(), "\r\n", "\n")
+				out, err := stderr()
+				require.NoError(t, err, "Reading stderr pipe should return no error")
+
+				got := strings.ReplaceAll(out, "\r\n", "\n")
 				assert.Equal(t, tc.wantStderr, got, "Mismatch in piped stderr")
 			}
 
@@ -306,30 +325,23 @@ func TestCommandStartWait(t *testing.T) {
 	}
 }
 
-// bufferPipeOutput buffers the output stream of a command with an intermediate pipe.
-func bufferPipeOutput(t *testing.T, cmd *wsl.Cmd, pipeName string) *bytes.Buffer {
-	t.Helper()
-
-	buffer := bytes.NewBuffer([]byte{})
-
-	StdXPipe := (*cmd).StdoutPipe
-	if pipeName == "Stderr" {
-		StdXPipe = (*cmd).StderrPipe
-	}
-
-	pr, err := StdXPipe()
-	require.NoErrorf(t, err, "Unexpected failure in call to (*Cmd).%s", pipeName)
-
-	// Goroutine will be released on (*cmd).Wait
+// bufferPipe asyncronously reads from a provided pipe and stores its output.
+//
+// The returned function will block until the pipe is closed and return the stored output.
+func bufferPipe(pipe io.ReadCloser) func() (string, error) {
+	var buff bytes.Buffer
+	copyErr := make(chan error)
 	go func() {
-		t.Helper()
-		n, err := io.Copy(buffer, pr)
-		assert.NoErrorf(t, err, "async error copying %s after %d bytes", pipeName, n)
+		_, err := io.Copy(&buff, pipe)
+		copyErr <- err
+		close(copyErr)
 	}()
-	_, err = StdXPipe()
-	require.Errorf(t, err, "Unexpected success calling (*Cmd).%s twice", pipeName)
 
-	return buffer
+	return func() (string, error) {
+		// Channel must be read before the buffer to prevent a race
+		err := <-copyErr
+		return buff.String(), err
+	}
 }
 
 func TestCommandOutPipes(t *testing.T) {

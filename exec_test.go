@@ -176,34 +176,34 @@ func TestCommandStartWait(t *testing.T) {
 
 	testCases := map[string]testCase{
 		// Background context
-		"success":                     {distro: &realDistro, cmd: "exit 0"},
-		"failure fake distro":         {distro: &fakeDistro, cmd: "exit 0", wantErrOn: AfterStart},
-		"failure null char in distro": {distro: &wrongDistro, cmd: "exit 0", wantErrOn: AfterStart},
-		"failure exit code":           {distro: &realDistro, cmd: "exit 42", wantErrOn: AfterWait, wantExitError: 42},
+		"Success":                                        {distro: &realDistro, cmd: "exit 0"},
+		"Error with a non-registered distro":             {distro: &fakeDistro, cmd: "exit 0", wantErrOn: AfterStart},
+		"Error with null char in distro name":            {distro: &wrongDistro, cmd: "exit 0", wantErrOn: AfterStart},
+		"Error when the command's exit code is non-zero": {distro: &realDistro, cmd: "exit 42", wantErrOn: AfterWait, wantExitError: 42},
 
 		// Pipe success
-		"success with empty stdout": {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
-		"success with stdout":       {distro: &realDistro, cmd: "echo 'Hello!'", stdoutPipe: true, wantStdout: "Hello!\n"},
-		"success with empty stderr": {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
-		"success with stderr":       {distro: &realDistro, cmd: "echo 'Error!' >&2", stderrPipe: true, wantStderr: "Error!\n"},
-		"success with both pipes":   {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n"},
+		"Success piping nothing from stdout":       {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
+		"Success piping stdout":                    {distro: &realDistro, cmd: "echo 'Hello!'", stdoutPipe: true, wantStdout: "Hello!\n"},
+		"Success piping nothing from empty stderr": {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
+		"Success piping stderr":                    {distro: &realDistro, cmd: "echo 'Error!' >&2", stderrPipe: true, wantStderr: "Error!\n"},
+		"Success piping stdout and stderr":         {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n"},
 
 		// Pipe failure
-		"failure exit code with stdout": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", wantErrOn: AfterWait, wantExitError: 42},
-		"failure exit code with stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
-		"failure exit code both pipes":  {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
+		"Error when the command returns non-zero and piping with stdout":            {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", wantErrOn: AfterWait, wantExitError: 42},
+		"Error when the command returns non-zero and piping with stderr":            {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
+		"Error when the command returns non-zero and piping both stdout and stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
 
 		// Timeout context
-		"timeout success":          {distro: &realDistro, cmd: "exit 0", timeout: 10 * time.Second},
-		"timeout exit code":        {distro: &realDistro, cmd: "exit 42", timeout: 10 * time.Second, wantErrOn: AfterWait, wantExitError: 42},
-		"timeout before execution": {distro: &realDistro, cmd: "exit 0", timeout: time.Nanosecond, wantErrOn: AfterStart},
-		"timeout during execution": {distro: &realDistro, cmd: "sleep 5", timeout: 3 * time.Second, wantErrOn: AfterWait},
+		"Success when not timing out":                            {distro: &realDistro, cmd: "exit 0", timeout: 10 * time.Second},
+		"Error when command returns non-zero without timing out": {distro: &realDistro, cmd: "exit 42", timeout: 10 * time.Second, wantErrOn: AfterWait, wantExitError: 42},
+		"Error when timing out before execution":                 {distro: &realDistro, cmd: "exit 0", timeout: time.Nanosecond, wantErrOn: AfterStart},
+		"Error when timing out during execution":                 {distro: &realDistro, cmd: "sleep 5", timeout: 3 * time.Second, wantErrOn: AfterWait},
 
 		// Cancel context
-		"cancel success":          {distro: &realDistro, cmd: "exit 0", cancelOn: AfterWait},
-		"cancel exit code":        {distro: &realDistro, cmd: "exit 42", cancelOn: AfterWait, wantErrOn: AfterWait, wantExitError: 42},
-		"cancel before execution": {distro: &realDistro, cmd: "exit 0", cancelOn: BeforeStart, wantErrOn: AfterStart},
-		"cancel during execution": {distro: &realDistro, cmd: "sleep 10", cancelOn: AfterStart, wantErrOn: AfterWait},
+		"Success without cancelling":                             {distro: &realDistro, cmd: "exit 0", cancelOn: AfterWait},
+		"Error when command returns non-zero without cancelling": {distro: &realDistro, cmd: "exit 42", cancelOn: AfterWait, wantErrOn: AfterWait, wantExitError: 42},
+		"Error when cancelling before execution":                 {distro: &realDistro, cmd: "exit 0", cancelOn: BeforeStart, wantErrOn: AfterStart},
+		"Error when cancelling during execution":                 {distro: &realDistro, cmd: "sleep 10", cancelOn: AfterStart, wantErrOn: AfterWait},
 	}
 
 	// requireErrors checks that an error is emitted when expected, and checks that it is the proper type.

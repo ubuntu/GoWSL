@@ -264,6 +264,9 @@ func TestCommandStartWait(t *testing.T) {
 
 			err = cmd.Start()
 
+			//nolint:errcheck // This call ensures resources are released, we don't care about success.
+			defer cmd.Wait()
+
 			// AfterStart block
 			if tc.cancelOn == AfterStart {
 				cancel()

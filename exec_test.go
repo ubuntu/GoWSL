@@ -259,7 +259,7 @@ func TestCommandStartWait(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 
-			if runtime.GOOS == "windows" {
+			if runtime.GOOS == "windows" && wsl.MockAvailable() {
 				tc.wantStdout = strings.ReplaceAll(tc.wantStdout, "\n", "\r\n")
 				tc.wantStderr = strings.ReplaceAll(tc.wantStderr, "\n", "\r\n")
 			}

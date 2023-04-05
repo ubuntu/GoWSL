@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -234,6 +235,12 @@ func TestCommandStartWait(t *testing.T) {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
+
+			if runtime.GOOS == "windows" {
+				tc.wantStdout = strings.ReplaceAll(tc.wantStdout, "\n", "\r\n")
+				tc.wantStderr = strings.ReplaceAll(tc.wantStderr, "\n", "\r\n")
+			}
+
 			var cancel context.CancelFunc
 			if tc.cancelOn != Never {
 				ctx, cancel = context.WithCancel(context.Background())
@@ -303,18 +310,16 @@ func TestCommandStartWait(t *testing.T) {
 			if stdoutPipe != nil {
 				out := make([]byte, len(tc.wantStdout))
 				_, err := stdoutPipe.Read(out)
-				require.NoError(t, err, "Reading stdout pipe should return no error")
+				require.NoErrorf(t, err, "Reading stdout pipe should return no error. Output: %s", string(out))
 
-				got := strings.ReplaceAll(string(out), "\r\n", "\n")
-				assert.Equal(t, tc.wantStdout, got, "Mismatch in piped stdout")
+				assert.Equal(t, tc.wantStdout, string(out), "Mismatch in piped stdout")
 			}
 			if stderrPipe != nil {
 				out := make([]byte, len(tc.wantStderr))
 				_, err := stderrPipe.Read(out)
-				require.NoError(t, err, "Reading stderr pipe should return no error")
+				require.NoErrorf(t, err, "Reading stderr pipe should return no error. Output: %s", string(out))
 
-				got := strings.ReplaceAll(string(out), "\r\n", "\n")
-				assert.Equal(t, tc.wantStderr, got, "Mismatch in piped stderr")
+				assert.Equal(t, tc.wantStderr, string(out), "Mismatch in piped stderr")
 			}
 
 			err = cmd.Wait()

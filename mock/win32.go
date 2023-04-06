@@ -24,6 +24,10 @@ const windowsError = math.MaxUint32
 func (b *Backend) WslConfigureDistribution(distributionName string, defaultUID uint32, wslDistributionFlags flags.WslFlags) (err error) {
 	defer decorate.OnError(&err, "WslConfigureDistribution")
 
+	if b.WslConfigureDistributionError {
+		return Error{}
+	}
+
 	if err := validDistroName(distributionName); err != nil {
 		return err
 	}
@@ -49,6 +53,10 @@ func (b *Backend) WslGetDistributionConfiguration(distributionName string,
 	wslDistributionFlags *flags.WslFlags,
 	defaultEnvironmentVariables *map[string]string) (err error) {
 	defer decorate.OnError(&err, "WslGetDistributionConfiguration")
+
+	if b.WslGetDistributionConfigurationError {
+		return Error{}
+	}
 
 	if err := validDistroName(distributionName); err != nil {
 		return err
@@ -88,6 +96,10 @@ func (b *Backend) WslLaunch(distributionName string,
 	stdout *os.File,
 	stderr *os.File) (process *os.Process, err error) {
 	defer decorate.OnError(&err, "WslLaunch")
+
+	if b.WslLaunchError {
+		return nil, Error{}
+	}
 
 	if err := validWin32String(distributionName); err != nil {
 		return nil, err
@@ -133,6 +145,10 @@ func (b *Backend) WslLaunch(distributionName string,
 // WslLaunchInteractive mocks the WslLaunchInteractive call to the Win32 API.
 func (b *Backend) WslLaunchInteractive(distributionName string, command string, useCurrentWorkingDirectory bool) (exitCode uint32, err error) {
 	defer decorate.OnError(&err, "WslLaunchInteractive")
+
+	if b.WslLaunchInteractiveError {
+		return windowsError, Error{}
+	}
 
 	if err := validWin32String(distributionName); err != nil {
 		return windowsError, err
@@ -192,6 +208,10 @@ func (b *Backend) WslLaunchInteractive(distributionName string, command string, 
 func (b *Backend) WslRegisterDistribution(distributionName string, tarGzFilename string) (err error) {
 	defer decorate.OnError(&err, "WslRegisterDistribution")
 
+	if b.WslRegisterDistributionError {
+		return Error{}
+	}
+
 	if err := validDistroName(distributionName); err != nil {
 		return err
 	}
@@ -238,6 +258,10 @@ func (b *Backend) WslRegisterDistribution(distributionName string, tarGzFilename
 // WslUnregisterDistribution mocks the WslUnregisterDistribution call to the Win32 API.
 func (b *Backend) WslUnregisterDistribution(distributionName string) (err error) {
 	defer decorate.OnError(&err, "WslUnregisterDistribution")
+
+	if b.WslUnregisterDistributionError {
+		return Error{}
+	}
 
 	if err := validDistroName(distributionName); err != nil {
 		return err

@@ -20,11 +20,7 @@ import (
 )
 
 func TestCommandRun(t *testing.T) {
-	ctx := context.Background()
-	if wsl.MockAvailable() {
-		t.Parallel()
-		ctx = wsl.WithMock(ctx, mock.New())
-	}
+	ctx, modifyMock := setupBackend(t, context.Background())
 
 	realDistro := newTestDistro(t, ctx, rootFs)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -42,32 +38,47 @@ func TestCommandRun(t *testing.T) {
 	)
 
 	testCases := map[string]struct {
-		cmd        string
-		timeout    time.Duration
-		fakeDistro bool
-		cancelOn   when
+		cmd                  string
+		timeout              time.Duration
+		fakeDistro           bool
+		cancelOn             when
+		syscallErr           bool
+		registryInaccessible bool
 
 		wantError    bool
 		wantExitCode int
 	}{
-		"success":                      {cmd: "exit 0"},
-		"fake distro":                  {cmd: "exit 0", fakeDistro: true, wantError: true},
-		"linux error":                  {cmd: "exit 42", wantError: true, wantExitCode: 42},
-		"command with null char error": {cmd: "echo \x00", fakeDistro: true, wantError: true},
+		// Background context test cases
+		"Success":                            {cmd: "exit 0"},
+		"Error with a non-registered distro": {cmd: "exit 0", fakeDistro: true, wantError: true},
+		"Error when the command's exit code is non-zero": {cmd: "exit 42", wantError: true, wantExitCode: 42},
+		"Error when the command has invalid characters":  {cmd: "echo \x00", fakeDistro: true, wantError: true},
 
-		// timeout cases
-		"success with timeout long enough":     {cmd: "exit 0", timeout: 10 * time.Second},
-		"linux error with timeout long enough": {cmd: "exit 42", timeout: 10 * time.Second, wantError: true, wantExitCode: 42},
-		"fake distro with timeout long enough": {cmd: "exit 0", fakeDistro: true, wantError: true},
-		"timeout before Run":                   {cmd: "exit 0", timeout: 1 * time.Nanosecond, wantError: true},
-		"timeout during Run":                   {cmd: "sleep 5", timeout: 2 * time.Second, wantError: true},
+		// Background context: mock-induced errors
+		"Error when the syscall fails":            {cmd: "exit 0", syscallErr: true, wantError: true},
+		"Error when the registry is inaccessible": {cmd: "exit 0", registryInaccessible: true, wantError: true},
 
-		// cancel cases
-		"success with no cancel": {cmd: "exit 0", cancelOn: CancelAfterRun},
-		"linux error no cancel":  {cmd: "exit 42", cancelOn: CancelAfterRun, wantError: true, wantExitCode: 42},
-		"fake distro no cancel":  {cmd: "exit 42", cancelOn: CancelAfterRun, fakeDistro: true, wantError: true},
-		"cancel before Run":      {cmd: "exit 0", cancelOn: CancelBeforeRun, wantError: true},
-		"cancel during Run":      {cmd: "sleep 5", cancelOn: CancelDuringRun, wantError: true},
+		// Timeout context test cases
+		"Success without timing out":                                        {cmd: "exit 0", timeout: 10 * time.Second},
+		"Error when the command's exit code is non-zero without timing out": {cmd: "exit 42", timeout: 10 * time.Second, wantError: true, wantExitCode: 42},
+		"Error with a non-registered distro without timing out":             {cmd: "exit 0", fakeDistro: true, wantError: true},
+		"Error when timing out before Run":                                  {cmd: "exit 0", timeout: 1 * time.Nanosecond, wantError: true},
+		"Error when timing out during Run":                                  {cmd: "sleep 5", timeout: 2 * time.Second, wantError: true},
+
+		// Timeout context: mock-induced errors
+		"Error when the syscall fails without timing out":            {cmd: "exit 0", syscallErr: true, timeout: time.Minute, wantError: true},
+		"Error when the registry is inaccessible without timing out": {cmd: "exit 0", registryInaccessible: true, timeout: time.Minute, wantError: true},
+
+		// Cancel context test cases
+		"Success without cancelling":                                        {cmd: "exit 0", cancelOn: CancelAfterRun},
+		"Error when the command's exit code is non-zero without cancelling": {cmd: "exit 42", cancelOn: CancelAfterRun, wantError: true, wantExitCode: 42},
+		"Error with a non-registered distro without cancelling":             {cmd: "exit 42", cancelOn: CancelAfterRun, fakeDistro: true, wantError: true},
+		"Error when cancelling before Run":                                  {cmd: "exit 0", cancelOn: CancelBeforeRun, wantError: true},
+		"Error when cancelling during Run":                                  {cmd: "sleep 5", cancelOn: CancelDuringRun, wantError: true},
+
+		// Cancel context: mock-induced errors
+		"Error when the syscall fails without cancelling":            {cmd: "exit 0", syscallErr: true, cancelOn: CancelAfterRun, wantError: true},
+		"Error when the registry is inaccessible without cancelling": {cmd: "exit 0", registryInaccessible: true, cancelOn: CancelAfterRun, wantError: true},
 	}
 
 	for name, tc := range testCases {
@@ -102,6 +113,14 @@ func TestCommandRun(t *testing.T) {
 				}()
 			}
 
+			if tc.syscallErr || tc.registryInaccessible {
+				modifyMock(t, func(m *mock.Backend) {
+					m.WslLaunchError = tc.registryInaccessible
+					m.OpenLxssKeyError = tc.syscallErr
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
+			}
+
 			err := cmd.Run()
 
 			if !tc.wantError {
@@ -125,10 +144,7 @@ func TestCommandRun(t *testing.T) {
 }
 
 func TestCommandStartWait(t *testing.T) {
-	ctx := context.Background()
-	if wsl.MockAvailable() {
-		ctx = wsl.WithMock(ctx, mock.New())
-	}
+	ctx, modifyMock := setupBackend(t, context.Background())
 
 	realDistro := newTestDistro(t, ctx, rootFs)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -169,6 +185,9 @@ func TestCommandStartWait(t *testing.T) {
 		cancelOn when
 		timeout  time.Duration
 
+		syscallErr           bool
+		registryInaccessible bool
+
 		wantStdout    string
 		wantStderr    string
 		wantErrOn     when
@@ -181,6 +200,10 @@ func TestCommandStartWait(t *testing.T) {
 		"Error with a non-registered distro":             {distro: &fakeDistro, cmd: "exit 0", wantErrOn: AfterStart},
 		"Error with null char in distro name":            {distro: &wrongDistro, cmd: "exit 0", wantErrOn: AfterStart},
 		"Error when the command's exit code is non-zero": {distro: &realDistro, cmd: "exit 42", wantErrOn: AfterWait, wantExitError: 42},
+
+		// Mock-induced errors
+		"Error when the syscall fails":            {distro: &realDistro, cmd: "exit 0", syscallErr: true, wantErrOn: AfterStart},
+		"Error when the registry is inaccessible": {distro: &realDistro, cmd: "exit 0", registryInaccessible: true, wantErrOn: AfterStart},
 
 		// Pipe success
 		"Success piping nothing from stdout":       {distro: &realDistro, cmd: "exit 0", stdoutPipe: true},
@@ -236,9 +259,13 @@ func TestCommandStartWait(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 
-			if runtime.GOOS == "windows" {
+			if runtime.GOOS == "windows" && wsl.MockAvailable() {
 				tc.wantStdout = strings.ReplaceAll(tc.wantStdout, "\n", "\r\n")
 				tc.wantStderr = strings.ReplaceAll(tc.wantStderr, "\n", "\r\n")
+			}
+
+			if !tc.syscallErr && !tc.registryInaccessible {
+				t.Parallel()
 			}
 
 			var cancel context.CancelFunc
@@ -278,6 +305,14 @@ func TestCommandStartWait(t *testing.T) {
 
 			err = cmd.Wait()
 			require.Error(t, err, "Unexpected success calling (*Cmd).Wait before (*Cmd).Start")
+
+			if tc.syscallErr || tc.registryInaccessible {
+				modifyMock(t, func(m *mock.Backend) {
+					m.WslLaunchError = tc.registryInaccessible
+					m.OpenLxssKeyError = tc.syscallErr
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
+			}
 
 			err = cmd.Start()
 
@@ -336,11 +371,7 @@ func TestCommandStartWait(t *testing.T) {
 }
 
 func TestCommandOutPipes(t *testing.T) {
-	ctx := context.Background()
-	if wsl.MockAvailable() {
-		t.Parallel()
-		ctx = wsl.WithMock(ctx, mock.New())
-	}
+	ctx, _ := setupBackend(t, context.Background())
 
 	d := newTestDistro(t, ctx, rootFs)
 
@@ -379,6 +410,8 @@ func TestCommandOutPipes(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			cmd := d.Command(context.Background(), "echo 'Hello!' && sleep 1 && echo 'Error!' >&2")
 
 			bufferRW := &bytes.Buffer{}
@@ -427,11 +460,7 @@ func TestCommandOutPipes(t *testing.T) {
 }
 
 func TestCommandOutput(t *testing.T) {
-	ctx := context.Background()
-	if wsl.MockAvailable() {
-		t.Parallel()
-		ctx = wsl.WithMock(ctx, mock.New())
-	}
+	ctx, _ := setupBackend(t, context.Background())
 
 	realDistro := newTestDistro(t, ctx, rootFs)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -463,6 +492,8 @@ func TestCommandOutput(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			cmd := tc.distro.Command(ctx, tc.cmd)
@@ -495,11 +526,7 @@ func TestCommandOutput(t *testing.T) {
 }
 
 func TestCommandCombinedOutput(t *testing.T) {
-	ctx := context.Background()
-	if wsl.MockAvailable() {
-		t.Parallel()
-		ctx = wsl.WithMock(ctx, mock.New())
-	}
+	ctx, _ := setupBackend(t, context.Background())
 
 	realDistro := newTestDistro(t, ctx, rootFs)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -532,6 +559,8 @@ func TestCommandCombinedOutput(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 

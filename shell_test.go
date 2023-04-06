@@ -11,11 +11,7 @@ import (
 )
 
 func TestShell(t *testing.T) {
-	ctx := context.Background()
-	if wsl.MockAvailable() {
-		t.Parallel()
-		ctx = wsl.WithMock(ctx, mock.New())
-	}
+	ctx, modifyMock := setupBackend(t, context.Background())
 
 	realDistro := newTestDistro(t, ctx, rootFs)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -30,35 +26,48 @@ func TestShell(t *testing.T) {
 	wrongCommand := "echo 'Oh no!, There is a \x00 in my command!'"
 
 	testCases := map[string]struct {
-		withCwd      bool
-		withCommand  *string
-		distro       *wsl.Distro
+		withCwd     bool
+		withCommand *string
+		distro      *wsl.Distro
+		syscallErr  bool
+
 		wantError    bool
 		wantExitCode uint32
 	}{
 		// Test with no arguments
-		"happy path":   {distro: &realDistro},
-		"fake distro":  {distro: &fakeDistro, wantError: true},
-		"wrong distro": {distro: &wrongDistro, wantError: true},
+		"Success":                            {distro: &realDistro},
+		"Error with a non-registered distro": {distro: &fakeDistro, wantError: true},
+		"Error with distroname with a null character": {distro: &wrongDistro, wantError: true},
+
+		// Mock-induced errors
+		"Error when the syscall returns an error": {distro: &realDistro, syscallErr: true, wantError: true},
 
 		// Test UseCWD
-		"success with CWD": {distro: &realDistro, withCwd: true},
-		"failure with CWD": {distro: &fakeDistro, withCwd: true, wantError: true},
+		"Success using CWD":                             {distro: &realDistro, withCwd: true},
+		"Error using CWD with a non-registered distro ": {distro: &fakeDistro, withCwd: true, wantError: true},
 
 		// Test withCommand
-		"success with command":              {distro: &realDistro, withCommand: &cmdExit0},
-		"failure command with exit error":   {distro: &realDistro, withCommand: &cmdExit42, wantError: true, wantExitCode: 42},
-		"failure with null char in command": {distro: &realDistro, withCommand: &wrongCommand, wantError: true},
+		"Success with command":                      {distro: &realDistro, withCommand: &cmdExit0},
+		"Error with command that returns non-zero":  {distro: &realDistro, withCommand: &cmdExit42, wantError: true, wantExitCode: 42},
+		"Error with command containing a null char": {distro: &realDistro, withCommand: &wrongCommand, wantError: true},
 
 		// Test that UseCWD actually changes the working directory
-		"ensure default is not CWD": {distro: &realDistro, withCommand: &cmdCheckNotCWD},
-		"ensure UseCWD uses CWD":    {distro: &realDistro, withCwd: true, withCommand: &cmdCheckCWD},
+		"Ensure CWD is disabled by default": {distro: &realDistro, withCommand: &cmdCheckNotCWD},
+		"Ensure UseCWD enables CWD":         {distro: &realDistro, withCwd: true, withCommand: &cmdCheckCWD},
 	}
 
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
 			d := *tc.distro
+			if tc.syscallErr {
+				modifyMock(t, func(m *mock.Backend) {
+					m.WslLaunchInteractiveError = true
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
+			} else {
+				t.Parallel()
+			}
 
 			// Keeping distro awake so there are no unexpected timeouts
 			if d == realDistro {

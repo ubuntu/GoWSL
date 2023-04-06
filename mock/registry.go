@@ -35,6 +35,10 @@ const (
 func (b Backend) OpenLxssRegistry(path string) (r backend.RegistryKey, err error) {
 	defer decorate.OnError(&err, "registry: could not open %s", filepath.Join("HKEY_CURRENT_USER", lxssPath, path))
 
+	if b.OpenLxssKeyError {
+		return nil, Error{}
+	}
+
 	b.lxssRootKey.mu.RLock()
 	if path == "." {
 		// We "leak" the locked mutex. The user is in charge of releasing it with .Close()

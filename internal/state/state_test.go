@@ -50,6 +50,7 @@ func TestString(t *testing.T) {
 		input state.State
 		want  string
 	}{
+		"Error":         {input: state.Error, want: "Error"},
 		"Stopped":       {input: state.Stopped, want: "Stopped"},
 		"Running":       {input: state.Running, want: "Running"},
 		"Installing":    {input: state.Installing, want: "Installing"},

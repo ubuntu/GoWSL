@@ -89,64 +89,97 @@ func isTestLinuxProcessAlive(d *wsl.Distro) bool {
 }
 
 func TestDefaultDistro(t *testing.T) {
-	ctx := context.Background()
-	if wsl.MockAvailable() {
-		t.Parallel()
-		ctx = wsl.WithMock(ctx, mock.New())
+	setupBackend(t, context.Background())
+
+	testCases := map[string]struct {
+		registryInaccessible bool
+
+		wantErr bool
+	}{
+		"Success": {},
+
+		// Mock-induced errors
+		"Error when the registry cannot be accessed": {registryInaccessible: true, wantErr: true},
 	}
 
-	want := newTestDistro(t, ctx, emptyRootFs)
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			ctx, modifyMock := setupBackend(t, context.Background())
 
-	err := setDefaultDistro(ctx, want.Name())
-	require.NoError(t, err, "Setup: could not set the default distro")
+			want := newTestDistro(t, ctx, emptyRootFs)
 
-	got, err := wsl.DefaultDistro(ctx)
-	require.NoError(t, err, "unexpected error getting default distro %q", want.Name())
-	require.Equal(t, want, got, "Unexpected mismatch in default distro")
+			err := setDefaultDistro(ctx, want.Name())
+			require.NoError(t, err, "Setup: could not set the default distro")
+
+			if tc.registryInaccessible {
+				modifyMock(t, func(m *mock.Backend) {
+					m.OpenLxssKeyError = true
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
+			}
+
+			got, err := wsl.DefaultDistro(ctx)
+			if tc.wantErr {
+				require.Error(t, err, "expected DefaultDistro to return an error")
+				return
+			}
+			require.NoError(t, err, "unexpected error getting default distro %q", want.Name())
+			require.Equal(t, want, got, "Unexpected mismatch in default distro")
+		})
+	}
 }
 
 func TestDistroSetAsDefault(t *testing.T) {
-	ctx := context.Background()
-	if wsl.MockAvailable() {
-		t.Parallel()
-		ctx = wsl.WithMock(ctx, mock.New())
-	}
-
-	realDistro := newTestDistro(t, ctx, emptyRootFs)
-	fakeDistro := wsl.NewDistro(ctx, "This distro sure does not exist")
+	setupBackend(t, context.Background())
 
 	testCases := map[string]struct {
-		distro  wsl.Distro
+		nonRegisteredDistro bool
+		wslexeError         bool
+
 		wantErr bool
 	}{
-		"set an existing distro as default":                 {distro: realDistro},
-		"error when setting non-existent distro as default": {distro: fakeDistro, wantErr: true},
+		"Success setting an existing distro as default": {},
+
+		"Error when setting non-existent distro as default": {nonRegisteredDistro: true, wantErr: true},
+
+		// Mock-induced errors
+		"Error when wsl.exe errors out": {wslexeError: true, wantErr: true},
 	}
 
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			err := tc.distro.SetAsDefault()
+			ctx, modifyMock := setupBackend(t, context.Background())
+			if tc.wslexeError {
+				modifyMock(t, func(m *mock.Backend) {
+					m.SetAsDefaultError = true
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
+			}
 
+			var d wsl.Distro
+			if tc.nonRegisteredDistro {
+				d = wsl.NewDistro(ctx, uniqueDistroName(t))
+			} else {
+				d = newTestDistro(t, ctx, emptyRootFs)
+			}
+
+			err := d.SetAsDefault()
 			if tc.wantErr {
-				require.Errorf(t, err, "Unexpected success setting non-existent distro %q as default", tc.distro.Name())
+				require.Errorf(t, err, "Unexpected success setting non-existent distro %q as default", d.Name())
 				return
 			}
-			require.NoErrorf(t, err, "Unexpected error setting %q as default", tc.distro.Name())
+			require.NoErrorf(t, err, "Unexpected error setting %q as default", d.Name())
 
 			got, err := defaultDistro(ctx)
 			require.NoError(t, err, "unexpected error getting default distro")
-			require.Equal(t, tc.distro.Name(), got)
+			require.Equal(t, d.Name(), got)
 		})
 	}
 }
 
 func TestDistroString(t *testing.T) {
-	ctx := context.Background()
-	if wsl.MockAvailable() {
-		t.Parallel()
-		ctx = wsl.WithMock(ctx, mock.New())
-	}
+	ctx, _ := setupBackend(t, context.Background())
 
 	realDistro := newTestDistro(t, ctx, rootFs)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -168,6 +201,8 @@ func TestDistroString(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
+			setupBackend(t, context.Background())
+
 			d := *tc.distro
 			got := d.String()
 			require.Equal(t, tc.want, got)
@@ -175,21 +210,9 @@ func TestDistroString(t *testing.T) {
 	}
 }
 
-// The subtests can be parallel but the main body cannot, since it registers a
-// distro, possibly interfering with other tests.
-//
-//nolint:tparallel
 func TestGUID(t *testing.T) {
 	// This test validates that the GUID is properly obtained and printed.
-	// Note that windows.GUID has a String method printing the expected
-	// format "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}", but syscall.GUID
-	// does not have such method and prints its contents like any other
-	// struct.
-	ctx := context.Background()
-	if wsl.MockAvailable() {
-		t.Parallel()
-		ctx = wsl.WithMock(ctx, mock.New())
-	}
+	ctx, modifyMock := setupBackend(t, context.Background())
 
 	realDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -209,19 +232,32 @@ func TestGUID(t *testing.T) {
 	guidRegex := regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
 
 	testCases := map[string]struct {
-		distro *wsl.Distro
+		distro               *wsl.Distro
+		registryInaccessible bool
 
 		wantErr bool
 	}{
-		"real distro":  {distro: &realDistro},
-		"fake distro":  {distro: &fakeDistro, wantErr: true},
-		"wrong distro": {distro: &wrongDistro, wantErr: true},
+		"Success with a real distro": {distro: &realDistro},
+
+		"Error with a non-registered  distro": {distro: &fakeDistro, wantErr: true},
+		"Error with an invalid distro name":   {distro: &wrongDistro, wantErr: true},
+
+		// Mock-induced errors
+		"Error when the registry is inaccessible": {distro: &realDistro, registryInaccessible: true, wantErr: true},
 	}
 
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			if tc.registryInaccessible {
+				modifyMock(t, func(m *mock.Backend) {
+					m.OpenLxssKeyError = true
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
+			} else {
+				// The backend is shared across subtests so tests with broken back-ends must run separately
+				t.Parallel()
+			}
 
 			guid, err := tc.distro.GUID()
 			if tc.wantErr {
@@ -236,9 +272,7 @@ func TestGUID(t *testing.T) {
 }
 
 func TestConfigurationSetters(t *testing.T) {
-	if wsl.MockAvailable() {
-		t.Parallel()
-	}
+	setupBackend(t, context.Background())
 
 	type testedSetting uint
 	const (
@@ -256,29 +290,35 @@ func TestConfigurationSetters(t *testing.T) {
 	)
 
 	tests := map[string]struct {
-		setting testedSetting
-		distro  distroType
+		setting      testedSetting
+		distro       distroType
+		syscallError bool
+
 		wantErr bool
 	}{
 		// DefaultUID
-		"success DefaultUID":             {setting: DefaultUID, distro: DistroRegistered},
-		"fail DefaultUID \\0 in name":    {setting: DefaultUID, distro: DistroInvalidName, wantErr: true},
-		"fail DefaultUID not registered": {setting: DefaultUID, distro: DistroNotRegistered, wantErr: true},
+		"Success setting DefaultUID":                        {setting: DefaultUID},
+		"Error when setting DefaultUID: \\0 in name":        {setting: DefaultUID, distro: DistroInvalidName, wantErr: true},
+		"Error when setting DefaultUID: not registered":     {setting: DefaultUID, distro: DistroNotRegistered, wantErr: true},
+		"Error when setting DefaultUID: syscall errors out": {setting: DefaultUID, syscallError: true, wantErr: true},
 
 		// InteropEnabled
-		"success InteropEnabled":             {setting: InteropEnabled},
-		"fail InteropEnabled \\0 in name":    {setting: InteropEnabled, distro: DistroInvalidName, wantErr: true},
-		"fail InteropEnabled not registered": {setting: InteropEnabled, distro: DistroNotRegistered, wantErr: true},
+		"Success setting InteropEnabled":                        {setting: InteropEnabled},
+		"Error when setting InteropEnabled: \\0 in name":        {setting: InteropEnabled, distro: DistroInvalidName, wantErr: true},
+		"Error when setting InteropEnabled: not registered":     {setting: InteropEnabled, distro: DistroNotRegistered, wantErr: true},
+		"Error when setting InteropEnabled: syscall errors out": {setting: InteropEnabled, syscallError: true, wantErr: true},
 
 		// PathAppended
-		"success PathAppended":             {setting: PathAppend},
-		"fail PathAppended \\0 in name":    {setting: PathAppend, distro: DistroInvalidName, wantErr: true},
-		"fail PathAppended not registered": {setting: PathAppend, distro: DistroNotRegistered, wantErr: true},
+		"Success setting PathAppended":                        {setting: PathAppend},
+		"Error when setting PathAppended: \\0 in name":        {setting: PathAppend, distro: DistroInvalidName, wantErr: true},
+		"Error when setting PathAppended: not registered":     {setting: PathAppend, distro: DistroNotRegistered, wantErr: true},
+		"Error when setting PathAppended: syscall errors out": {setting: PathAppend, syscallError: true, wantErr: true},
 
 		// DriveMountingEnabled
-		"success DriveMountingEnabled":             {setting: DriveMounting},
-		"fail DriveMountingEnabled \\0 in name":    {setting: DriveMounting, distro: DistroInvalidName, wantErr: true},
-		"fail DriveMountingEnabled not registered": {setting: DriveMounting, distro: DistroNotRegistered, wantErr: true},
+		"Success setting DriveMountingEnabled":                        {setting: DriveMounting},
+		"Error when setting DriveMountingEnabled: \\0 in name":        {setting: DriveMounting, distro: DistroInvalidName, wantErr: true},
+		"Error when setting DriveMountingEnabled: not registered":     {setting: DriveMounting, distro: DistroNotRegistered, wantErr: true},
+		"Error when setting DriveMountingEnabled: syscall errors out": {setting: DriveMounting, syscallError: true, wantErr: true},
 	}
 
 	type settingDetails struct {
@@ -301,10 +341,12 @@ func TestConfigurationSetters(t *testing.T) {
 			// 1. Changes one of the default settings and asserts that it has changed, and the others have not.
 			// 2. It changes this setting back to the default, and asserts that it has changed, and the others have not.
 
-			ctx := context.Background()
-			if wsl.MockAvailable() {
-				t.Parallel()
-				ctx = wsl.WithMock(ctx, mock.New())
+			ctx, modifyMock := setupBackend(t, context.Background())
+			if tc.syscallError {
+				modifyMock(t, func(m *mock.Backend) {
+					m.WslConfigureDistributionError = true
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
 			}
 
 			// details has info about each of the settings
@@ -396,27 +438,41 @@ func TestConfigurationSetters(t *testing.T) {
 	}
 }
 func TestGetConfiguration(t *testing.T) {
-	ctx := context.Background()
-	if wsl.MockAvailable() {
-		t.Parallel()
-		ctx = wsl.WithMock(ctx, mock.New())
-	}
-
-	d := newTestDistro(t, ctx, rootFs)
+	setupBackend(t, context.Background())
 
 	testCases := map[string]struct {
-		distroName string
-		wantErr    bool
+		distroName   string // Note: distros with custom distro names will not be registered
+		syscallError bool
+
+		wantErr bool
 	}{
-		"success":                {distroName: d.Name()},
-		"distro not registered":  {distroName: "IAmNotRegistered", wantErr: true},
-		"null character in name": {distroName: "MyName\x00IsNotValid", wantErr: true},
+		"Success": {},
+
+		"Error with non-registered distro":  {distroName: "IAmNotRegistered", wantErr: true},
+		"Error with null character in name": {distroName: "MyName\x00IsNotValid", wantErr: true},
+
+		// Mock-induced errors
+		"Error when the syscall fails": {syscallError: true, wantErr: true},
 	}
 
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			d := wsl.NewDistro(ctx, tc.distroName)
+			ctx, modifyMock := setupBackend(t, context.Background())
+			if tc.syscallError {
+				modifyMock(t, func(m *mock.Backend) {
+					m.WslGetDistributionConfigurationError = true
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
+			}
+
+			var d wsl.Distro
+			if len(tc.distroName) == 0 {
+				d = newTestDistro(t, ctx, rootFs)
+			} else {
+				d = wsl.NewDistro(ctx, uniqueDistroName(t)+tc.distroName)
+			}
+
 			c, err := d.GetConfiguration()
 
 			if tc.wantErr {
@@ -442,11 +498,7 @@ func TestGetConfiguration(t *testing.T) {
 }
 
 func TestDistroState(t *testing.T) {
-	ctx := context.Background()
-	if wsl.MockAvailable() {
-		t.Parallel()
-		ctx = wsl.WithMock(ctx, mock.New())
-	}
+	ctx, modifyMock := setupBackend(t, context.Background())
 
 	realDistro := newTestDistro(t, ctx, rootFs)
 	nonRegisteredDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
@@ -457,18 +509,23 @@ func TestDistroState(t *testing.T) {
 		install
 		command
 		terminate
+		injectError
 	)
 
 	testCases := map[string]struct {
 		distro *wsl.Distro
 		action action
 
-		want wsl.State
+		wantErr bool
+		want    wsl.State
 	}{
-		"non-registered distro":     {distro: &nonRegisteredDistro, action: none, want: wsl.NonRegistered},
-		"real distro is stopped":    {distro: &realDistro, action: terminate, want: wsl.Stopped},
-		"real distro is running":    {distro: &realDistro, action: command, want: wsl.Running},
-		"distro is being installed": {distro: nil, action: install, want: wsl.Installing},
+		"Non-registered distro":     {distro: &nonRegisteredDistro, action: none, want: wsl.NonRegistered},
+		"Real distro is stopped":    {distro: &realDistro, action: terminate, want: wsl.Stopped},
+		"Real distro is running":    {distro: &realDistro, action: command, want: wsl.Running},
+		"Distro is being installed": {distro: nil, action: install, want: wsl.Installing},
+
+		// Mock-induced errors
+		"Error when wsl.exe returns an error": {distro: &realDistro, action: injectError, wantErr: true},
 	}
 
 	for name, tc := range testCases {
@@ -491,11 +548,20 @@ func TestDistroState(t *testing.T) {
 				require.NoError(t, err, "Setup: distro.Command should not return an error")
 			case terminate:
 				_ = tc.distro.Terminate()
+			case injectError:
+				modifyMock(t, func(m *mock.Backend) {
+					m.StateError = true
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
 			default:
 				require.Failf(t, "Setup: unknown action enum", "Value: %d", tc.action)
 			}
 
 			got, err := tc.distro.State()
+			if tc.wantErr {
+				require.Error(t, err, "distro.State should return an error")
+				return
+			}
 			require.NoError(t, err, "distro.State should not return an error")
 
 			require.Equal(t, tc.want.String(), got.String(), "distro.State() does not match expected value")

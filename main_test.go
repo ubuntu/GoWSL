@@ -6,6 +6,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"path/filepath"
 	"testing"
 
 	wsl "github.com/ubuntu/gowsl"
@@ -22,6 +23,20 @@ func TestMain(m *testing.M) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
 		ctx = wsl.WithMock(ctx, mock.New())
+
+		// Touch rootfs so that tests work.
+		// For the real tests, .\prepare-repository.ps1 should be ran before running the tests
+		if err := os.MkdirAll(filepath.Dir(rootFs), 0700); err != nil {
+			log.Fatalf("Setup: could not create images dir: %v", err)
+		}
+
+		for _, fname := range []string{rootFs, emptyRootFs} {
+			f, err := os.OpenFile(fname, os.O_RDONLY|os.O_CREATE, 0600)
+			if err != nil {
+				log.Fatalf("Setup: could not touch rootfs %q: %v", fname, err)
+			}
+			f.Close()
+		}
 	}
 
 	// In case a previous run was interrupted

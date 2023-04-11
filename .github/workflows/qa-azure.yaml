@@ -18,8 +18,6 @@ jobs:
     name: Set up Azure VM
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
       - name: Start Azure VM
         uses: ubuntu/WSL/.github/actions/vm-setup/@main
         with:
@@ -63,8 +61,6 @@ jobs:
     # won't be started until then. Don't make the dependency explicit: it
     # needs to run concurrently with vm-setup.
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
       - name: Stop Azure VM
         uses: ubuntu/WSL/.github/actions/vm-stop/@main
         with:

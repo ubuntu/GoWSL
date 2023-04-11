@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	wsl "github.com/ubuntu/gowsl"
-	"github.com/ubuntu/gowsl/internal/state"
 	"github.com/ubuntu/gowsl/mock"
 )
 
@@ -116,7 +115,7 @@ func wakeDistroUp(t *testing.T, d wsl.Distro) {
 	out, err := cmd.Output()
 	require.NoErrorf(t, err, "Setup: could not run command to wake distro %q up. Stdout: %v", d, out)
 
-	requireStatef(t, state.Running, d, "Setup: distro %q should be running after launching a command", d)
+	requireStatef(t, wsl.Running, d, "Setup: distro %q should be running after launching a command", d)
 }
 
 // requireStatef ensures that a distro has the expected state.

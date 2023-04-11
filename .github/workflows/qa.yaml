@@ -57,14 +57,14 @@ jobs:
         touch images/rootfs.tar.gz
         echo "::endgroup::"
 
-        go test -tags="gowslmock"
+        go test -tags="gowslmock" -shuffle=on
     - name: Test with mocks, race flag enabled
       # We skip it on Windows because -race depends on Cgo, which is
       # complicated to enable (it requires Cygwin, MSVC support is
       # broken)
       if: ${{ matrix.os }} == "ubuntu"
       shell: bash
-      run: go test -tags="gowslmock"
+      run: go test -tags="gowslmock" -shuffle=on
 
   vm-setup:
     name: "Set up Azure VM"
@@ -105,7 +105,7 @@ jobs:
       - name: Test
         shell: powershell
         run: |
-          go test
+          go test -shuffle=on
           if ( ! $? ) { Exit(1) }
 
   stop-vm:

@@ -58,5 +58,5 @@ jobs:
       # broken)
       if: ${{ matrix.os }} == "ubuntu"
       shell: bash
-      run: go test -tags="gowslmock" -shuffle=on
+      run: go test -tags="gowslmock" -shuffle=on -race
 

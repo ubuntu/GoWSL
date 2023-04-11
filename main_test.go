@@ -4,10 +4,10 @@ package gowsl_test
 
 import (
 	"context"
+	"log"
 	"os"
 	"testing"
 
-	"github.com/0xrawsec/golang-utils/log"
 	wsl "github.com/ubuntu/gowsl"
 	"github.com/ubuntu/gowsl/mock"
 )
@@ -29,8 +29,7 @@ func TestMain(m *testing.M) {
 
 	restore, err := backUpDefaultDistro(ctx)
 	if err != nil {
-		log.Errorf("setup: %v", err)
-		os.Exit(1)
+		log.Fatalf("Setup: %v", err)
 	}
 	defer restore()
 
@@ -38,7 +37,7 @@ func TestMain(m *testing.M) {
 
 	err = wsl.Shutdown(ctx)
 	if err != nil {
-		log.Warnf("cleanup: Failed to shutdown WSL")
+		log.Println("Cleanup: Failed to shutdown WSL")
 	}
 
 	cleanUpTestWslInstances(ctx)

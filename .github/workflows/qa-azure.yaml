@@ -27,6 +27,23 @@ jobs:
           az_vm_hostname: ${{ secrets.AZURE_VM_AUTHORITY }}
           az_vm_username: ${{ secrets.AZURE_VM_UN }}
           az_vm_password: ${{ secrets.AZURE_VM_UP }}
+      - name: Cancel workflow on failure
+        # The qa step can get stuck forever waiting for a VM that will never wake up.
+        # This step ensures that the workflow is cancelled if the vm setup fails.
+        #
+        # API call docs:
+        # See https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#cancel-a-workflow-run
+        #
+        # Relevant discussion:
+        # https://github.com/orgs/community/discussions/38361
+        if: failure()
+        run: |
+          curl \
+            -X POST \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
 
   qa:
     name: Run QA checks on the Azure VM

@@ -42,18 +42,16 @@ jobs:
       uses: golangci/golangci-lint-action@v3
       with:
         version: v1.52.0
-    - name: Test with mocks
+    - name: Prepare repo
       shell: bash
       run: |
         # Prepare repo with mock rootfs and run mock tests
-
-        echo "::group::Setup"
         mkdir -p images
         touch images/empty.tar.gz
         touch images/rootfs.tar.gz
-        echo "::endgroup::"
-
-        go test -tags="gowslmock" -shuffle=on
+    - name: Test with mocks
+      shell: bash
+      run: go test -tags="gowslmock" -shuffle=on
     - name: Test with mocks, race flag enabled
       # We skip it on Windows because -race depends on Cgo, which is
       # complicated to enable (it requires Cygwin, MSVC support is

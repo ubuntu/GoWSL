@@ -17,6 +17,10 @@ import (
 )
 
 func TestShutdown(t *testing.T) {
+	if wsl.MockAvailable() {
+		t.Parallel()
+	}
+
 	testCases := map[string]struct {
 		mockErr bool
 
@@ -59,6 +63,10 @@ func TestShutdown(t *testing.T) {
 }
 
 func TestTerminate(t *testing.T) {
+	if wsl.MockAvailable() {
+		t.Parallel()
+	}
+
 	testCases := map[string]struct {
 		mockErr bool
 

@@ -13,7 +13,7 @@ import (
 func TestShell(t *testing.T) {
 	ctx, modifyMock := setupBackend(t, context.Background())
 
-	realDistro := newTestDistro(t, ctx, rootFs)
+	realDistro := newTestDistro(t, ctx, rootFS)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
 	wrongDistro := wsl.NewDistro(ctx, "I have a \x00 null char in my name")
 

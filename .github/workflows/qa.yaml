@@ -42,13 +42,6 @@ jobs:
       uses: golangci/golangci-lint-action@v3
       with:
         version: v1.52.0
-    - name: Prepare repo
-      shell: bash
-      run: |
-        # Prepare repo with mock rootfs and run mock tests
-        mkdir -p images
-        touch images/empty.tar.gz
-        touch images/rootfs.tar.gz
     - name: Test with mocks
       shell: bash
       run: go test -tags="gowslmock" -shuffle=on

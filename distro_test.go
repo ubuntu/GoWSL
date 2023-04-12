@@ -3,7 +3,6 @@ package gowsl_test
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"regexp"
 	"sync"
 	"testing"
@@ -17,75 +16,95 @@ import (
 )
 
 func TestShutdown(t *testing.T) {
-	ctx := context.Background()
 	if wsl.MockAvailable() {
-		t.Skip("Skipping test because back-end does not implement it")
-		ctx = wsl.WithMock(ctx, mock.New())
+		t.Parallel()
 	}
 
-	d := newTestDistro(t, ctx, rootFS) // Will terminate
+	testCases := map[string]struct {
+		mockErr bool
 
-	defer startTestLinuxProcess(t, &d)()
+		wantErr bool
+	}{
+		"Success": {},
 
-	err := wsl.Shutdown(ctx)
-	require.NoError(t, err, "Unexpected error attempting to shut down")
+		// Mock-induced errors
+		"Error because wsl.exe returns an error": {mockErr: true, wantErr: true},
+	}
 
-	require.False(t, isTestLinuxProcessAlive(&d), "Process was not killed by shutting down.")
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			ctx, modifyMock := setupBackend(t, context.Background())
+			d1 := newTestDistro(t, ctx, rootFS)
+			d2 := newTestDistro(t, ctx, rootFS)
+
+			if tc.mockErr {
+				modifyMock(t, func(m *mock.Backend) {
+					m.ShutdownError = true
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
+			}
+
+			wakeDistroUp(t, d1)
+			wakeDistroUp(t, d2)
+
+			err := wsl.Shutdown(ctx)
+			if tc.wantErr {
+				require.Error(t, err, "Shutdown should have returned an error")
+				return
+			}
+			require.NoError(t, err, "Shutdown should have returned no error")
+
+			requireStatef(t, wsl.Stopped, d1, "All distros should be stopped after Shutdown (d1 wasn't)")
+			requireStatef(t, wsl.Stopped, d2, "All distros should be stopped after Shutdown (d2 wasn't)")
+		})
+	}
 }
 
 func TestTerminate(t *testing.T) {
-	ctx := context.Background()
 	if wsl.MockAvailable() {
-		t.Skip("Skipping test because back-end does not implement it")
-		ctx = wsl.WithMock(ctx, mock.New())
+		t.Parallel()
 	}
 
-	sampleDistro := newTestDistro(t, ctx, rootFS)  // Will terminate
-	controlDistro := newTestDistro(t, ctx, rootFS) // Will not terminate, used to assert other distros are unaffected
+	testCases := map[string]struct {
+		mockErr bool
 
-	defer startTestLinuxProcess(t, &sampleDistro)()
-	defer startTestLinuxProcess(t, &controlDistro)()
+		wantErr bool
+	}{
+		"Success": {},
 
-	err := sampleDistro.Terminate()
-	require.NoError(t, err, "Unexpected error attempting to terminate")
-
-	require.False(t, isTestLinuxProcessAlive(&sampleDistro), "Process was not killed by termination.")
-	require.True(t, isTestLinuxProcessAlive(&controlDistro), "Process was killed by termination of a different distro.")
-}
-
-// startTestLinuxProcess starts a linux process that is easy to grep for.
-func startTestLinuxProcess(t *testing.T, d *wsl.Distro) context.CancelFunc {
-	t.Helper()
-
-	cmd := "$env:WSL_UTF8=1 ; wsl.exe -d " + d.Name() + " -- bash -ec 'sleep 500 && echo LongIdentifyableStringThatICanGrep'"
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	c := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd) //nolint:gosec
-	err := c.Start()
-	require.NoError(t, err, "Unexpected error launching command")
-
-	// Waiting for process to start
-	tk := time.NewTicker(100 * time.Microsecond)
-	defer tk.Stop()
-
-	for i := 0; i < 10; i++ {
-		<-tk.C
-		if !isTestLinuxProcessAlive(d) { // Process not started
-			continue
-		}
-		return cancel
+		// Mock-induced errors
+		"Error because wsl.exe returns an error": {mockErr: true, wantErr: true},
 	}
-	require.Fail(t, "Command failed to start")
-	return cancel
-}
 
-// isTestLinuxProcessAlive checks if the process strated by startTestLinuxProcess is still alive.
-func isTestLinuxProcessAlive(d *wsl.Distro) bool {
-	cmd := "$env:WSL_UTF8=1 ; wsl.exe -d " + d.Name() + " -- bash -ec 'ps aux | grep LongIdentifyableStringThatICanGrep | grep -v grep'"
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			ctx, modifyMock := setupBackend(t, context.Background())
+			testDistro := newTestDistro(t, ctx, rootFS)
+			controlDistro := newTestDistro(t, ctx, rootFS)
 
-	_, err := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd).CombinedOutput() //nolint:gosec
-	return err == nil
+			if tc.mockErr {
+				modifyMock(t, func(m *mock.Backend) {
+					m.TerminateError = true
+				})
+				defer modifyMock(t, (*mock.Backend).ResetErrors)
+			}
+
+			wakeDistroUp(t, testDistro)
+			wakeDistroUp(t, controlDistro)
+
+			err := testDistro.Terminate()
+			if tc.wantErr {
+				require.Error(t, err, "Terminate should have returned an error")
+				return
+			}
+			require.NoError(t, err, "Terminate should have returned no error")
+
+			requireStatef(t, wsl.Stopped, testDistro, "The test distro should be stopped after terminating it")
+			requireStatef(t, wsl.Running, controlDistro, "The control distro should be running after terminating the test distro")
+		})
+	}
 }
 
 func TestDefaultDistro(t *testing.T) {
@@ -593,4 +612,24 @@ func asyncNewTestDistro(t *testing.T, ctx context.Context, rootFs string) wsl.Di
 	})
 
 	return d
+}
+
+// wakeDistroUp is a test helper that launches a short command and ensures that the distro is running.
+func wakeDistroUp(t *testing.T, d wsl.Distro) {
+	t.Helper()
+
+	cmd := d.Command(context.Background(), "exit 0")
+	out, err := cmd.Output()
+	require.NoErrorf(t, err, "Setup: could not run command to wake distro %q up. Stdout: %v", d, out)
+
+	requireStatef(t, wsl.Running, d, "Setup: distro %q should be running after launching a command", d)
+}
+
+// requireStatef ensures that a distro has the expected state.
+func requireStatef(t *testing.T, want wsl.State, d wsl.Distro, msg string, args ...any) {
+	t.Helper()
+
+	got, err := d.State()
+	require.NoErrorf(t, err, "Setup: could not run ascertain test distro state")
+	require.Equalf(t, want, got, msg, args)
 }

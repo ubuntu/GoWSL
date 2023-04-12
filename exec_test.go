@@ -22,7 +22,7 @@ import (
 func TestCommandRun(t *testing.T) {
 	ctx, modifyMock := setupBackend(t, context.Background())
 
-	realDistro := newTestDistro(t, ctx, rootFs)
+	realDistro := newTestDistro(t, ctx, rootFS)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
 
 	// Keeping distro awake so there are no unexpected timeouts
@@ -146,7 +146,7 @@ func TestCommandRun(t *testing.T) {
 func TestCommandStartWait(t *testing.T) {
 	ctx, modifyMock := setupBackend(t, context.Background())
 
-	realDistro := newTestDistro(t, ctx, rootFs)
+	realDistro := newTestDistro(t, ctx, rootFS)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
 	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"--IHaveA\x00NullChar!")
 
@@ -373,7 +373,7 @@ func TestCommandStartWait(t *testing.T) {
 func TestCommandOutPipes(t *testing.T) {
 	ctx, _ := setupBackend(t, context.Background())
 
-	d := newTestDistro(t, ctx, rootFs)
+	d := newTestDistro(t, ctx, rootFS)
 
 	type stream int
 	const (
@@ -462,7 +462,7 @@ func TestCommandOutPipes(t *testing.T) {
 func TestCommandOutput(t *testing.T) {
 	ctx, _ := setupBackend(t, context.Background())
 
-	realDistro := newTestDistro(t, ctx, rootFs)
+	realDistro := newTestDistro(t, ctx, rootFS)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
 	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"--IHaveA\x00NullChar!")
 
@@ -528,7 +528,7 @@ func TestCommandOutput(t *testing.T) {
 func TestCommandCombinedOutput(t *testing.T) {
 	ctx, _ := setupBackend(t, context.Background())
 
-	realDistro := newTestDistro(t, ctx, rootFs)
+	realDistro := newTestDistro(t, ctx, rootFS)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
 	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"--IHaveA\x00NullChar!")
 
@@ -600,7 +600,7 @@ func TestCommandStdin(t *testing.T) {
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 
-	d := newTestDistro(t, ctx, rootFs)
+	d := newTestDistro(t, ctx, rootFS)
 
 	const (
 		readFromPipe int = iota

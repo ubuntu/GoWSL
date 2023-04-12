@@ -22,16 +22,16 @@ func TestRegister(t *testing.T) {
 
 		wantError bool
 	}{
-		"Success": {rootfs: rootFs},
+		"Success": {rootfs: rootFS},
 
-		"Error when the distro name contains whitespace":       {rootfs: rootFs, distroSuffix: "--I contain whitespace", wantError: true},
-		"Error when the distro name contains a null character": {rootfs: rootFs, distroSuffix: "--I \x00 contain a null char", wantError: true},
+		"Error when the distro name contains whitespace":       {rootfs: rootFS, distroSuffix: "--I contain whitespace", wantError: true},
+		"Error when the distro name contains a null character": {rootfs: rootFS, distroSuffix: "--I \x00 contain a null char", wantError: true},
 		"Error when the rootfs path contains a null character": {rootfs: "jammy\x00.tar.gz", wantError: true},
 		"Error when the rootfs path does not exist":            {rootfs: "I am not a real file.tar.gz", wantError: true},
 
 		// Mock-induced errors
-		"Error when the registry fails to open": {rootfs: rootFs, registryInaccessible: true, wantError: true},
-		"Error when the register syscall fails": {rootfs: rootFs, syscallError: true, wantError: true},
+		"Error when the registry fails to open": {rootfs: rootFS, registryInaccessible: true, wantError: true},
+		"Error when the register syscall fails": {rootfs: rootFS, syscallError: true, wantError: true},
 	}
 
 	for name, tc := range testCases {
@@ -102,8 +102,8 @@ func TestRegisteredDistros(t *testing.T) {
 
 			ctx, modifyMock := setupBackend(t, context.Background())
 
-			d1 := newTestDistro(t, ctx, emptyRootFs)
-			d2 := newTestDistro(t, ctx, emptyRootFs)
+			d1 := newTestDistro(t, ctx, emptyRootFS)
+			d2 := newTestDistro(t, ctx, emptyRootFS)
 			d3 := wsl.NewDistro(ctx, uniqueDistroName(t))
 
 			if tc.registryInaccessible {
@@ -163,7 +163,7 @@ func TestIsRegistered(t *testing.T) {
 
 			var distro wsl.Distro
 			if tc.register {
-				distro = newTestDistro(t, ctx, emptyRootFs)
+				distro = newTestDistro(t, ctx, emptyRootFS)
 			} else {
 				distro = wsl.NewDistro(ctx, uniqueDistroName(t))
 			}
@@ -216,7 +216,7 @@ func TestUnregister(t *testing.T) {
 			if tc.nonRegistered {
 				d = wsl.NewDistro(ctx, uniqueDistroName(t)+tc.distroname)
 			} else {
-				d = newTestDistro(t, ctx, emptyRootFs)
+				d = newTestDistro(t, ctx, emptyRootFS)
 			}
 
 			if tc.registryInaccessible || tc.syscallError {

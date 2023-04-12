@@ -23,7 +23,7 @@ func TestShutdown(t *testing.T) {
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 
-	d := newTestDistro(t, ctx, rootFs) // Will terminate
+	d := newTestDistro(t, ctx, rootFS) // Will terminate
 
 	defer startTestLinuxProcess(t, &d)()
 
@@ -40,8 +40,8 @@ func TestTerminate(t *testing.T) {
 		ctx = wsl.WithMock(ctx, mock.New())
 	}
 
-	sampleDistro := newTestDistro(t, ctx, rootFs)  // Will terminate
-	controlDistro := newTestDistro(t, ctx, rootFs) // Will not terminate, used to assert other distros are unaffected
+	sampleDistro := newTestDistro(t, ctx, rootFS)  // Will terminate
+	controlDistro := newTestDistro(t, ctx, rootFS) // Will not terminate, used to assert other distros are unaffected
 
 	defer startTestLinuxProcess(t, &sampleDistro)()
 	defer startTestLinuxProcess(t, &controlDistro)()
@@ -106,7 +106,7 @@ func TestDefaultDistro(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 
-			want := newTestDistro(t, ctx, emptyRootFs)
+			want := newTestDistro(t, ctx, emptyRootFS)
 
 			err := setDefaultDistro(ctx, want.Name())
 			require.NoError(t, err, "Setup: could not set the default distro")
@@ -161,7 +161,7 @@ func TestDistroSetAsDefault(t *testing.T) {
 			if tc.nonRegisteredDistro {
 				d = wsl.NewDistro(ctx, uniqueDistroName(t))
 			} else {
-				d = newTestDistro(t, ctx, emptyRootFs)
+				d = newTestDistro(t, ctx, emptyRootFS)
 			}
 
 			err := d.SetAsDefault()
@@ -181,7 +181,7 @@ func TestDistroSetAsDefault(t *testing.T) {
 func TestDistroString(t *testing.T) {
 	ctx, _ := setupBackend(t, context.Background())
 
-	realDistro := newTestDistro(t, ctx, rootFs)
+	realDistro := newTestDistro(t, ctx, rootFS)
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
 	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"_\x00_invalid_name")
 
@@ -218,7 +218,7 @@ func TestGUID(t *testing.T) {
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
 	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"\x00invalidcharacter")
 
-	err := realDistro.Register(emptyRootFs)
+	err := realDistro.Register(emptyRootFS)
 	require.NoError(t, err, "could not register empty distro")
 
 	//nolint:errcheck // We don't care about cleanup errors
@@ -369,7 +369,7 @@ func TestConfigurationSetters(t *testing.T) {
 			var d wsl.Distro
 			switch tc.distro {
 			case DistroRegistered:
-				d = newTestDistro(t, ctx, rootFs)
+				d = newTestDistro(t, ctx, rootFS)
 				err := d.Command(context.Background(), "useradd testuser").Run()
 				require.NoError(t, err, "unexpectedly failed to add a user to the distro")
 			case DistroNotRegistered:
@@ -468,7 +468,7 @@ func TestGetConfiguration(t *testing.T) {
 
 			var d wsl.Distro
 			if len(tc.distroName) == 0 {
-				d = newTestDistro(t, ctx, rootFs)
+				d = newTestDistro(t, ctx, rootFS)
 			} else {
 				d = wsl.NewDistro(ctx, uniqueDistroName(t)+tc.distroName)
 			}
@@ -500,7 +500,7 @@ func TestGetConfiguration(t *testing.T) {
 func TestDistroState(t *testing.T) {
 	ctx, modifyMock := setupBackend(t, context.Background())
 
-	realDistro := newTestDistro(t, ctx, rootFs)
+	realDistro := newTestDistro(t, ctx, rootFS)
 	nonRegisteredDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
 
 	type action int
@@ -537,7 +537,7 @@ func TestDistroState(t *testing.T) {
 				if wsl.MockAvailable() {
 					t.Skip("Skipping because mock registers instantly")
 				}
-				d := asyncNewTestDistro(t, ctx, emptyRootFs)
+				d := asyncNewTestDistro(t, ctx, emptyRootFS)
 				tc.distro = &d
 				require.Eventually(t, func() bool {
 					r, err := d.IsRegistered()

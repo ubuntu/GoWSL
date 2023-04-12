@@ -107,26 +107,6 @@ func TestTerminate(t *testing.T) {
 	}
 }
 
-// wakeDistroUp is a test helper that launches a short command and ensures that the distro is running.
-func wakeDistroUp(t *testing.T, d wsl.Distro) {
-	t.Helper()
-
-	cmd := d.Command(context.Background(), "exit 0")
-	out, err := cmd.Output()
-	require.NoErrorf(t, err, "Setup: could not run command to wake distro %q up. Stdout: %v", d, out)
-
-	requireStatef(t, wsl.Running, d, "Setup: distro %q should be running after launching a command", d)
-}
-
-// requireStatef ensures that a distro has the expected state.
-func requireStatef(t *testing.T, want wsl.State, d wsl.Distro, msg string, args ...any) {
-	t.Helper()
-
-	got, err := d.State()
-	require.NoErrorf(t, err, "Setup: could not run ascertain test distro state")
-	require.Equalf(t, want, got, msg, args)
-}
-
 func TestDefaultDistro(t *testing.T) {
 	setupBackend(t, context.Background())
 
@@ -632,4 +612,24 @@ func asyncNewTestDistro(t *testing.T, ctx context.Context, rootFs string) wsl.Di
 	})
 
 	return d
+}
+
+// wakeDistroUp is a test helper that launches a short command and ensures that the distro is running.
+func wakeDistroUp(t *testing.T, d wsl.Distro) {
+	t.Helper()
+
+	cmd := d.Command(context.Background(), "exit 0")
+	out, err := cmd.Output()
+	require.NoErrorf(t, err, "Setup: could not run command to wake distro %q up. Stdout: %v", d, out)
+
+	requireStatef(t, wsl.Running, d, "Setup: distro %q should be running after launching a command", d)
+}
+
+// requireStatef ensures that a distro has the expected state.
+func requireStatef(t *testing.T, want wsl.State, d wsl.Distro, msg string, args ...any) {
+	t.Helper()
+
+	got, err := d.State()
+	require.NoErrorf(t, err, "Setup: could not run ascertain test distro state")
+	require.Equalf(t, want, got, msg, args)
 }

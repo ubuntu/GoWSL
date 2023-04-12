@@ -14,9 +14,12 @@ import (
 )
 
 const (
-	namePrefix  string = "wsltesting"
-	emptyRootFs string = `./images/empty.tar.gz`  // Empty non-functional image. It registers instantly.
-	rootFs      string = `./images/rootfs.tar.gz` // Fully functional rootfs
+	namePrefix string = "wsltesting"
+)
+
+var (
+	emptyRootFs = `images/empty.tar.gz`  // Empty non-functional image. It registers instantly.
+	rootFs      = `images/rootfs.tar.gz` // Fully functional rootfs
 )
 
 func TestMain(m *testing.M) {
@@ -26,9 +29,14 @@ func TestMain(m *testing.M) {
 
 		// Touch rootfs so that tests work.
 		// For the real tests, .\prepare-repository.ps1 should be ran before running the tests
-		if err := os.MkdirAll(filepath.Dir(rootFs), 0700); err != nil {
+		tmp := filepath.Join(os.TempDir(), filepath.Dir(rootFs))
+		if err := os.MkdirAll(tmp, 0700); err != nil {
 			log.Fatalf("Setup: could not create images dir: %v", err)
 		}
+		defer os.RemoveAll(tmp)
+
+		rootFs = filepath.Join(tmp, rootFs)
+		emptyRootFs = filepath.Join(tmp, emptyRootFs)
 
 		for _, fname := range []string{rootFs, emptyRootFs} {
 			f, err := os.OpenFile(fname, os.O_RDONLY|os.O_CREATE, 0600)

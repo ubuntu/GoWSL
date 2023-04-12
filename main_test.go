@@ -18,34 +18,17 @@ const (
 )
 
 var (
-	emptyRootFS = `images/empty.tar.gz`  // Empty non-functional image. It registers instantly.
-	rootFS      = `images/rootfs.tar.gz` // Fully functional rootfs
+	emptyRootFS string // Empty non-functional image. It registers instantly.
+	rootFS      string // Fully functional rootfs
 )
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 	if wsl.MockAvailable() {
 		ctx = wsl.WithMock(ctx, mock.New())
-
-		// Touch rootfs so that tests work.
-		// For the real tests, .\prepare-repository.ps1 should be ran before running the tests
-		tmp := filepath.Join(os.TempDir(), filepath.Dir(rootFS))
-		if err := os.MkdirAll(tmp, 0700); err != nil {
-			log.Fatalf("Setup: could not create images dir: %v", err)
-		}
-		defer os.RemoveAll(tmp)
-
-		rootFS = filepath.Join(tmp, rootFS)
-		emptyRootFS = filepath.Join(tmp, emptyRootFS)
-
-		for _, fname := range []string{rootFS, emptyRootFS} {
-			f, err := os.OpenFile(fname, os.O_RDONLY|os.O_CREATE, 0600)
-			if err != nil {
-				log.Fatalf("Setup: could not touch rootfs %q: %v", fname, err)
-			}
-			f.Close()
-		}
 	}
+
+	defer setUpRootFS()()
 
 	// In case a previous run was interrupted
 	cleanUpTestWslInstances(ctx)
@@ -66,4 +49,36 @@ func TestMain(m *testing.M) {
 	cleanUpTestWslInstances(ctx)
 
 	os.Exit(exitVal)
+}
+
+// setUpRootFS sets the rootFS and emptyRootFS variables, and optionally creates the files.
+//
+// - For the real tests, .\prepare-repository.ps1 should be ran before running the tests.
+// - For the mocked tests, emporary empty files are created to stand for the rootFS.
+func setUpRootFS() (cleanup func()) {
+	if !wsl.MockAvailable() {
+		rootFS = "images/rootfs.tar.gz"
+		emptyRootFS = "images/empty.tar.gz"
+		return func() {}
+	}
+
+	rootFSDir, err := os.MkdirTemp(os.TempDir(), "GoWSL")
+	if err != nil {
+		log.Fatalf("Setup: could not create images dir: %v", err)
+	}
+
+	rootFS = filepath.Join(rootFSDir, "empty1.tar.gz")
+	emptyRootFS = filepath.Join(rootFSDir, "empty2.tar.gz")
+
+	for _, fname := range []string{rootFS, emptyRootFS} {
+		f, err := os.Create(fname)
+		if err != nil {
+			log.Fatalf("Setup: could not touch rootfs %q: %v", fname, err)
+		}
+		f.Close()
+	}
+
+	return func() {
+		os.RemoveAll(rootFSDir)
+	}
 }

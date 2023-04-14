@@ -60,6 +60,9 @@ func registeredDistros(backend backend.Backend) (distros map[string]uuid.UUID, e
 	defer r.Close()
 
 	subkeys, err := r.SubkeyNames()
+	if err != nil {
+		return distros, err
+	}
 
 	distros = make(map[string]uuid.UUID, len(subkeys))
 	for _, key := range subkeys {

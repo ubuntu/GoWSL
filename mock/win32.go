@@ -32,7 +32,10 @@ func (b *Backend) WslConfigureDistribution(distributionName string, defaultUID u
 		return err
 	}
 
+	b.lxssRootKey.mu.RLock()
 	_, key := b.findDistroKey(distributionName)
+	b.lxssRootKey.mu.RUnlock()
+
 	if key == nil {
 		return errors.New("failed syscall: distro not registered")
 	}

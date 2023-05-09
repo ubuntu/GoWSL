@@ -76,7 +76,10 @@ func (backend Backend) State(distributionName string) (s state.State, err error)
 		return state.Error, Error{}
 	}
 
+	backend.lxssRootKey.mu.RLock()
 	_, key := backend.findDistroKey(distributionName)
+	backend.lxssRootKey.mu.RUnlock()
+
 	if key == nil {
 		return state.NotRegistered, nil
 	}

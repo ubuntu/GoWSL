@@ -212,9 +212,10 @@ func TestDistroString(t *testing.T) {
 
 		want string
 	}{
-		"registered distro": {distro: &realDistro, want: fmt.Sprintf(`WSL distro %q (%s)`, realDistro.Name(), realGUID)},
-		"fake distro":       {distro: &fakeDistro, want: fmt.Sprintf(`WSL distro %q (not registered)`, fakeDistro.Name())},
-		"wrong distro":      {distro: &wrongDistro, want: fmt.Sprintf(`WSL distro %q (not registered)`, wrongDistro.Name())},
+		"Success registering a distro": {distro: &realDistro, want: fmt.Sprintf(`WSL distro %q (%s)`, realDistro.Name(), realGUID)},
+
+		"Error when the distro is not registered":           {distro: &fakeDistro, want: fmt.Sprintf(`WSL distro %q (not registered)`, fakeDistro.Name())},
+		"Error when the distro name has invalid characters": {distro: &wrongDistro, want: fmt.Sprintf(`WSL distro %q (not registered)`, wrongDistro.Name())},
 	}
 
 	for name, tc := range testCases {

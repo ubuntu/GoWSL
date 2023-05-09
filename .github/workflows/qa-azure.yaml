@@ -66,7 +66,7 @@ jobs:
       - name: Test
         shell: powershell
         run: |
-          go test -shuffle=on
+          go test -shuffle=on -timeout 20m
           if ( ! $? ) { Exit(1) }
 
   stop-vm:

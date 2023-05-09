@@ -390,21 +390,21 @@ func TestCommandOutPipes(t *testing.T) {
 		wantInFile   string
 		wantInBuffer string
 	}{
-		"all discarded": {},
+		"Success when all streams are discarded": {},
 
 		// Writing to buffer
-		"stdout to a buffer":            {stdout: buffer, wantInBuffer: "Hello!\n"},
-		"stderr to a buffer":            {stderr: buffer, wantInBuffer: "Error!\n"},
-		"stdout and stderr to a buffer": {stdout: buffer, stderr: buffer, wantInBuffer: "Hello!\nError!\n"},
+		"Success when stdout is piped into a buffer":             {stdout: buffer, wantInBuffer: "Hello!\n"},
+		"Success when stderr is piped into a buffer":             {stderr: buffer, wantInBuffer: "Error!\n"},
+		"Success when stdout and stderr are piped into a buffer": {stdout: buffer, stderr: buffer, wantInBuffer: "Hello!\nError!\n"},
 
 		// Writing to file
-		"stdout to file":            {stdout: file, wantInFile: "Hello!\n"},
-		"stderr to file":            {stderr: file, wantInFile: "Error!\n"},
-		"stdout and stderr to file": {stdout: file, stderr: file, wantInFile: "Hello!\nError!\n"},
+		"Success when stdout is piped into a file":             {stdout: file, wantInFile: "Hello!\n"},
+		"Success when stderr is piped into a file":             {stderr: file, wantInFile: "Error!\n"},
+		"Success when stdout and stderr are piped into a file": {stdout: file, stderr: file, wantInFile: "Hello!\nError!\n"},
 
 		// Mixed
-		"stdout to file, stderr to buffer": {stdout: file, stderr: buffer, wantInFile: "Hello!\n", wantInBuffer: "Error!\n"},
-		"stdout to buffer, stderr to file": {stdout: buffer, stderr: file, wantInFile: "Error!\n", wantInBuffer: "Hello!\n"},
+		"Success when stdout is piped into a file, and stderr into a buffer": {stdout: file, stderr: buffer, wantInFile: "Hello!\n", wantInBuffer: "Error!\n"},
+		"Success when stdout is piped into a buffer, and stderr into a file": {stdout: buffer, stderr: file, wantInFile: "Error!\n", wantInBuffer: "Hello!\n"},
 	}
 
 	for name, tc := range testCases {
@@ -479,14 +479,18 @@ func TestCommandOutput(t *testing.T) {
 		wantExitCode int
 		wantStderr   string
 	}{
-		"happy path":                                   {distro: &realDistro, cmd: "exit 0"},
-		"happy path with stdout":                       {distro: &realDistro, cmd: "echo 'Hello!'", want: "Hello!\n"},
-		"unregistered distro":                          {distro: &fakeDistro, cmd: "exit 0", wantErr: true},
-		"null char in distro name":                     {distro: &wrongDistro, cmd: "exit 0", wantErr: true},
-		"non-zero return value":                        {distro: &realDistro, cmd: "exit 42", wantErr: true, wantExitError: true, wantExitCode: 42},
-		"non-zero return value with stderr":            {distro: &realDistro, cmd: "echo 'Error!' >&2 && exit 42", wantErr: true, wantExitError: true, wantExitCode: 42, wantStderr: "Error!\n"},
-		"non-zero return value with stdout and stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", wantErr: true, wantExitError: true, wantExitCode: 42, want: "Hello!\n", wantStderr: "Error!\n"},
-		"error stdout already set":                     {distro: &realDistro, cmd: "exit 0", presetStdout: os.Stdout, wantErr: true},
+		"Success running a command without ourput": {distro: &realDistro, cmd: "exit 0"},
+		"Success writing into Stdout":              {distro: &realDistro, cmd: "echo 'Hello!'", want: "Hello!\n"},
+
+		// Wrong pre-conditions
+		"Error when the distro is not registered":                          {distro: &fakeDistro, cmd: "exit 0", wantErr: true},
+		"Error when the distro name has invalid characters":                {distro: &wrongDistro, cmd: "exit 0", wantErr: true},
+		"Error attempting to call Output when Stdout has already been set": {distro: &realDistro, cmd: "exit 0", presetStdout: os.Stdout, wantErr: true},
+
+		// Command fails linux-side
+		"Error when the command returns a non-zero exit status":                                    {distro: &realDistro, cmd: "exit 42", wantErr: true, wantExitError: true, wantExitCode: 42},
+		"Error when the command returns a non-zero exit status, and writes into stderr":            {distro: &realDistro, cmd: "echo 'Error!' >&2 && exit 42", wantErr: true, wantExitError: true, wantExitCode: 42, wantStderr: "Error!\n"},
+		"Error when the command returns a non-zero exit status, and writes into stdout and stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", wantErr: true, wantExitError: true, wantExitCode: 42, want: "Hello!\n", wantStderr: "Error!\n"},
 	}
 
 	for name, tc := range testCases {
@@ -545,15 +549,19 @@ func TestCommandCombinedOutput(t *testing.T) {
 		// Only relevant if wantExitError==true
 		wantExitCode int
 	}{
-		"happy path":                                   {distro: &realDistro, cmd: "exit 0"},
-		"happy path with stdout":                       {distro: &realDistro, cmd: "echo 'Hello!'", want: "Hello!\n"},
-		"unregistered distro":                          {distro: &fakeDistro, cmd: "exit 0", wantError: true},
-		"null char in distro name":                     {distro: &wrongDistro, cmd: "exit 0", wantError: true},
-		"non-zero return value":                        {distro: &realDistro, cmd: "exit 42", wantError: true, wantExitError: true, wantExitCode: 42},
-		"non-zero return value with stderr":            {distro: &realDistro, cmd: "echo 'Error!' >&2 && exit 42", wantError: true, wantExitError: true, wantExitCode: 42, want: "Error!\n"},
-		"non-zero return value with stdout and stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", wantError: true, wantExitError: true, wantExitCode: 42, want: "Hello!\nError!\n"},
-		"error stdout already set":                     {distro: &realDistro, cmd: "exit 0", presetStdout: os.Stdout, wantError: true},
-		"error stderr already set":                     {distro: &realDistro, cmd: "exit 0", presetStderr: os.Stderr, wantError: true},
+		"Success with no output text":      {distro: &realDistro, cmd: "exit 0"},
+		"Success with writing into stdout": {distro: &realDistro, cmd: "echo 'Hello!'", want: "Hello!\n"},
+
+		// Wrong pre-conditions
+		"Error when the distro is not registered":                                  {distro: &fakeDistro, cmd: "exit 0", wantError: true},
+		"Error when the distro name has invalid characters":                        {distro: &wrongDistro, cmd: "exit 0", wantError: true},
+		"Error attempting to call CombinedOutput when Stdout has already been set": {distro: &realDistro, cmd: "exit 0", presetStdout: os.Stdout, wantError: true},
+		"Error attempting to call CombinedOutput when Stderr has already been set": {distro: &realDistro, cmd: "exit 0", presetStderr: os.Stderr, wantError: true},
+
+		// Command fails linux-side
+		"Error when the command returns a non-zero exit status":                                    {distro: &realDistro, cmd: "exit 42", wantError: true, wantExitError: true, wantExitCode: 42},
+		"Error when the command returns a non-zero exit status, and writes into stderr":            {distro: &realDistro, cmd: "echo 'Error!' >&2 && exit 42", wantError: true, wantExitError: true, wantExitCode: 42, want: "Error!\n"},
+		"Error when the command returns a non-zero exit status, and writes into stdout and stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", wantError: true, wantExitError: true, wantExitCode: 42, want: "Hello!\nError!\n"},
 	}
 
 	for name, tc := range testCases {
@@ -615,12 +623,13 @@ func TestCommandStdin(t *testing.T) {
 		closeBeforeWait bool // Set to true to close the pipe before execution of the Cmd is over
 		readFrom        int  // Where Cmd should read Stdin from
 	}{
-		"from a pipe":                           {},
-		"from a pipe, funny characters in text": {text: "Hello, \x00wsl!"},
-		"from a pipe, closing early":            {closeBeforeWait: true},
-		"from a buffer":                         {readFrom: readFromBuffer},
-		"from a file":                           {readFrom: readFromFile},
-		"from a file, closing early":            {readFrom: readFromFile, closeBeforeWait: true},
+		"Success redirecting a pipe into Stdin":                                       {},
+		"Success redirecting a pipe into Stdin, with funny characters in text":        {text: "Hello, \x00wsl!"},
+		"Success redirecting a pipe into Stdin, closing the pipe before calling Wait": {closeBeforeWait: true},
+
+		"Success piping a buffer into Stdin":                                     {readFrom: readFromBuffer},
+		"Success piping a file into Stdin":                                       {readFrom: readFromFile},
+		"Success piping a file into Stdin, closing the file before calling Wait": {readFrom: readFromFile, closeBeforeWait: true},
 	}
 
 	// Simple program to test stdin
@@ -712,7 +721,7 @@ print("Your text was", v)
 			require.NoError(t, err, "Unexpected error on command wait")
 
 			if tc.readFrom == readFromPipe {
-				err = stdin.(io.WriteCloser).Close() //nolint:forcetypeassert
+				err = stdin.(io.WriteCloser).Close() //nolint:forcetypeassert // We know the type of stdin for certain
 				require.NoError(t, err, "Failed to close stdin pipe multiple times")
 			}
 		})

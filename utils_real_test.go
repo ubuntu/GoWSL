@@ -52,7 +52,8 @@ func uninstallDistro(distro wsl.Distro, allowShutdown bool) (err error) {
 
 	// 1. Attempt unregistering
 
-	e := exec.Command("powershell.exe", "-Command", unregisterCmd).Run() //nolint:gosec
+	//nolint:gosec // Code injection is not a concern in tests.
+	e := exec.Command("powershell.exe", "-Command", unregisterCmd).Run()
 	if e == nil {
 		return nil
 	}
@@ -62,12 +63,12 @@ func uninstallDistro(distro wsl.Distro, allowShutdown bool) (err error) {
 	// 2. Attempt terminate, then unregister
 
 	cmd := fmt.Sprintf("$env:WSL_UTF8=1 ; wsl.exe --terminate %q", distro.Name())
-	if out, e := exec.Command("powershell.exe", "-Command", cmd).CombinedOutput(); e != nil { //nolint:gosec
+	if out, e := exec.Command("powershell.exe", "-Command", cmd).CombinedOutput(); e != nil { //nolint:gosec // Code injection is not a concern in tests.
 		// Failed to terminate
 		err = errors.Join(err, fmt.Errorf("could not terminate after failing to unregister: %v. Output: %s", e, string(out)))
 	} else {
 		// Terminated, retry unregistration
-		out, e := exec.Command("powershell.exe", "-Command", unregisterCmd).CombinedOutput() //nolint:gosec
+		out, e := exec.Command("powershell.exe", "-Command", unregisterCmd).CombinedOutput() //nolint:gosec // Code injection is not a concern in tests.
 		if e != nil {
 			return nil
 		}
@@ -90,7 +91,7 @@ func uninstallDistro(distro wsl.Distro, allowShutdown bool) (err error) {
 	}
 
 	// WSL has been shut down, retry unregistration
-	out, e := exec.Command("powershell.exe", "-Command", unregisterCmd).Output() //nolint:gosec
+	out, e := exec.Command("powershell.exe", "-Command", unregisterCmd).Output() //nolint:gosec // Code injection is not a concern in tests.
 	if e != nil {
 		// Failed unregistration
 		return errors.Join(err, fmt.Errorf("could not unregister after shutdown: %v\nOutput: %v", e, string(out)))

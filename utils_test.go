@@ -100,7 +100,7 @@ func backUpDefaultDistro(ctx context.Context) (func(), error) {
 //
 // You must call the cancel function to release the associated resources.
 //
-//nolint:revive
+//nolint:revive // We've agreed to put testing.T before the context
 func keepAwake(t *testing.T, ctx context.Context, d *wsl.Distro) context.CancelFunc {
 	// Linter says "context-as-argument: context.Context should be the first parameter of a function"
 	// This is an abomination that we won't stand for

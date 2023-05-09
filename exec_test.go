@@ -721,7 +721,7 @@ print("Your text was", v)
 			require.NoError(t, err, "Unexpected error on command wait")
 
 			if tc.readFrom == readFromPipe {
-				err = stdin.(io.WriteCloser).Close() //nolint:forcetypeassert
+				err = stdin.(io.WriteCloser).Close() //nolint:forcetypeassert // We know the type of stdin for certain
 				require.NoError(t, err, "Failed to close stdin pipe multiple times")
 			}
 		})

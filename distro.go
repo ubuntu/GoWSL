@@ -29,6 +29,7 @@ const (
 	Stopped       = state.Stopped
 	Running       = state.Running
 	Installing    = state.Installing
+	Uninstalling  = state.Uninstalling
 	NonRegistered = state.NotRegistered
 )
 

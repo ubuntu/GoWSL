@@ -5,6 +5,7 @@ package windows
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -88,4 +89,14 @@ func (Backend) State(distributionName string) (s state.State, err error) {
 	}
 
 	return state.NotRegistered, nil
+}
+
+// Install installs a new distro from the Windows store.
+func (b Backend) Install(ctx context.Context, appxName string) (err error) {
+	cmd := exec.CommandContext(ctx, "wsl.exe", "--install", appxName, "--no-launch")
+	out, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("could not install %q: %v. %s", appxName, err, string(out))
+	}
+	return nil
 }

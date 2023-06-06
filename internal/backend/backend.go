@@ -3,6 +3,7 @@
 package backend
 
 import (
+	"context"
 	"os"
 
 	"github.com/ubuntu/gowsl/internal/flags"
@@ -27,6 +28,7 @@ type Backend interface {
 	Shutdown() error
 	Terminate(distroName string) error
 	SetAsDefault(distroName string) error
+	Install(ctx context.Context, appxName string) error
 
 	// Win32
 	WslConfigureDistribution(distributionName string, defaultUID uint32, wslDistributionFlags flags.WslFlags) error

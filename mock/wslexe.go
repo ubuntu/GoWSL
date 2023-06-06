@@ -1,6 +1,7 @@
 package mock
 
 import (
+	"context"
 	"errors"
 
 	"github.com/google/uuid"
@@ -88,4 +89,12 @@ func (backend Backend) State(distributionName string) (s state.State, err error)
 		return state.Running, nil
 	}
 	return state.Stopped, nil
+}
+
+// Install installs a new distro from the Windows store.
+func (backend Backend) Install(ctx context.Context, appxName string) (err error) {
+	if backend.InstallError {
+		return Error{}
+	}
+	return nil
 }

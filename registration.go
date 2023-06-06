@@ -126,6 +126,11 @@ func (d *Distro) Unregister() (err error) {
 	return d.backend.WslUnregisterDistribution(d.Name())
 }
 
+// Install installs a new distro from the Windows store.
+func Install(ctx context.Context, appxName string) error {
+	return selectBackend(ctx).Install(ctx, appxName)
+}
+
 // fixPath deals with the fact that WslRegisterDistribuion is
 // a bit picky with the path format.
 func fixPath(relative string) (string, error) {

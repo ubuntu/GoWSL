@@ -2,6 +2,8 @@ package gowsl_test
 
 import (
 	"context"
+	"fmt"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -244,6 +246,56 @@ func TestUnregister(t *testing.T) {
 			list, err := testDistros(ctx)
 			require.NoError(t, err, "Failed to read list of registered test distros.")
 			require.NotContains(t, list, d, "Found allegedly unregistered distro in list of registered distros.")
+		})
+	}
+}
+
+func TestInstall(t *testing.T) {
+	if wsl.MockAvailable() {
+		t.Skip("Skipping because the mock does not capture the compexity of this function")
+	}
+
+	testCases := map[string]struct {
+		distroName       string
+		appxPackage      string
+		precancelContext bool
+
+		wantErr bool
+	}{
+		"Success with a real distro name": {distroName: "Ubuntu-22.04", appxPackage: "CanonicalGroupLimited.Ubuntu22.04LTS"},
+
+		"Error with a not real distro name": {distroName: "Ubuntu-00.04", wantErr: true},
+		"Error with an empty string":        {distroName: "", wantErr: true},
+		"Error with a cancelled context":    {distroName: "Ubuntu-22.04", precancelContext: true, wantErr: true},
+	}
+
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+
+			if tc.precancelContext {
+				cancel()
+			}
+
+			err := wsl.Install(ctx, tc.distroName)
+			if tc.wantErr {
+				require.Error(t, err, "Install should return an error")
+				return
+			}
+
+			require.NoError(t, err, "Install should return no error")
+
+			cmd := fmt.Sprintf("(Get-AppxPackage -Name %q).Status", tc.appxPackage)
+			//nolint:gosec // Command with variable is acceptable in test code
+			out, err := exec.Command("powershell.exe", "-NoProfile", "-NoLogo", "-NonInteractive", "-Command", cmd).Output()
+			require.NoError(t, err, "Get-AppxPackage should return no error. Stdout: %s", string(out))
+
+			require.Contains(t, string(out), "Ok", "Appx was not installed")
+
+			err = wsl.Install(ctx, tc.distroName)
+			require.NoError(t, err, "Second call to install should return no error")
 		})
 	}
 }

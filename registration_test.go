@@ -275,6 +275,14 @@ func TestInstall(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
+			if tc.appxPackage != "" {
+				t.Cleanup(func() {
+					cmd := fmt.Sprintf("Remove-AppxPackage (Get-AppxPackage -Name %q)", tc.appxPackage)
+					//nolint:gosec // Command with variable is acceptable in test code
+					_ = exec.Command("powershell.exe", "-NoProfile", "-NoLogo", "-NonInteractive", "-Command", cmd).Run()
+				})
+			}
+
 			if tc.precancelContext {
 				cancel()
 			}

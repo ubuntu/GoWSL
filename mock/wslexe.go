@@ -96,5 +96,16 @@ func (backend Backend) Install(ctx context.Context, appxName string) (err error)
 	if backend.InstallError {
 		return Error{}
 	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	if appxName == "" {
+		return errors.New(`could not install "": Wsl/InstallDistro/WSL_E_DISTRO_NOT_FOUND`)
+	}
+
 	return nil
 }

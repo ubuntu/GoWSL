@@ -93,6 +93,7 @@ func (Backend) State(distributionName string) (s state.State, err error) {
 
 // Install installs a new distro from the Windows store.
 func (b Backend) Install(ctx context.Context, appxName string) (err error) {
+	// Using --no-launch to avoid registration and (non-interactive) user creation.
 	cmd := exec.CommandContext(ctx, "wsl.exe", "--install", appxName, "--no-launch")
 	out, err := cmd.Output()
 	if err != nil {

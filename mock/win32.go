@@ -43,8 +43,8 @@ func (b *Backend) WslConfigureDistribution(distributionName string, defaultUID u
 	key.mu.Lock()
 	defer key.mu.Unlock()
 
-	key.data["Flags"] = wslDistributionFlags
-	key.data["DefaultUid"] = defaultUID
+	key.Data["Flags"] = wslDistributionFlags
+	key.Data["DefaultUid"] = defaultUID
 
 	return nil
 }
@@ -77,9 +77,9 @@ func (b *Backend) WslGetDistributionConfiguration(distributionName string,
 	defer key.mu.RUnlock()
 
 	// Ignoring tipe assert linter because we're the only ones with access to these fields
-	*distributionVersion = key.data["Version"].(uint8)         //nolint: forcetypeassert
-	*defaultUID = key.data["DefaultUid"].(uint32)              //nolint: forcetypeassert
-	*wslDistributionFlags = key.data["Flags"].(flags.WslFlags) //nolint: forcetypeassert
+	*distributionVersion = key.Data["Version"].(uint8)         //nolint: forcetypeassert
+	*defaultUID = key.Data["DefaultUid"].(uint32)              //nolint: forcetypeassert
+	*wslDistributionFlags = key.Data["Flags"].(flags.WslFlags) //nolint: forcetypeassert
 
 	*defaultEnvironmentVariables = map[string]string{
 		"HOSTTYPE": "x86_64",
@@ -239,7 +239,7 @@ func (b *Backend) WslRegisterDistribution(distributionName string, tarGzFilename
 
 	b.lxssRootKey.children[guidStr] = &RegistryKey{
 		path: filepath.Join("HKEY_CURRENT_USER", lxssPath, guidStr),
-		data: map[string]any{
+		Data: map[string]any{
 			"DistributionName": distributionName,
 			"Flags":            flags.WslFlags(0xf),
 			"Version":          uint8(2),
@@ -251,8 +251,8 @@ func (b *Backend) WslRegisterDistribution(distributionName string, tarGzFilename
 	// When registering the first distro, DefaultDistribution
 	// is updated with its GUID
 
-	if b.lxssRootKey.data["DefaultDistribution"] == "" {
-		b.lxssRootKey.data["DefaultDistribution"] = guidStr
+	if b.lxssRootKey.Data["DefaultDistribution"] == "" {
+		b.lxssRootKey.Data["DefaultDistribution"] = guidStr
 	}
 
 	return nil
@@ -285,7 +285,7 @@ func (b *Backend) WslUnregisterDistribution(distributionName string) (err error)
 	// (lexicographically) is set as default. If there are none, the field is
 	// set to empty string.
 
-	if b.lxssRootKey.data["DefaultDistribution"] != GUID {
+	if b.lxssRootKey.Data["DefaultDistribution"] != GUID {
 		return nil
 	}
 
@@ -300,7 +300,7 @@ func (b *Backend) WslUnregisterDistribution(distributionName string) (err error)
 		}
 	}
 
-	b.lxssRootKey.data["DefaultDistribution"] = firstGUID
+	b.lxssRootKey.Data["DefaultDistribution"] = firstGUID
 
 	return err
 }
@@ -331,7 +331,7 @@ func (b *Backend) findDistroKey(distroName string) (GUID string, key *RegistryKe
 			continue // Not a distro
 		}
 
-		name, ok := key.data["DistributionName"]
+		name, ok := key.Data["DistributionName"]
 		if !ok {
 			continue
 		}

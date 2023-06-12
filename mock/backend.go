@@ -42,7 +42,7 @@ func New() *Backend {
 					path: filepath.Join(lxssPath, "AppxInstallerCache"),
 				},
 			},
-			data: map[string]any{
+			Data: map[string]any{
 				"DefaultDistribution": "",
 			},
 		},

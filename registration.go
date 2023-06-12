@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -129,6 +130,38 @@ func (d *Distro) Unregister() (err error) {
 // Install installs a new distro from the Windows store.
 func Install(ctx context.Context, appxName string) error {
 	return selectBackend(ctx).Install(ctx, appxName)
+}
+
+// Uninstall removes the distro's associated AppxPackage (if there is one)
+// and unregisters the distro.
+func (d *Distro) Uninstall(ctx context.Context) (err error) {
+	defer decorate.OnError(&err, "Distro %q uninstall", d.name)
+
+	guid, err := d.GUID()
+	if err != nil {
+		return err
+	}
+
+	k, err := d.backend.OpenLxssRegistry(fmt.Sprintf("{%s}", guid))
+	if err != nil {
+		return err
+	}
+	defer k.Close()
+
+	packageFamilyName, err := k.Field("PackageFamilyName")
+	if errors.Is(err, fs.ErrNotExist) {
+		// Distro was imported, so there is no Appx associated
+		return d.backend.WslUnregisterDistribution(d.Name())
+	}
+	if err != nil {
+		return err
+	}
+
+	if err := d.backend.RemoveAppxFamily(ctx, packageFamilyName); err != nil {
+		return err
+	}
+
+	return d.backend.WslUnregisterDistribution(d.Name())
 }
 
 // fixPath deals with the fact that WslRegisterDistribuion is

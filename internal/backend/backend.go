@@ -23,6 +23,9 @@ type Backend interface {
 	// Registry
 	OpenLxssRegistry(path string) (RegistryKey, error)
 
+	// Appx management
+	RemoveAppxFamily(ctx context.Context, packageFamilyName string) error
+
 	// wsl.exe
 	State(distributionName string) (state.State, error)
 	Shutdown() error

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	wsl "github.com/ubuntu/gowsl"
-	"github.com/ubuntu/gowsl/mock"
+	wslmock "github.com/ubuntu/gowsl/mock"
 )
 
 func TestRegister(t *testing.T) {
@@ -41,11 +41,11 @@ func TestRegister(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 			if tc.syscallError || tc.registryInaccessible {
-				modifyMock(t, func(m *mock.Backend) {
+				modifyMock(t, func(m *wslmock.Backend) {
 					m.WslRegisterDistributionError = tc.syscallError
 					m.OpenLxssKeyError = tc.registryInaccessible
 				})
-				defer modifyMock(t, (*mock.Backend).ResetErrors)
+				defer modifyMock(t, (*wslmock.Backend).ResetErrors)
 			}
 
 			d := wsl.NewDistro(ctx, uniqueDistroName(t)+tc.distroSuffix)
@@ -109,10 +109,10 @@ func TestRegisteredDistros(t *testing.T) {
 			d3 := wsl.NewDistro(ctx, uniqueDistroName(t))
 
 			if tc.registryInaccessible {
-				modifyMock(t, func(m *mock.Backend) {
+				modifyMock(t, func(m *wslmock.Backend) {
 					m.OpenLxssKeyError = true
 				})
-				defer modifyMock(t, (*mock.Backend).ResetErrors)
+				defer modifyMock(t, (*wslmock.Backend).ResetErrors)
 			}
 
 			list, err := wsl.RegisteredDistros(ctx)
@@ -157,10 +157,10 @@ func TestIsRegistered(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 			if tc.registryInaccessible {
-				modifyMock(t, func(m *mock.Backend) {
+				modifyMock(t, func(m *wslmock.Backend) {
 					m.OpenLxssKeyError = true
 				})
-				defer modifyMock(t, (*mock.Backend).ResetErrors)
+				defer modifyMock(t, (*wslmock.Backend).ResetErrors)
 			}
 
 			var distro wsl.Distro
@@ -222,11 +222,11 @@ func TestUnregister(t *testing.T) {
 			}
 
 			if tc.registryInaccessible || tc.syscallError {
-				modifyMock(t, func(m *mock.Backend) {
+				modifyMock(t, func(m *wslmock.Backend) {
 					m.WslUnregisterDistributionError = tc.syscallError
 					m.OpenLxssKeyError = tc.registryInaccessible
 				})
-				defer modifyMock(t, (*mock.Backend).ResetErrors)
+				defer modifyMock(t, (*wslmock.Backend).ResetErrors)
 			}
 
 			t.Logf("Unregistering %q", d.Name())
@@ -295,7 +295,7 @@ func TestInstall(t *testing.T) {
 					t.Skip("This test is only available with a real back-end")
 				}
 				t.Parallel()
-				m := mock.New()
+				m := wslmock.New()
 				m.InstallError = tc.mockErr
 				ctx = wsl.WithMock(ctx, m)
 			} else {

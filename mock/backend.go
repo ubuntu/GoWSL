@@ -3,6 +3,7 @@
 package mock
 
 import (
+	"context"
 	"path/filepath"
 )
 
@@ -28,6 +29,7 @@ type Backend struct {
 	SetAsDefaultError                    bool
 	StateError                           bool
 	InstallError                         bool
+	RemoveAppxFamilyError                bool
 }
 
 // New constructs a new mocked back-end for WSL.
@@ -40,7 +42,7 @@ func New() *Backend {
 					path: filepath.Join(lxssPath, "AppxInstallerCache"),
 				},
 			},
-			data: map[string]any{
+			Data: map[string]any{
 				"DefaultDistribution": "",
 			},
 		},
@@ -67,4 +69,19 @@ type Error struct{}
 
 func (err Error) Error() string {
 	return "error triggered by mock"
+}
+
+// RemoveAppxFamily mocks the removal of packages under a package family.
+func (b Backend) RemoveAppxFamily(ctx context.Context, packageFamilyName string) error {
+	if b.RemoveAppxFamilyError {
+		return Error{}
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	return nil
 }

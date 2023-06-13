@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	wsl "github.com/ubuntu/gowsl"
-	"github.com/ubuntu/gowsl/mock"
+	wslmock "github.com/ubuntu/gowsl/mock"
 )
 
 func TestRegister(t *testing.T) {
@@ -41,11 +42,11 @@ func TestRegister(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 			if tc.syscallError || tc.registryInaccessible {
-				modifyMock(t, func(m *mock.Backend) {
+				modifyMock(t, func(m *wslmock.Backend) {
 					m.WslRegisterDistributionError = tc.syscallError
 					m.OpenLxssKeyError = tc.registryInaccessible
 				})
-				defer modifyMock(t, (*mock.Backend).ResetErrors)
+				defer modifyMock(t, (*wslmock.Backend).ResetErrors)
 			}
 
 			d := wsl.NewDistro(ctx, uniqueDistroName(t)+tc.distroSuffix)
@@ -109,10 +110,10 @@ func TestRegisteredDistros(t *testing.T) {
 			d3 := wsl.NewDistro(ctx, uniqueDistroName(t))
 
 			if tc.registryInaccessible {
-				modifyMock(t, func(m *mock.Backend) {
+				modifyMock(t, func(m *wslmock.Backend) {
 					m.OpenLxssKeyError = true
 				})
-				defer modifyMock(t, (*mock.Backend).ResetErrors)
+				defer modifyMock(t, (*wslmock.Backend).ResetErrors)
 			}
 
 			list, err := wsl.RegisteredDistros(ctx)
@@ -157,10 +158,10 @@ func TestIsRegistered(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 			if tc.registryInaccessible {
-				modifyMock(t, func(m *mock.Backend) {
+				modifyMock(t, func(m *wslmock.Backend) {
 					m.OpenLxssKeyError = true
 				})
-				defer modifyMock(t, (*mock.Backend).ResetErrors)
+				defer modifyMock(t, (*wslmock.Backend).ResetErrors)
 			}
 
 			var distro wsl.Distro
@@ -222,11 +223,11 @@ func TestUnregister(t *testing.T) {
 			}
 
 			if tc.registryInaccessible || tc.syscallError {
-				modifyMock(t, func(m *mock.Backend) {
+				modifyMock(t, func(m *wslmock.Backend) {
 					m.WslUnregisterDistributionError = tc.syscallError
 					m.OpenLxssKeyError = tc.registryInaccessible
 				})
-				defer modifyMock(t, (*mock.Backend).ResetErrors)
+				defer modifyMock(t, (*wslmock.Backend).ResetErrors)
 			}
 
 			t.Logf("Unregistering %q", d.Name())
@@ -295,7 +296,7 @@ func TestInstall(t *testing.T) {
 					t.Skip("This test is only available with a real back-end")
 				}
 				t.Parallel()
-				m := mock.New()
+				m := wslmock.New()
 				m.InstallError = tc.mockErr
 				ctx = wsl.WithMock(ctx, m)
 			} else {
@@ -337,4 +338,219 @@ func TestInstall(t *testing.T) {
 			require.NoError(t, err, "Second call to install should return no error")
 		})
 	}
+}
+
+func TestUninstall(t *testing.T) {
+	if wsl.MockAvailable() {
+		t.Parallel()
+	}
+
+	type distroInstallType = int
+	const (
+		notRegistered distroInstallType = iota
+		registeredFromAppx
+		imported
+	)
+
+	testCases := map[string]struct {
+		distroInstallType distroInstallType
+		preCancelCtx      bool
+
+		mockCannotRemoveAppx   bool
+		mockCannotOpenRegistry bool
+		mockOnly               bool
+
+		wantError bool
+	}{
+		"Success uninstalling an Appx-installed distro": {distroInstallType: registeredFromAppx},
+		"Success uninstalling an imported distro":       {distroInstallType: imported},
+
+		// Usage errors
+		"Error uninstalling a non-registered distro":     {distroInstallType: notRegistered, wantError: true},
+		"Error when the context is cancelled beforehand": {distroInstallType: registeredFromAppx, preCancelCtx: true, wantError: true},
+
+		// Mock-triggered errors
+		"Error when the registry cannot be accessed": {mockOnly: true, distroInstallType: registeredFromAppx, mockCannotOpenRegistry: true, wantError: true},
+		"Error when appx removal fails":              {mockOnly: true, distroInstallType: registeredFromAppx, mockCannotRemoveAppx: true, wantError: true},
+	}
+
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+
+			var mock *wslmock.Backend
+			if wsl.MockAvailable() {
+				t.Parallel()
+				mock = wslmock.New()
+				ctx = wsl.WithMock(ctx, mock)
+			} else if tc.mockOnly {
+				t.Skip("This test is only available with the mock enabled")
+			}
+
+			var d wsl.Distro
+			switch tc.distroInstallType {
+			case notRegistered:
+				d = wsl.NewDistro(ctx, uniqueDistroName(t))
+			case registeredFromAppx:
+				if wsl.MockAvailable() {
+					d = requireInstallFromAppxMock(t, ctx, mock, "Ubuntu-22.04", "Ubuntu-22.04")
+				} else {
+					d = requireInstallFromAppxWindows(t, ctx, "Ubuntu-22.04", "ubuntu2204.exe", "Ubuntu-22.04")
+					defer requireUninstallAppx(t, ctx, "CanonicalGroupLimited.Ubuntu22.04LTS")
+				}
+			case imported:
+				d = newTestDistro(t, ctx, emptyRootFS)
+			}
+
+			// Delayed options to avoid breaking the setup
+			if wsl.MockAvailable() {
+				mock.RemoveAppxFamilyError = tc.mockCannotRemoveAppx
+				mock.OpenLxssKeyError = tc.mockCannotOpenRegistry
+			}
+
+			//nolint:errcheck // Nothing we can do about this error
+			defer d.Unregister()
+
+			// We cannot cancel the original context because that would break the deferred cleanups
+			uninstallCtx, cancel := context.WithCancel(ctx)
+			defer cancel()
+
+			if tc.preCancelCtx {
+				cancel()
+			}
+
+			err := d.Uninstall(uninstallCtx)
+			if tc.wantError {
+				require.Error(t, err, "Uninstall should return an error")
+				return
+			}
+
+			require.NoError(t, err, "Uninstall should return no error")
+
+			reg, err := d.IsRegistered()
+			require.NoError(t, err, "IsRegistered should return no error")
+			require.False(t, reg, "Uninstall should have unregistered the distro")
+
+			if tc.distroInstallType != registeredFromAppx {
+				return
+			}
+
+			if wsl.MockAvailable() {
+				return
+			}
+
+			installed, err := appxIsInstalled(ctx, "Ubuntu-22.04")
+			require.NoError(t, err, "appxIsInstalled should return no error")
+			require.False(t, installed, "Appx should have been uninstalled")
+		})
+	}
+}
+
+//nolint:revive // No, I won't put the context before the *testing.T.
+func requireInstallFromAppxWindows(t *testing.T, ctx context.Context, appxName string, launcherName string, distroName string) (d wsl.Distro) {
+	t.Helper()
+
+	if wsl.MockAvailable() {
+		panic("This function should be called with the real back-end only")
+	}
+
+	d = wsl.NewDistro(ctx, distroName)
+	_ = d.Unregister()
+
+	cmd := exec.CommandContext(ctx,
+		"wsl.exe",
+		"--install",
+		appxName,
+		"--no-launch",
+	)
+	out, err := cmd.Output()
+	require.NoErrorf(t, err, "could not install: %v. Stdout: %s", err, out)
+
+	defer wslExeGuard(time.Minute)()
+
+	//nolint:gosec // It's fine for tests
+	// Need to use powershell in order to find the launcher executable
+	cmd = exec.CommandContext(ctx,
+		"powershell.exe",
+		"-NonInteractive",
+		"-NoProfile",
+		"-NoLogo",
+		"-Command",
+		fmt.Sprintf("& %q install --root --ui=none", launcherName),
+	)
+	out, err = cmd.Output()
+	require.NoErrorf(t, err, "could not register: %v. Stdout: %s", err, out)
+
+	return d
+}
+
+//nolint:revive // No, I won't put the context before the *testing.T.
+func requireUninstallAppx(t *testing.T, ctx context.Context, appxName string) {
+	t.Helper()
+
+	if wsl.MockAvailable() {
+		panic("This function should be called with the real back-end only")
+	}
+
+	//nolint:gosec // It's fine for tests
+	cmd := exec.CommandContext(ctx,
+		"powershell.exe",
+		"-NonInteractive",
+		"-NoProfile",
+		"-NoLogo",
+		"-Command",
+		fmt.Sprintf("Get-AppxPackage %q | Remove-AppxPackage", appxName),
+	)
+	out, err := cmd.Output()
+	require.NoError(t, err, "could not clean up appx package. Stdout: %s", out)
+}
+
+//nolint:revive // No, I won't put the context before the *testing.T.
+func requireInstallFromAppxMock(t *testing.T, ctx context.Context, m *wslmock.Backend, appxName string, distroName string) (d wsl.Distro) {
+	t.Helper()
+
+	d = wsl.NewDistro(ctx, distroName)
+	err := d.Register(emptyRootFS)
+	require.NoError(t, err, "Setup: could not register")
+
+	guid, err := d.GUID()
+	require.NoError(t, err, "Setup: could not get GUID to access distro registry")
+
+	k, err := m.OpenLxssRegistry(fmt.Sprintf("{%s}", guid))
+	require.NoError(t, err, "Setup: could not access distro registry")
+	defer k.Close()
+
+	//nolint:forcetypeassert // We know it's this type of key because we got it from the mock registry.
+	k.(*wslmock.RegistryKey).Data["PackageFamilyName"] = appxName
+	return d
+}
+
+// appxIsInstalled returns true if an AppxPackage is currently installed.
+func appxIsInstalled(ctx context.Context, appxName string) (bool, error) {
+	if wsl.MockAvailable() {
+		panic("This function is only available for real back-ends")
+	}
+
+	//nolint:gosec // Variable in test command is fine
+	cmd := exec.CommandContext(
+		ctx,
+		"powershell.exe",
+		"-NonInteractive",
+		"-NoProfile",
+		"-NoLogo",
+		"-Command",
+		fmt.Sprintf("(Get-AppxPackage -Name %q).Status", appxName),
+	)
+
+	out, err := cmd.Output()
+	if err != nil {
+		return false, fmt.Errorf("could not run Get-AppxPackage: %v. Stdout: %s", err, out)
+	}
+
+	if strings.Contains(string(out), "Ok") {
+		return true, nil
+	}
+
+	return false, nil
 }

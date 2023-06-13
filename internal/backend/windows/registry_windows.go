@@ -3,6 +3,7 @@ package windows
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"syscall"
 
@@ -48,7 +49,7 @@ func (r *RegistryKey) Field(name string) (value string, err error) {
 
 	value, _, err = r.key.GetStringValue(name)
 	if errors.Is(err, syscall.ERROR_FILE_NOT_FOUND) {
-		return value, errors.New("field not found")
+		return value, fs.ErrNotExist
 	}
 	if err != nil {
 		return value, err

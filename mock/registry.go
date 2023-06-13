@@ -18,7 +18,7 @@ type RegistryKey struct {
 	path string
 
 	children map[string]*RegistryKey
-	data     map[string]any
+	Data     map[string]any
 
 	state *distrostate.DistroState
 
@@ -69,7 +69,7 @@ func (r *RegistryKey) Close() (err error) {
 func (r *RegistryKey) Field(name string) (value string, err error) {
 	defer decorate.OnError(&err, "registry: could not access field %q in %s", name, r.path)
 
-	v, ok := r.data[name]
+	v, ok := r.Data[name]
 	if !ok {
 		return "", fs.ErrNotExist
 	}

@@ -66,7 +66,7 @@ func (backend *Backend) SetAsDefault(distroName string) error {
 		return errors.New("distro not registered")
 	}
 
-	backend.lxssRootKey.data["DefaultDistribution"] = GUID
+	backend.lxssRootKey.Data["DefaultDistribution"] = GUID
 
 	return nil
 }

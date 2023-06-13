@@ -621,7 +621,7 @@ func wakeDistroUp(t *testing.T, d wsl.Distro) {
 
 	cmd := d.Command(context.Background(), "exit 0")
 	out, err := cmd.Output()
-	require.NoErrorf(t, err, "Setup: could not run command to wake distro %q up. Stdout: %s", d, string(out))
+	require.NoErrorf(t, err, "Setup: could not run command to wake distro %q up. Stdout: %s", d, out)
 
 	requireStatef(t, wsl.Running, d, "Setup: distro %q should be running after launching a command", d)
 }

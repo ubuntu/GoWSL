@@ -377,8 +377,7 @@ func TestUninstall(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := context.Background()
 
 			var mock *wslmock.Backend
 			if wsl.MockAvailable() {
@@ -413,11 +412,15 @@ func TestUninstall(t *testing.T) {
 			//nolint:errcheck // Nothing we can do about this error
 			defer d.Unregister()
 
+			// We cannot cancel the original context because that would break the deferred cleanups
+			uninstallCtx, cancel := context.WithCancel(ctx)
+			defer cancel()
+
 			if tc.preCancelCtx {
 				cancel()
 			}
 
-			err := d.Uninstall(ctx)
+			err := d.Uninstall(uninstallCtx)
 			if tc.wantError {
 				require.Error(t, err, "Uninstall should return an error")
 				return

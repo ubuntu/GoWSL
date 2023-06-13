@@ -279,8 +279,8 @@ func TestInstall(t *testing.T) {
 		"Error with a cancelled context": {distroName: "Ubuntu-22.04", precancelContext: true, wantErr: true},
 
 		// Backend-specific errors
-		"Error with a not real distro name": {distroName: "Ubuntu-00.04", backend: realOnly, wantErr: true},
-		"Error due to mock error":           {distroName: "Ubuntu-22.04", backend: mockOnly, mockErr: true, wantErr: true},
+		"Error from wsl executable due to a not real distro name": {distroName: "Ubuntu-00.04", backend: realOnly, wantErr: true},
+		"Error from wsl executable mock":                          {distroName: "Ubuntu-22.04", backend: mockOnly, mockErr: true, wantErr: true},
 	}
 
 	for name, tc := range testCases {

@@ -3,6 +3,7 @@ package windows
 // This file mocks utilities to access functionality accessed via wsl.exe
 
 import (
+	"context"
 	"errors"
 
 	"github.com/ubuntu/gowsl/internal/state"
@@ -30,4 +31,10 @@ func (Backend) SetAsDefault(distroName string) error {
 // This implementation will always fail on Linux.
 func (Backend) State(distributionName string) (s state.State, err error) {
 	return s, errors.New("not implemented")
+}
+
+// Install installs a new distro from the Windows store.
+// This implementation will always fail on Linux.
+func (Backend) Install(ctx context.Context, appxName string) (err error) {
+	return errors.New("not implemented")
 }

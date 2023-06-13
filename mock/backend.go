@@ -27,6 +27,7 @@ type Backend struct {
 	TerminateError                       bool
 	SetAsDefaultError                    bool
 	StateError                           bool
+	InstallError                         bool
 }
 
 // New constructs a new mocked back-end for WSL.

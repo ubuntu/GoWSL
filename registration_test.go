@@ -2,6 +2,8 @@ package gowsl_test
 
 import (
 	"context"
+	"fmt"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -244,6 +246,95 @@ func TestUnregister(t *testing.T) {
 			list, err := testDistros(ctx)
 			require.NoError(t, err, "Failed to read list of registered test distros.")
 			require.NotContains(t, list, d, "Found allegedly unregistered distro in list of registered distros.")
+		})
+	}
+}
+
+func TestInstall(t *testing.T) {
+	if wsl.MockAvailable() {
+		t.Parallel()
+	}
+
+	type backend = int
+	const (
+		either backend = iota
+		mockOnly
+		realOnly
+	)
+
+	testCases := map[string]struct {
+		distroName       string
+		appxPackage      string
+		precancelContext bool
+
+		backend backend
+		mockErr bool
+
+		wantErr bool
+	}{
+		"Success with a real distro name": {distroName: "Ubuntu-22.04", appxPackage: "CanonicalGroupLimited.Ubuntu22.04LTS"},
+
+		// Misuse errors
+		"Error with an empty string":     {distroName: "", wantErr: true},
+		"Error with a cancelled context": {distroName: "Ubuntu-22.04", precancelContext: true, wantErr: true},
+
+		// Backend-specific errors
+		"Error from wsl executable due to a not real distro name": {distroName: "Ubuntu-00.04", backend: realOnly, wantErr: true},
+		"Error from wsl executable mock":                          {distroName: "Ubuntu-22.04", backend: mockOnly, mockErr: true, wantErr: true},
+	}
+
+	for name, tc := range testCases {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+
+			if wsl.MockAvailable() {
+				// Mock setup
+				if tc.backend == realOnly {
+					t.Skip("This test is only available with a real back-end")
+				}
+				t.Parallel()
+				m := mock.New()
+				m.InstallError = tc.mockErr
+				ctx = wsl.WithMock(ctx, m)
+			} else {
+				// Real back-end setup
+				if tc.backend == mockOnly {
+					t.Skip("This test is only available with a mock back-end")
+				}
+				if tc.appxPackage != "" {
+					t.Cleanup(func() {
+						cmd := fmt.Sprintf("Remove-AppxPackage (Get-AppxPackage -Name %q)", tc.appxPackage)
+						//nolint:gosec // Command with variable is acceptable in test code
+						_ = exec.Command("powershell.exe", "-NoProfile", "-NoLogo", "-NonInteractive", "-Command", cmd).Run()
+					})
+				}
+			}
+
+			if tc.precancelContext {
+				cancel()
+			}
+
+			err := wsl.Install(ctx, tc.distroName)
+			if tc.wantErr {
+				require.Error(t, err, "Install should return an error")
+				return
+			}
+			require.NoError(t, err, "Install should return no error")
+
+			// Without mock: check that the AppxPackage has been installed
+			if !wsl.MockAvailable() {
+				cmd := fmt.Sprintf("(Get-AppxPackage -Name %q).Status", tc.appxPackage)
+				//nolint:gosec // Command with variable is acceptable in test code
+				out, err := exec.Command("powershell.exe", "-NoProfile", "-NoLogo", "-NonInteractive", "-Command", cmd).Output()
+				require.NoError(t, err, "Get-AppxPackage should return no error. Stdout: %s", string(out))
+
+				require.Contains(t, string(out), "Ok", "Appx was not installed")
+			}
+
+			err = wsl.Install(ctx, tc.distroName)
+			require.NoError(t, err, "Second call to install should return no error")
 		})
 	}
 }

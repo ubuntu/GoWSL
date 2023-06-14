@@ -214,8 +214,6 @@ func (t *DistroState) cancelTimer() {
 	if t.terminateTimer == nil {
 		return
 	}
-	if !t.terminateTimer.Stop() {
-		<-t.terminateTimer.C
-	}
+	t.terminateTimer.Stop()
 	t.terminateTimer = nil
 }

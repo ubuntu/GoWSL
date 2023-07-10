@@ -1,7 +1,7 @@
 # GoWSL
 This module offers an idiomatic interface between your Go code and the Windows Subsystem for Linux (WSL) API (`wslApi.dll`  and occasionally `wsl.exe`). It offers wrappers around common actions to manage WSL distros.
 
-[![Code quality](https://github.com/ubuntu/gowsl/workflows/Test/badge.svg)](https://github.com/ubuntu/gowsl/actions/workflows/test.yaml?query=workflow%3Atest)
+[![Code quality](https://github.com/ubuntu/GoWSL/actions/workflows/qa-azure.yaml/badge.svg)](https://github.com/ubuntu/GoWSL/actions/workflows/qa-azure.yaml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/ubuntu/gowsl.svg)](https://pkg.go.dev/github.com/ubuntu/gowsl)
 [![Go Report Card](https://goreportcard.com/badge/ubuntu/gowsl)](https://goreportcard.com/report/ubuntu/gowsl)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/ubuntu/gowsl/blob/main/LICENSE)

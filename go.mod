@@ -2,7 +2,7 @@ module github.com/ubuntu/gowsl
 
 go 1.20
 
-require golang.org/x/sys v0.10.0
+require golang.org/x/sys v0.11.0
 
 require (
 	github.com/google/uuid v1.3.0

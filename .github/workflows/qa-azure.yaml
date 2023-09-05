@@ -33,7 +33,7 @@ jobs:
     needs: vm-setup
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up WSL
         uses: Ubuntu/WSL/.github/actions/wsl-install@main
       - name: Set up Go

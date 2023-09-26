@@ -75,7 +75,7 @@ func (Backend) WslLaunch(
 	}
 
 	var handle windows.Handle
-	r1, _, _ := apiWslLaunch.Call(
+	_, err = callDll(apiWslLaunch,
 		uintptr(unsafe.Pointer(distroUTF16)),
 		uintptr(unsafe.Pointer(commandUTF16)),
 		uintptr(useCwdInt),
@@ -83,10 +83,10 @@ func (Backend) WslLaunch(
 		stdout.Fd(),
 		stderr.Fd(),
 		uintptr(unsafe.Pointer(&handle)))
-
-	if r1 != 0 {
-		return nil, errors.New("failed syscall")
+	if err != nil {
+		return nil, err
 	}
+
 	if handle == windows.Handle(0) {
 		return nil, errors.New("syscall returned a null handle")
 	}
@@ -109,14 +109,13 @@ func (Backend) WslConfigureDistribution(distributionName string, defaultUID uint
 		return errors.New("could not convert distro name to UTF16")
 	}
 
-	r1, _, _ := apiWslConfigureDistribution.Call(
+	_, err = callDll(apiWslConfigureDistribution,
 		uintptr(unsafe.Pointer(distroUTF16)),
 		uintptr(defaultUID),
 		uintptr(wslDistributionFlags),
 	)
-
-	if r1 != 0 {
-		return fmt.Errorf("failed syscall")
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -141,7 +140,7 @@ func (Backend) WslGetDistributionConfiguration(distributionName string,
 		envVarsLen   uint64 // size_t
 	)
 
-	r1, _, _ := apiWslGetDistributionConfiguration.Call(
+	_, err = callDll(apiWslGetDistributionConfiguration,
 		uintptr(unsafe.Pointer(distroUTF16)),
 		uintptr(unsafe.Pointer(distributionVersion)),
 		uintptr(unsafe.Pointer(defaultUID)),
@@ -150,8 +149,8 @@ func (Backend) WslGetDistributionConfiguration(distributionName string,
 		uintptr(unsafe.Pointer(&envVarsLen)),
 	)
 
-	if r1 != 0 {
-		return fmt.Errorf("failed syscall")
+	if err != nil {
+		return err
 	}
 
 	*defaultEnvironmentVariables = processEnvVariables(envVarsBegin, envVarsLen)
@@ -179,14 +178,14 @@ func (Backend) WslLaunchInteractive(distributionName string, command string, use
 		useCwd = 1
 	}
 
-	r1, _, _ := apiWslLaunchInteractive.Call(
+	r, err := callDll(apiWslLaunchInteractive,
 		uintptr(unsafe.Pointer(distroUTF16)),
 		uintptr(unsafe.Pointer(commandUTF16)),
 		uintptr(useCwd),
 		uintptr(unsafe.Pointer(&exitCode)))
 
-	if r1 != 0 {
-		return exitCode, fmt.Errorf("failed syscall")
+	if err != nil {
+		return r, err
 	}
 
 	return exitCode, nil
@@ -207,12 +206,12 @@ func (Backend) WslRegisterDistribution(distributionName string, tarGzFilename st
 		return errors.New("could not convert rootfs path to UTF16")
 	}
 
-	r1, _, _ := apiWslRegisterDistribution.Call(
+	_, err = callDll(apiWslRegisterDistribution,
 		uintptr(unsafe.Pointer(distroUTF16)),
 		uintptr(unsafe.Pointer(tarGzFilenameUTF16)))
 
-	if r1 != 0 {
-		return errors.New("failed syscall")
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -228,12 +227,30 @@ func (Backend) WslUnregisterDistribution(distributionName string) (err error) {
 		return errors.New("could not convert distro name to UTF16")
 	}
 
-	r1, _, _ := apiWslUnregisterDistribution.Call(uintptr(unsafe.Pointer(distroUTF16)))
-
-	if r1 != 0 {
-		return fmt.Errorf("failed syscall")
+	_, err = callDll(apiWslUnregisterDistribution, uintptr(unsafe.Pointer(distroUTF16)))
+	if err != nil {
+		return err
 	}
+
 	return nil
+}
+
+// callDll calls a proc with the given arguments. It exists for two reasons:
+// - Avoids a panic if the DLL cannot be found, or the method cannot be found within the DLL.
+// - Interprets the return value of the syscall so that the caller only needs to check for errors.
+func callDll(proc *syscall.LazyProc, args ...uintptr) (uint32, error) {
+	if err := proc.Find(); err != nil {
+		return 0, err
+	}
+
+	r, _, err := proc.Call(args...)
+	if r == 0 {
+		return uint32(r), nil
+	}
+	if err == nil {
+		return uint32(r), fmt.Errorf("failed syscall: exit code %d", r)
+	}
+	return uint32(r), fmt.Errorf("failed syscall: exit code %d: %v", r, err)
 }
 
 // processEnvVariables takes the (**char, length) obtained from Win32's API and returs a

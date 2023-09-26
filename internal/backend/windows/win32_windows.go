@@ -236,6 +236,10 @@ func (Backend) WslUnregisterDistribution(distributionName string) (err error) {
 }
 
 func callDll(proc *syscall.LazyProc, args ...uintptr) (uint32, error) {
+	if err := proc.Find(); err != nil {
+		return 0, err
+	}
+
 	r, _, err := proc.Call(args...)
 	if r == 0 {
 		return uint32(r), nil

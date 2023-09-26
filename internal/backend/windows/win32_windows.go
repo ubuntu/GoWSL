@@ -235,6 +235,9 @@ func (Backend) WslUnregisterDistribution(distributionName string) (err error) {
 	return nil
 }
 
+// callDll calls a proc with the given arguments. It exists for two reasons:
+// - Avoids a panic if the DLL cannot be found, or the method cannot be found within the DLL.
+// - Interprets the return value of the syscall so that the caller only needs to check for errors.
 func callDll(proc *syscall.LazyProc, args ...uintptr) (uint32, error) {
 	if err := proc.Find(); err != nil {
 		return 0, err

@@ -360,8 +360,8 @@ func (c *Cmd) readerDescriptor(r io.Reader) (f *os.File, err error) {
 		if err != nil {
 			return
 		}
-		c.closeAfterStart = append(c.closeAfterStart, f)
-		return
+		c.closeAfterWait = append(c.closeAfterWait, f)
+		r = f
 	}
 
 	if f, ok := r.(*os.File); ok {
@@ -402,8 +402,8 @@ func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
 		if err != nil {
 			return
 		}
-		c.closeAfterStart = append(c.closeAfterStart, f)
-		return
+		c.closeAfterWait = append(c.closeAfterWait, f)
+		w = f
 	}
 
 	if f, ok := w.(*os.File); ok {

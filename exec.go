@@ -478,9 +478,13 @@ func (c *Cmd) Wait() (err error) {
 
 	var copyError error
 	for range c.goroutine {
-		if err := <-c.errch; err != nil && copyError == nil {
-			copyError = err
+		select {
+		case err := <-c.errch:
+			copyError = errors.Join(copyError, err)
+			continue
+		case <-c.ctx.Done():
 		}
+		break
 	}
 
 	c.closeDescriptors(c.closeAfterWait)

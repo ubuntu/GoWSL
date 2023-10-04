@@ -360,8 +360,12 @@ func (c *Cmd) readerDescriptor(r io.Reader) (f *os.File, err error) {
 		if err != nil {
 			return
 		}
-		c.closeAfterStart = append(c.closeAfterStart, f)
-		return
+		c.closeAfterWait = append(c.closeAfterWait, f)
+
+		// We deviate from the standard library: normal processes can take NULL as
+		// stdin/out/err, but WSL processes cannot. We therefore treat it like any
+		// other writer: sticking a pipe between it and WSL.
+		r = f
 	}
 
 	if f, ok := r.(*os.File); ok {
@@ -402,8 +406,12 @@ func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
 		if err != nil {
 			return
 		}
-		c.closeAfterStart = append(c.closeAfterStart, f)
-		return
+		c.closeAfterWait = append(c.closeAfterWait, f)
+
+		// We deviate from the standard library: normal processes can take NULL as
+		// stdin/out/err, but WSL processes cannot. We therefore treat it like any
+		// other writer: sticking a pipe between it and WSL.
+		w = f
 	}
 
 	if f, ok := w.(*os.File); ok {
@@ -470,9 +478,13 @@ func (c *Cmd) Wait() (err error) {
 
 	var copyError error
 	for range c.goroutine {
-		if err := <-c.errch; err != nil && copyError == nil {
-			copyError = err
+		select {
+		case err := <-c.errch:
+			copyError = errors.Join(copyError, err)
+			continue
+		case <-c.ctx.Done():
 		}
+		break
 	}
 
 	c.closeDescriptors(c.closeAfterWait)

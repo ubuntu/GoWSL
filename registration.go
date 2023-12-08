@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/ubuntu/decorate"
@@ -107,8 +108,13 @@ func (d Distro) isRegistered() (registered bool, err error) {
 		return false, err
 	}
 
-	_, found := distros[d.Name()]
-	return found, nil
+	for name := range distros {
+		if strings.EqualFold(name, d.Name()) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // Unregister is a wrapper around Win32's WslUnregisterDistribution.

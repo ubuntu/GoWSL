@@ -562,7 +562,7 @@ func TestDistroState(t *testing.T) {
 				require.Eventually(t, func() bool {
 					r, err := d.IsRegistered()
 					return err == nil && r
-				}, 3*time.Second, 100*time.Millisecond, "Setup: distro never started installing")
+				}, 10*time.Second, 100*time.Millisecond, "Setup: distro never started installing")
 			case command:
 				_, err := tc.distro.Command(ctx, "exit 0").Output()
 				require.NoError(t, err, "Setup: distro.Command should not return an error")

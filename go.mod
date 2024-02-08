@@ -5,7 +5,7 @@ go 1.21
 require golang.org/x/sys v0.16.0
 
 require (
-	github.com/google/uuid v1.5.0
+	github.com/google/uuid v1.6.0
 	github.com/ubuntu/decorate v0.0.0-20230125165522-2d5b0a9bb117
 )
 

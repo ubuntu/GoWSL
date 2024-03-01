@@ -46,12 +46,9 @@ func registeredDistros(ctx context.Context) ([]wsl.Distro, error) {
 }
 
 // defaultDistro gets the default distro's name.
-func defaultDistro(ctx context.Context) (string, error) {
-	d, err := wsl.DefaultDistro(ctx)
-	if err != nil {
-		return "", nil
-	}
-	return d.Name(), nil
+func defaultDistro(ctx context.Context) (string, bool, error) {
+	d, ok, err := wsl.DefaultDistro(ctx)
+	return d.Name(), ok, err
 }
 
 // setDefaultDistro sets the default distro.

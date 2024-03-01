@@ -119,19 +119,19 @@ func registeredDistros(ctx context.Context) (distros []wsl.Distro, err error) {
 
 // defaultDistro gets the default distro's name via wsl.exe to bypass wsl.DefaultDistro in order to
 // better decouple tests.
-func defaultDistro(ctx context.Context) (string, error) {
+func defaultDistro(ctx context.Context) (string, bool, error) {
 	defer wslExeGuard(5 * time.Second)()
 
 	out, err := exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1; wsl.exe --list --verbose").CombinedOutput()
 	if err != nil {
 		if target := (&exec.ExitError{}); !errors.As(err, &target) {
-			return "", fmt.Errorf("failed to find current default distro: %v", err)
+			return "", false, fmt.Errorf("failed to find current default distro: %v", err)
 		}
 		// cannot read from target.StdErr because message is printed to Stdout
 		if !strings.Contains(string(out), "Wsl/WSL_E_DEFAULT_DISTRO_NOT_FOUND") {
-			return "", fmt.Errorf("failed to find current default distro: %v. Output: %s", err, out)
+			return "", false, fmt.Errorf("failed to find current default distro: %v. Output: %s", err, out)
 		}
-		return "", nil // No distros installed: no default
+		return "", false, nil // No distros installed: no default
 	}
 
 	s := bufio.NewScanner(bytes.NewReader(out))
@@ -143,16 +143,16 @@ func defaultDistro(ctx context.Context) (string, error) {
 		}
 		data := strings.Fields(line)
 		if len(data) < 2 {
-			return "", fmt.Errorf("failed to parse 'wsl.exe --list --verbose' output, line %q", line)
+			return "", false, fmt.Errorf("failed to parse 'wsl.exe --list --verbose' output, line %q", line)
 		}
-		return data[1], nil
+		return data[1], true, nil
 	}
 
 	if err := s.Err(); err != nil {
-		return "", err
+		return "", false, err
 	}
 
-	return "", fmt.Errorf("failed to find default distro in 'wsl.exe --list --verbose' output:\n%s", string(out))
+	return "", false, fmt.Errorf("failed to find default distro in 'wsl.exe --list --verbose' output:\n%s", string(out))
 }
 
 // setDefaultDistro sets a distro as default using Powershell.

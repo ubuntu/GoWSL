@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 
 	"github.com/google/uuid"
 	"github.com/ubuntu/decorate"
@@ -114,6 +115,9 @@ func DefaultDistro(ctx context.Context) (d Distro, ok bool, err error) {
 	defer r.Close()
 
 	guid, err := r.Field("DefaultDistribution")
+	if errors.Is(err, fs.ErrNotExist) {
+		return d, false, nil
+	}
 	if err != nil {
 		return d, false, err
 	}

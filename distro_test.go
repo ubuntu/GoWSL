@@ -112,10 +112,13 @@ func TestDefaultDistro(t *testing.T) {
 
 	testCases := map[string]struct {
 		registryInaccessible bool
+		dontCreateDistro     bool
 
+		wantOK  bool
 		wantErr bool
 	}{
-		"Success": {},
+		"Success":                 {wantOK: true},
+		"Success with no distros": {dontCreateDistro: true},
 
 		// Mock-induced errors
 		"Error when the registry cannot be accessed": {registryInaccessible: true, wantErr: true},
@@ -125,10 +128,15 @@ func TestDefaultDistro(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 
-			want := newTestDistro(t, ctx, emptyRootFS)
+			var want string
 
-			err := setDefaultDistro(ctx, want.Name())
-			require.NoError(t, err, "Setup: could not set the default distro")
+			var d wsl.Distro
+			if !tc.dontCreateDistro {
+				d = newTestDistro(t, ctx, emptyRootFS)
+				err := setDefaultDistro(ctx, d.Name())
+				require.NoError(t, err, "Setup: could not set the default distro")
+				want = d.Name()
+			}
 
 			if tc.registryInaccessible {
 				modifyMock(t, func(m *mock.Backend) {
@@ -137,13 +145,19 @@ func TestDefaultDistro(t *testing.T) {
 				defer modifyMock(t, (*mock.Backend).ResetErrors)
 			}
 
-			got, err := wsl.DefaultDistro(ctx)
+			got, ok, err := wsl.DefaultDistro(ctx)
 			if tc.wantErr {
 				require.Error(t, err, "expected DefaultDistro to return an error")
 				return
 			}
-			require.NoError(t, err, "unexpected error getting default distro %q", want.Name())
-			require.Equal(t, want, got, "Unexpected mismatch in default distro")
+			require.NoError(t, err, "unexpected error getting default distro %q", want)
+
+			if !tc.wantOK {
+				require.False(t, ok, "DefaultDistro should return OK=false")
+				return
+			}
+			assert.True(t, ok, "DefaultDistro should return OK=true")
+			assert.Equal(t, want, got.Name(), "Unexpected mismatch in default distro")
 		})
 	}
 }
@@ -190,8 +204,9 @@ func TestDistroSetAsDefault(t *testing.T) {
 			}
 			require.NoErrorf(t, err, "Unexpected error setting %q as default", d.Name())
 
-			got, err := defaultDistro(ctx)
+			got, ok, err := defaultDistro(ctx)
 			require.NoError(t, err, "unexpected error getting default distro")
+			require.True(t, ok, "DefaultDistro should return OK=true")
 			require.Equal(t, d.Name(), got)
 		})
 	}

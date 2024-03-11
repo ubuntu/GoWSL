@@ -42,7 +42,7 @@ func (backend *Backend) Terminate(distroName string) error {
 
 	guid, key := backend.findDistroKey(distroName)
 	if guid == "" {
-		return errors.New("Bla bla bla this is localized text, don't assert on it.\nError code: Wsl/Service/WSL_E_DISTRO_NOT_FOUND")
+		return errors.New("This is localized text, don't assert on it.\nError code: Wsl/Service/WSL_E_DISTRO_NOT_FOUND")
 	}
 
 	return key.state.Terminate()

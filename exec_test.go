@@ -82,7 +82,6 @@ func TestCommandRun(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			d := realDistro
 			if tc.fakeDistro {
@@ -133,7 +132,7 @@ func TestCommandRun(t *testing.T) {
 			target := &exec.ExitError{}
 			if tc.wantExitCode != 0 {
 				require.ErrorAsf(t, err, &target, "Run() should have returned an ExitError")
-				require.Equal(t, target.ExitCode(), tc.wantExitCode, "returned error ExitError has unexpected Code status")
+				require.Equal(t, tc.wantExitCode, target.ExitCode(), "returned error ExitError has unexpected Code status")
 				return
 			}
 
@@ -245,7 +244,7 @@ func TestCommandStartWait(t *testing.T) {
 		target := &exec.ExitError{}
 		if tc.wantExitError != 0 {
 			require.ErrorAsf(t, err, &target, "Unexpected error type at time %s. Expected an ExitError.", whenToString(now))
-			require.Equal(t, target.ExitCode(), tc.wantExitError, "Unexpected value for ExitError.Code at time %s", whenToString(now))
+			require.Equal(t, tc.wantExitError, target.ExitCode(), "Unexpected value for ExitError.Code at time %s", whenToString(now))
 			return true
 		}
 
@@ -255,7 +254,6 @@ func TestCommandStartWait(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 
@@ -408,7 +406,6 @@ func TestCommandOutPipes(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -494,7 +491,6 @@ func TestCommandOutput(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -521,7 +517,7 @@ func TestCommandOutput(t *testing.T) {
 
 			target := &exec.ExitError{}
 			require.ErrorAsf(t, err, &target, "Unexpected error type. Expected an ExitError.")
-			require.Equal(t, target.ExitCode(), tc.wantExitCode, "Unexpected value for ExitError.Code.")
+			require.Equal(t, tc.wantExitCode, target.ExitCode(), "Unexpected value for ExitError.Code.")
 
 			got := strings.ReplaceAll(string(target.Stderr), "\r\n", "\n")
 			require.Equal(t, tc.wantStderr, got, "Unexpected contents in stderr")
@@ -565,7 +561,6 @@ func TestCommandCombinedOutput(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -596,7 +591,7 @@ func TestCommandCombinedOutput(t *testing.T) {
 
 			target := &exec.ExitError{}
 			require.ErrorAsf(t, err, &target, "Unexpected error type. Expected an ExitError.")
-			require.Equal(t, target.ExitCode(), tc.wantExitCode, "Unexpected value for ExitError.Code.")
+			require.Equal(t, tc.wantExitCode, target.ExitCode(), "Unexpected value for ExitError.Code.")
 		})
 	}
 }
@@ -641,7 +636,6 @@ print("Your text was", v)
 '`
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			if tc.text == "" {
 				tc.text = "Hello, wsl!"

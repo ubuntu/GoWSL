@@ -3,6 +3,7 @@ package gowsl_test
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"regexp"
 	"sync"
 	"testing"
@@ -32,7 +33,6 @@ func TestShutdown(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 			d1 := newTestDistro(t, ctx, rootFS)
@@ -78,7 +78,6 @@ func TestTerminate(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 			testDistro := newTestDistro(t, ctx, rootFS)
@@ -129,7 +128,6 @@ func TestDefaultDistro(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 
@@ -195,7 +193,6 @@ func TestDistroSetAsDefault(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 			if tc.wslexeError {
@@ -249,7 +246,6 @@ func TestDistroString(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			setupBackend(t, context.Background())
 
@@ -297,7 +293,6 @@ func TestGUID(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			if tc.registryInaccessible {
 				modifyMock(t, func(m *mock.Backend) {
@@ -385,7 +380,6 @@ func TestConfigurationSetters(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			// This test has two phases:
 			// 1. Changes one of the default settings and asserts that it has changed, and the others have not.
@@ -506,7 +500,6 @@ func TestGetConfiguration(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 			if tc.syscallError {
@@ -530,11 +523,11 @@ func TestGetConfiguration(t *testing.T) {
 				return
 			}
 			require.NoError(t, err, "unexpected failure in GetConfiguration")
-			assert.Equal(t, c.Version, uint8(2))
-			assert.Equal(t, c.DefaultUID, uint32(0))
-			assert.Equal(t, c.InteropEnabled, true)
-			assert.Equal(t, c.PathAppended, true)
-			assert.Equal(t, c.DriveMountingEnabled, true)
+			assert.Equal(t, uint8(2), c.Version)
+			assert.Zero(t, c.DefaultUID)
+			assert.True(t, c.InteropEnabled)
+			assert.True(t, c.PathAppended)
+			assert.True(t, c.DriveMountingEnabled)
 
 			defaultEnvs := map[string]string{
 				"HOSTTYPE": "x86_64",
@@ -579,7 +572,6 @@ func TestDistroState(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			switch tc.action {
 			case none:
@@ -632,7 +624,15 @@ func asyncNewTestDistro(t *testing.T, ctx context.Context, rootFs string) wsl.Di
 
 	go func() {
 		defer wg.Done()
-		installDistro(t, ctx, d.Name(), loc, rootFs)
+
+		defer wslExeGuard(2 * time.Minute)()
+		cmd := fmt.Sprintf("$env:WSL_UTF8=1 ;  wsl --import %q %q %q", d.Name(), loc, rootFs)
+		//nolint:gosec // Code injection is not a concern in tests.
+		out, err := exec.Command("powershell.exe", "-Command", cmd).CombinedOutput()
+		if err != nil {
+			t.Logf("Setup: failed to register %q: %s", d.Name(), out)
+		}
+		// We cannot fail here because this is not the main test goroutine
 	}()
 
 	t.Cleanup(func() {

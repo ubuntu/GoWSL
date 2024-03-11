@@ -36,7 +36,6 @@ func TestUnpackFlags(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(fmt.Sprintf("input_0x%x", int(tc.input)), func(t *testing.T) {
 			t.Parallel()
 			got := flags.Unpack(tc.input)
@@ -64,7 +63,6 @@ func TestPackFlags(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(fmt.Sprintf("expects_0x%x", int(tc.wants)), func(t *testing.T) {
 			t.Parallel()
 			got, _ := tc.input.Pack()

@@ -522,7 +522,7 @@ func TestGetConfiguration(t *testing.T) {
 				return
 			}
 			require.NoError(t, err, "unexpected failure in GetConfiguration")
-			assert.Equal(t, c.Version, uint8(2))
+			assert.Equal(t, uint8(2), c.Version)
 			assert.Equal(t, c.DefaultUID, uint32(0))
 			assert.Equal(t, c.InteropEnabled, true)
 			assert.Equal(t, c.PathAppended, true)

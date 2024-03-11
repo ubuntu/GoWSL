@@ -3,6 +3,7 @@ package gowsl_test
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"regexp"
 	"sync"
 	"testing"
@@ -623,7 +624,15 @@ func asyncNewTestDistro(t *testing.T, ctx context.Context, rootFs string) wsl.Di
 
 	go func() {
 		defer wg.Done()
-		installDistro(t, ctx, d.Name(), loc, rootFs)
+
+		defer wslExeGuard(2 * time.Minute)()
+		cmd := fmt.Sprintf("$env:WSL_UTF8=1 ;  wsl --import %q %q %q", d.Name(), loc, rootFs)
+		//nolint:gosec // Code injection is not a concern in tests.
+		out, err := exec.Command("powershell.exe", "-Command", cmd).CombinedOutput()
+		if err != nil {
+			t.Logf("Setup: failed to register %q: %s", d.Name(), out)
+		}
+		// We cannot fail here because this is not the main test goroutine
 	}()
 
 	t.Cleanup(func() {

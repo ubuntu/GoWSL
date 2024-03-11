@@ -8,7 +8,6 @@ import (
 	"math"
 	"os"
 	"strings"
-	"sync"
 	"syscall"
 	"unsafe"
 
@@ -259,45 +258,27 @@ func callDll(proc *syscall.LazyProc, args ...uintptr) (uint32, error) {
 func processEnvVariables(cStringArray **char, len uint64) map[string]string {
 	stringPtrs := unsafe.Slice(cStringArray, len)
 
-	env := make(chan struct {
-		key   string
-		value string
-	})
-
-	wg := sync.WaitGroup{}
+	env := make(map[string]string)
 	for _, cStr := range stringPtrs {
-		cStr := cStr
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			goStr := stringCtoGo(cStr, 32768)
-			idx := strings.Index(goStr, "=")
-			env <- struct {
-				key   string
-				value string
-			}{
-				key:   strings.Clone(goStr[:idx]),
-				value: strings.Clone(goStr[idx+1:]),
-			}
-			windows.CoTaskMemFree(unsafe.Pointer(cStr))
-		}()
+		goStr := stringCtoGo(cStr, 32768)
+
+		idx := strings.Index(goStr, "=")
+		if idx == -1 {
+			continue
+		}
+
+		variable := goStr[:idx]
+		value := goStr[idx+1:]
+
+		env[variable] = value
+
+		// Free the string
+		windows.CoTaskMemFree(unsafe.Pointer(cStr))
 	}
 
-	// Cleanup
-	go func() {
-		wg.Wait()
-		windows.CoTaskMemFree(unsafe.Pointer(cStringArray))
-		close(env)
-	}()
-
-	// Collecting results
-	m := map[string]string{}
-
-	for kv := range env {
-		m[kv.key] = kv.value
-	}
-
-	return m
+	// Free the array
+	windows.CoTaskMemFree(unsafe.Pointer(cStringArray))
+	return env
 }
 
 // stringCtoGo converts a null-terminated *char into a string

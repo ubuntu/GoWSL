@@ -353,6 +353,8 @@ func (c *Cmd) closeDescriptors(closers []io.Closer) {
 
 // readerDescriptor connects an arbitrary reader to an os pipe's writer,
 // and returns this pipe's reader as a file.
+//
+//nolint:nakedret // This function is mostly copied from the standard library
 func (c *Cmd) readerDescriptor(r io.Reader) (f *os.File, err error) {
 	// Based on exec/exec.go:stdin.
 	if r == nil {
@@ -399,6 +401,8 @@ func (c *Cmd) readerDescriptor(r io.Reader) (f *os.File, err error) {
 
 // writerDescriptor connects an arbitrary writer to an os pipe's reader,
 // and returns this pipe's writer as a file.
+//
+//nolint:nakedret // This function is mostly copied from the standard library
 func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
 	// Based on exec/exec.go.
 	if w == nil {

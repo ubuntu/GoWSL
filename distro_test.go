@@ -523,10 +523,10 @@ func TestGetConfiguration(t *testing.T) {
 			}
 			require.NoError(t, err, "unexpected failure in GetConfiguration")
 			assert.Equal(t, uint8(2), c.Version)
-			assert.Equal(t, c.DefaultUID, uint32(0))
-			assert.Equal(t, c.InteropEnabled, true)
-			assert.Equal(t, c.PathAppended, true)
-			assert.Equal(t, c.DriveMountingEnabled, true)
+			assert.Zero(t, c.DefaultUID)
+			assert.True(t, c.InteropEnabled)
+			assert.True(t, c.PathAppended)
+			assert.True(t, c.DriveMountingEnabled)
 
 			defaultEnvs := map[string]string{
 				"HOSTTYPE": "x86_64",

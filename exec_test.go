@@ -82,7 +82,6 @@ func TestCommandRun(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			d := realDistro
 			if tc.fakeDistro {
@@ -255,7 +254,6 @@ func TestCommandStartWait(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 
@@ -408,7 +406,6 @@ func TestCommandOutPipes(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -494,7 +491,6 @@ func TestCommandOutput(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -565,7 +561,6 @@ func TestCommandCombinedOutput(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -641,7 +636,6 @@ print("Your text was", v)
 '`
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			if tc.text == "" {
 				tc.text = "Hello, wsl!"

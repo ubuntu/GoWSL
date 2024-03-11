@@ -32,7 +32,6 @@ func TestShutdown(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 			d1 := newTestDistro(t, ctx, rootFS)
@@ -78,7 +77,6 @@ func TestTerminate(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 			testDistro := newTestDistro(t, ctx, rootFS)
@@ -129,7 +127,6 @@ func TestDefaultDistro(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 
@@ -195,7 +192,6 @@ func TestDistroSetAsDefault(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 			if tc.wslexeError {
@@ -249,7 +245,6 @@ func TestDistroString(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			setupBackend(t, context.Background())
 
@@ -297,7 +292,6 @@ func TestGUID(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			if tc.registryInaccessible {
 				modifyMock(t, func(m *mock.Backend) {
@@ -385,7 +379,6 @@ func TestConfigurationSetters(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			// This test has two phases:
 			// 1. Changes one of the default settings and asserts that it has changed, and the others have not.
@@ -506,7 +499,6 @@ func TestGetConfiguration(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 			if tc.syscallError {
@@ -579,7 +571,6 @@ func TestDistroState(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			switch tc.action {
 			case none:

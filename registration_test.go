@@ -38,7 +38,6 @@ func TestRegister(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 			if tc.syscallError || tc.registryInaccessible {
@@ -97,7 +96,6 @@ func TestRegisteredDistros(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			if tc.registryInaccessible && !wsl.MockAvailable() {
 				t.Skip("This test is only available with the mock enabled")
@@ -152,9 +150,6 @@ func TestIsRegistered(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		name := name
-		tc := tc
-
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
 			if tc.registryInaccessible {
@@ -207,7 +202,6 @@ func TestUnregister(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			if (tc.syscallError || tc.registryInaccessible) && !wsl.MockAvailable() {
 				t.Skip("This test is only available with the mock enabled")
@@ -285,7 +279,6 @@ func TestInstall(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
@@ -375,7 +368,6 @@ func TestUninstall(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 

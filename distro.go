@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 
 	"github.com/google/uuid"
 	"github.com/ubuntu/decorate"
@@ -102,40 +103,47 @@ func (d *Distro) SetAsDefault() error {
 }
 
 // DefaultDistro gets the current default distribution.
-func DefaultDistro(ctx context.Context) (d Distro, err error) {
+func DefaultDistro(ctx context.Context) (d Distro, ok bool, err error) {
 	defer decorate.OnError(&err, "could not obtain the default distro")
 	backend := selectBackend(ctx)
 
 	// First, we find out the GUID of the default distro
 	r, err := backend.OpenLxssRegistry(".")
 	if err != nil {
-		return d, err
+		return d, false, err
 	}
 	defer r.Close()
 
 	guid, err := r.Field("DefaultDistribution")
+	if errors.Is(err, fs.ErrNotExist) {
+		return d, false, nil
+	}
 	if err != nil {
-		return d, err
+		return d, false, err
+	}
+
+	if guid == "" {
+		return d, false, nil
 	}
 
 	// Safety check: we ensure the gui is valid
 	if _, err = uuid.Parse(guid); err != nil {
-		return d, fmt.Errorf("registry returned invalid GUID: %s", guid)
+		return d, false, fmt.Errorf("registry returned invalid GUID: %s", guid)
 	}
 
 	// Last, we find out the name of the distro
 	r, err = backend.OpenLxssRegistry(guid)
 	if err != nil {
-		return d, err
+		return d, false, err
 	}
 	defer r.Close()
 
 	name, err := r.Field("DistributionName")
 	if err != nil {
-		return d, err
+		return d, false, err
 	}
 
-	return NewDistro(ctx, name), err
+	return NewDistro(ctx, name), true, err
 }
 
 // Configuration is the configuration of the distro.

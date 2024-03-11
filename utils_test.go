@@ -79,11 +79,11 @@ func cleanUpTestWslInstances(ctx context.Context) {
 // backUpDefaultDistro returns a function to restore the default distro so the machine is restored to
 // its pre-testing state.
 func backUpDefaultDistro(ctx context.Context) (func(), error) {
-	distroName, err := defaultDistro(ctx)
+	distroName, ok, err := defaultDistro(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to back up default distro: %v", err)
 	}
-	if len(distroName) == 0 {
+	if !ok {
 		return func() {}, nil // No distros registered: no backup needed
 	}
 	restore := func() {

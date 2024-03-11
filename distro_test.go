@@ -111,17 +111,21 @@ func TestDefaultDistro(t *testing.T) {
 	setupBackend(t, context.Background())
 
 	testCases := map[string]struct {
-		registryInaccessible bool
-		dontCreateDistro     bool
+		registryInaccessible       bool
+		dontCreateDistro           bool
+		registryHasInvalidUUID     bool
+		registryHasNonExistentUUID bool
 
 		wantOK  bool
 		wantErr bool
 	}{
-		"Success":                 {wantOK: true},
-		"Success with no distros": {dontCreateDistro: true},
+		"Success":                        {wantOK: true},
+		"Success with no default distro": {dontCreateDistro: true},
 
 		// Mock-induced errors
-		"Error when the registry cannot be accessed": {registryInaccessible: true, wantErr: true},
+		"Error when the registry cannot be accessed":      {registryInaccessible: true, wantErr: true},
+		"Error when the registry has an invalid UUID":     {registryHasInvalidUUID: true, wantErr: true},
+		"Error when the registry has a non-existent UUID": {registryHasNonExistentUUID: true, wantErr: true},
 	}
 
 	for name, tc := range testCases {
@@ -143,7 +147,26 @@ func TestDefaultDistro(t *testing.T) {
 				modifyMock(t, func(m *mock.Backend) {
 					m.OpenLxssKeyError = true
 				})
-				defer modifyMock(t, (*mock.Backend).ResetErrors)
+			}
+
+			modifyDefaultDistroInRegistry := func(value string) {
+				modifyMock(t, func(m *mock.Backend) {
+					k, err := m.OpenLxssRegistry(".")
+					require.NoError(t, err, "Setup: could not open the lxss registry")
+					defer k.Close()
+
+					//nolint:forcetypeassert // We know this is a mock
+					k.(*mock.RegistryKey).Data["DefaultDistribution"] = value
+				})
+			}
+
+			if tc.registryHasInvalidUUID {
+				modifyDefaultDistroInRegistry("ThisIsNotAValidUUID")
+			}
+
+			if tc.registryHasNonExistentUUID {
+				// Using the zero UUID
+				modifyDefaultDistroInRegistry(uuid.UUID{}.String())
 			}
 
 			got, ok, err := wsl.DefaultDistro(ctx)

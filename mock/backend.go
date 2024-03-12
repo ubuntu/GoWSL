@@ -4,6 +4,7 @@ package mock
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 )
 
@@ -70,6 +71,9 @@ type Error struct{}
 func (err Error) Error() string {
 	return "error triggered by mock"
 }
+
+// ErrNotExist is returned when a distro does not exist.
+var ErrNotExist = errors.New("distro does not exist")
 
 // RemoveAppxFamily mocks the removal of packages under a package family.
 func (b Backend) RemoveAppxFamily(ctx context.Context, packageFamilyName string) error {

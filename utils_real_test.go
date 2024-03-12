@@ -152,7 +152,8 @@ func defaultDistro(ctx context.Context) (string, bool, error) {
 		return "", false, err
 	}
 
-	return "", false, fmt.Errorf("failed to find default distro in 'wsl.exe --list --verbose' output:\n%s", string(out))
+	// No distro is default (but some exist, likely in the process of being installed/unistalled)
+	return "", false, nil
 }
 
 // setDefaultDistro sets a distro as default using Powershell.

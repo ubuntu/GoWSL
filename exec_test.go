@@ -45,12 +45,13 @@ func TestCommandRun(t *testing.T) {
 		syscallErr           bool
 		registryInaccessible bool
 
-		wantError    bool
-		wantExitCode int
+		wantError       bool
+		wantExitCode    int
+		wantErrNotExist bool
 	}{
 		// Background context test cases
 		"Success":                            {cmd: "exit 0"},
-		"Error with a non-registered distro": {cmd: "exit 0", fakeDistro: true, wantError: true},
+		"Error with a non-registered distro": {cmd: "exit 0", fakeDistro: true, wantError: true, wantErrNotExist: true},
 		"Error when the command's exit code is non-zero": {cmd: "exit 42", wantError: true, wantExitCode: 42},
 		"Error when the command has invalid characters":  {cmd: "echo \x00", fakeDistro: true, wantError: true},
 
@@ -124,6 +125,9 @@ func TestCommandRun(t *testing.T) {
 
 			if !tc.wantError {
 				require.NoError(t, err, "did not expect Run() to return an error")
+				if tc.wantErrNotExist {
+					require.ErrorIsf(t, err, wsl.ErrNotExist, "expected Run() to return an ErrNotExist error")
+				}
 				return
 			}
 
@@ -187,16 +191,17 @@ func TestCommandStartWait(t *testing.T) {
 		syscallErr           bool
 		registryInaccessible bool
 
-		wantStdout    string
-		wantStderr    string
-		wantErrOn     when
-		wantExitError int
+		wantStdout      string
+		wantStderr      string
+		wantErrOn       when
+		wantExitError   int
+		wantErrNotExist bool
 	}
 
 	testCases := map[string]testCase{
 		// Background context
 		"Success":                                        {distro: &realDistro, cmd: "exit 0"},
-		"Error with a non-registered distro":             {distro: &fakeDistro, cmd: "exit 0", wantErrOn: AfterStart},
+		"Error with a non-registered distro":             {distro: &fakeDistro, cmd: "exit 0", wantErrOn: AfterStart, wantErrNotExist: true},
 		"Error with null char in distro name":            {distro: &wrongDistro, cmd: "exit 0", wantErrOn: AfterStart},
 		"Error when the command's exit code is non-zero": {distro: &realDistro, cmd: "exit 42", wantErrOn: AfterWait, wantExitError: 42},
 
@@ -250,6 +255,11 @@ func TestCommandStartWait(t *testing.T) {
 
 		// Ensure that we don't get an ExitError
 		notErrorAsf(t, err, &target, "Unexpected error type at time %s. Expected anything but an ExitError.", whenToString(now))
+
+		if tc.wantErrNotExist {
+			require.ErrorIsf(t, err, wsl.ErrNotExist, "Unexpected error type at time %s. Expected ErrNotExist.", whenToString(now))
+		}
+
 		return true
 	}
 

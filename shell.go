@@ -80,12 +80,8 @@ func WithCommand(cmd string) ShellOption {
 func (d *Distro) Shell(args ...ShellOption) (err error) {
 	defer decorate.OnError(&err, "unsuccessful shell into distro %s", d.name)
 
-	r, err := d.isRegistered()
-	if err != nil {
+	if err := d.mustBeRegistered(); err != nil {
 		return err
-	}
-	if !r {
-		return fmt.Errorf("distro %q is not registered", d.Name())
 	}
 
 	options := shellOptions{

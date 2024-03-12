@@ -37,9 +37,15 @@ jobs:
       - name: Set up WSL
         uses: Ubuntu/WSL/.github/actions/wsl-install@main
       - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
+        shell: powershell
+        run: |
+          winget install GoLang.Go --accept-source-agreements --accept-package-agreements --silent --verbose
+          # Cannot check for error: there is no way to distinguish the two:
+          # - Legitimate error
+          # - Error because no updates found (Golang.Go is already up to date)
+          #
+          # We can check that Go works, though.
+          go version
       - name: Prepare repo
         shell: powershell
         run: |

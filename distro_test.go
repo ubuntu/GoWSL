@@ -302,7 +302,7 @@ func TestGUID(t *testing.T) {
 	}{
 		"Success with a real distro": {distro: &realDistro},
 
-		"Error with a non-registered  distro": {distro: &fakeDistro, wantErr: true, wantNotExistErr: true},
+		"Error with a non-registered distro": {distro: &fakeDistro, wantErr: true, wantNotExistErr: true},
 		"Error with an invalid distro name":   {distro: &wrongDistro, wantErr: true},
 
 		// Mock-induced errors

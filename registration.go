@@ -122,12 +122,8 @@ func (d Distro) isRegistered() (registered bool, err error) {
 func (d *Distro) Unregister() (err error) {
 	defer decorate.OnError(&err, "could not unregister %q", d.name)
 
-	r, err := d.isRegistered()
-	if err != nil {
+	if err := d.mustBeRegistered(); err != nil {
 		return err
-	}
-	if !r {
-		return errors.New("distro is not registered")
 	}
 
 	return d.backend.WslUnregisterDistribution(d.Name())
@@ -182,4 +178,15 @@ func fixPath(relative string) (string, error) {
 		return "", errors.New("file not found")
 	}
 	return abs, nil
+}
+
+func (d Distro) mustBeRegistered() error {
+	r, err := d.isRegistered()
+	if err != nil {
+		return err
+	}
+	if !r {
+		return ErrNotExist
+	}
+	return nil
 }

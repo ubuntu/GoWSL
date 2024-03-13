@@ -58,7 +58,7 @@ func (d *Distro) GUID() (id uuid.UUID, err error) {
 	}
 	id, ok := distros[d.Name()]
 	if !ok {
-		return id, errors.New("distro is not registered")
+		return id, ErrNotExist
 	}
 	return id, nil
 }
@@ -211,6 +211,10 @@ func (d *Distro) DriveMountingEnabled(value bool) (err error) {
 func (d Distro) GetConfiguration() (c Configuration, err error) {
 	defer decorate.OnError(&err, "could not access configuration for %s", d.name)
 
+	if err := d.mustBeRegistered(); err != nil {
+		return c, err
+	}
+
 	var conf Configuration
 	var f flags.WslFlags
 
@@ -247,6 +251,10 @@ func (d Distro) String() string {
 //   - PathAppended
 //   - DriveMountingEnabled
 func (d *Distro) configure(config Configuration) error {
+	if err := d.mustBeRegistered(); err != nil {
+		return err
+	}
+
 	flags, err := config.Pack()
 	if err != nil {
 		return err

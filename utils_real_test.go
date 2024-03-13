@@ -161,7 +161,7 @@ func setDefaultDistro(ctx context.Context, distroName string) error {
 	defer wslExeGuard(5 * time.Second)()
 
 	// No threat of code injection, wsl.exe will only interpret this text as a distro name
-	// and throw Wsl/Service/WSL_E_DISTRO_NOT_FOUND if it does not exist.
+	// and throw ErrNotExist if it does not exist.
 	out, err := exec.Command("wsl.exe", "--set-default", distroName).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to set distro %q back as default: %v. Output: %s", distroName, err, out)

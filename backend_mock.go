@@ -43,3 +43,6 @@ func selectBackend(ctx context.Context) backend.Backend {
 	//nolint:forcetypeassert // The panic is expected and welcome
 	return v.(backend.Backend)
 }
+
+// ErrNotExist is the error returned when a distro does not exist.
+var ErrNotExist = mock.ErrNotExist

@@ -32,3 +32,6 @@ func WithMock(ctx context.Context, m *mock.Backend) context.Context {
 func selectBackend(ctx context.Context) backend.Backend {
 	return windows.Backend{}
 }
+
+// ErrNotExist is the error returned when a distro does not exist.
+var ErrNotExist = windows.ErrNotExist

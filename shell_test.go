@@ -31,12 +31,13 @@ func TestShell(t *testing.T) {
 		distro      *wsl.Distro
 		syscallErr  bool
 
-		wantError    bool
-		wantExitCode uint32
+		wantError       bool
+		wantExitCode    uint32
+		wantErrNotExist bool
 	}{
 		// Test with no arguments
 		"Success":                            {distro: &realDistro},
-		"Error with a non-registered distro": {distro: &fakeDistro, wantError: true},
+		"Error with a non-registered distro": {distro: &fakeDistro, wantError: true, wantErrNotExist: true},
 		"Error with distroname with a null character": {distro: &wrongDistro, wantError: true},
 
 		// Mock-induced errors
@@ -104,6 +105,9 @@ func TestShell(t *testing.T) {
 			var target *wsl.ShellError
 			if tc.wantExitCode == 0 {
 				notErrorAsf(t, err, &target, "unexpected ShellError, expected any other type")
+				if tc.wantErrNotExist {
+					require.ErrorIs(t, err, wsl.ErrNotExist, "unexpected error type for Shell, expected a ErrNotExist")
+				}
 				return
 			}
 

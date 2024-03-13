@@ -189,11 +189,12 @@ func TestUnregister(t *testing.T) {
 		syscallError         bool
 		registryInaccessible bool
 
-		wantError bool
+		wantError       bool
+		wantErrNotExist bool
 	}{
 		"Success": {},
 
-		"Error with a non-registered distro": {nonRegistered: true, wantError: true},
+		"Error with a non-registered distro": {nonRegistered: true, wantError: true, wantErrNotExist: true},
 		"Error with a null char in name":     {nonRegistered: true, distroname: "This Distro \x00 has a null char", wantError: true},
 
 		// Mock-induced errors
@@ -234,6 +235,9 @@ func TestUnregister(t *testing.T) {
 
 			if tc.wantError {
 				require.Errorf(t, err, "Unexpected success in unregistering distro %q.", d.Name())
+				if tc.wantErrNotExist {
+					require.ErrorIs(t, err, wsl.ErrNotExist, "Unregister should have returned ErrNotExist")
+				}
 				return
 			}
 			require.NoError(t, err, "Unexpected failure in unregistering distro %q.", d.Name())
@@ -353,13 +357,14 @@ func TestUninstall(t *testing.T) {
 		mockCannotOpenRegistry bool
 		mockOnly               bool
 
-		wantError bool
+		wantError       bool
+		wantErrNotExist bool
 	}{
 		"Success uninstalling an Appx-installed distro": {distroInstallType: registeredFromAppx},
 		"Success uninstalling an imported distro":       {distroInstallType: imported},
 
 		// Usage errors
-		"Error uninstalling a non-registered distro":     {distroInstallType: notRegistered, wantError: true},
+		"Error uninstalling a non-registered distro":     {distroInstallType: notRegistered, wantError: true, wantErrNotExist: true},
 		"Error when the context is cancelled beforehand": {distroInstallType: registeredFromAppx, preCancelCtx: true, wantError: true},
 
 		// Mock-triggered errors
@@ -415,6 +420,9 @@ func TestUninstall(t *testing.T) {
 			err := d.Uninstall(uninstallCtx)
 			if tc.wantError {
 				require.Error(t, err, "Uninstall should return an error")
+				if tc.wantErrNotExist {
+					require.ErrorIs(t, err, wsl.ErrNotExist, "Uninstall should return ErrNotExist")
+				}
 				return
 			}
 

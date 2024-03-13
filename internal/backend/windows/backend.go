@@ -7,12 +7,16 @@ package windows
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 )
 
 // Backend implements the Backend interface.
 type Backend struct{}
+
+// ErrNotExist is returned when a distro does not exist.
+var ErrNotExist = errors.New("distro does not exist")
 
 // RemoveAppxFamily uninstalls the Appx under the provided family name.
 func (Backend) RemoveAppxFamily(ctx context.Context, packageFamilyName string) error {

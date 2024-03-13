@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -19,9 +20,9 @@ import (
 //
 //	`wsl.exe --Shutdown
 func (Backend) Shutdown() error {
-	out, err := exec.Command("wsl.exe", "--shutdown").CombinedOutput()
+	_, err := wslExe(context.Background(), "--shutdown")
 	if err != nil {
-		return fmt.Errorf("error shutting WSL down: %v: %s", err, out)
+		return fmt.Errorf("could not shut WSL down: %w", err)
 	}
 	return nil
 }
@@ -32,9 +33,9 @@ func (Backend) Shutdown() error {
 //
 //	`wsl.exe --Terminate <distroName>`
 func (Backend) Terminate(distroName string) error {
-	out, err := exec.Command("wsl.exe", "--terminate", distroName).CombinedOutput()
+	_, err := wslExe(context.Background(), "--terminate", distroName)
 	if err != nil {
-		return fmt.Errorf("error terminating distro %q: %v: %s", distroName, err, out)
+		return fmt.Errorf("could not terminate distro %q: %w", distroName, err)
 	}
 	return nil
 }
@@ -45,21 +46,18 @@ func (Backend) Terminate(distroName string) error {
 //
 //	`wsl.exe --set-default <distroName>`
 func (Backend) SetAsDefault(distroName string) error {
-	out, err := exec.Command("wsl.exe", "--set-default", distroName).CombinedOutput()
+	_, err := wslExe(context.Background(), "--set-default", distroName)
 	if err != nil {
-		return fmt.Errorf("error setting %q as default: %v, output: %s", distroName, err, out)
+		return fmt.Errorf("could not set %q as default: %w", distroName, err)
 	}
 	return nil
 }
 
 // State returns the state of a particular distro as seen in `wsl.exe -l -v`.
 func (Backend) State(distributionName string) (s state.State, err error) {
-	cmd := exec.Command("wsl.exe", "--list", "--all", "--verbose")
-	cmd.Env = append(cmd.Env, "WSL_UTF8=1")
-
-	out, err := cmd.Output()
+	out, err := wslExe(context.Background(), "--list", "--all", "--verbose")
 	if err != nil {
-		return s, err
+		return s, fmt.Errorf("could not get states of distros: %w", err)
 	}
 
 	/*
@@ -92,12 +90,40 @@ func (Backend) State(distributionName string) (s state.State, err error) {
 }
 
 // Install installs a new distro from the Windows store.
-func (b Backend) Install(ctx context.Context, appxName string) (err error) {
+func (b Backend) Install(ctx context.Context, appxName string) error {
 	// Using --no-launch to avoid registration and (non-interactive) user creation.
-	cmd := exec.CommandContext(ctx, "wsl.exe", "--install", appxName, "--no-launch")
-	out, err := cmd.Output()
+	_, err := wslExe(ctx, "--install", appxName, "--no-launch")
 	if err != nil {
-		return fmt.Errorf("could not install %q: %v. %s", appxName, err, string(out))
+		return fmt.Errorf("could not install %q: %w", appxName, err)
 	}
 	return nil
+}
+
+// wslExe is a helper function to run wsl.exe with the given arguments.
+// It returns the stdout, or an error containing both stdout and stderr.
+func wslExe(ctx context.Context, args ...string) ([]byte, error) {
+	var stdout, stderr bytes.Buffer
+
+	cmd := exec.CommandContext(ctx, "wsl.exe", args...)
+
+	// Avoid output encoding issues (WSL uses UTF-16 by default)
+	cmd.Env = append(os.Environ(), "WSL_UTF8=1")
+
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err == nil {
+		return stdout.Bytes(), nil
+	}
+
+	if strings.Contains(stdout.String(), "Wsl/Service/WSL_E_DISTRO_NOT_FOUND") {
+		return nil, ErrNotExist
+	}
+
+	if strings.Contains(stderr.String(), "Wsl/Service/WSL_E_DISTRO_NOT_FOUND") {
+		return nil, ErrNotExist
+	}
+
+	return nil, fmt.Errorf("%v. Stdout: %s. Stderr: %s", err, stdout.Bytes(), stderr.Bytes())
 }

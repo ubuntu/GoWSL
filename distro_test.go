@@ -67,21 +67,22 @@ func TestTerminate(t *testing.T) {
 	}
 
 	testCases := map[string]struct {
-		mockErr bool
+		mockErr      bool
+		dontRegister bool
 
-		wantErr bool
+		wantErr         bool
+		wantErrNotExist bool
 	}{
 		"Success": {},
 
 		// Mock-induced errors
-		"Error because wsl.exe returns an error": {mockErr: true, wantErr: true},
+		"Error because the distro is not registered": {dontRegister: true, wantErr: true, wantErrNotExist: true},
+		"Error because wsl.exe returns an error":     {mockErr: true, wantErr: true},
 	}
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
 			ctx, modifyMock := setupBackend(t, context.Background())
-			testDistro := newTestDistro(t, ctx, rootFS)
-			controlDistro := newTestDistro(t, ctx, rootFS)
 
 			if tc.mockErr {
 				modifyMock(t, func(m *mock.Backend) {
@@ -90,12 +91,23 @@ func TestTerminate(t *testing.T) {
 				defer modifyMock(t, (*mock.Backend).ResetErrors)
 			}
 
-			wakeDistroUp(t, testDistro)
+			controlDistro := newTestDistro(t, ctx, rootFS)
+
+			var testDistro wsl.Distro
+			if tc.dontRegister {
+				testDistro = wsl.NewDistro(ctx, uniqueDistroName(t))
+			} else {
+				testDistro = newTestDistro(t, ctx, rootFS)
+				wakeDistroUp(t, testDistro)
+			}
 			wakeDistroUp(t, controlDistro)
 
 			err := testDistro.Terminate()
 			if tc.wantErr {
 				require.Error(t, err, "Terminate should have returned an error")
+				if tc.wantErrNotExist {
+					require.ErrorIs(t, err, wsl.ErrNotExist, "Terminate error should have been ErrNotExist")
+				}
 				return
 			}
 			require.NoError(t, err, "Terminate should have returned no error")
@@ -182,11 +194,12 @@ func TestDistroSetAsDefault(t *testing.T) {
 		nonRegisteredDistro bool
 		wslexeError         bool
 
-		wantErr bool
+		wantErr         bool
+		wantErrNotExist bool
 	}{
 		"Success setting an existing distro as default": {},
 
-		"Error when setting non-existent distro as default": {nonRegisteredDistro: true, wantErr: true},
+		"Error when setting non-existent distro as default": {nonRegisteredDistro: true, wantErr: true, wantErrNotExist: true},
 
 		// Mock-induced errors
 		"Error when wsl.exe errors out": {wslexeError: true, wantErr: true},
@@ -212,6 +225,9 @@ func TestDistroSetAsDefault(t *testing.T) {
 			err := d.SetAsDefault()
 			if tc.wantErr {
 				require.Errorf(t, err, "Unexpected success setting non-existent distro %q as default", d.Name())
+				if tc.wantErrNotExist {
+					require.ErrorIs(t, err, wsl.ErrNotExist, "SetAsDefault should have returned ErrNotExist")
+				}
 				return
 			}
 			require.NoErrorf(t, err, "Unexpected error setting %q as default", d.Name())
@@ -281,11 +297,12 @@ func TestGUID(t *testing.T) {
 		distro               *wsl.Distro
 		registryInaccessible bool
 
-		wantErr bool
+		wantErr         bool
+		wantNotExistErr bool
 	}{
 		"Success with a real distro": {distro: &realDistro},
 
-		"Error with a non-registered  distro": {distro: &fakeDistro, wantErr: true},
+		"Error with a non-registered distro": {distro: &fakeDistro, wantErr: true, wantNotExistErr: true},
 		"Error with an invalid distro name":   {distro: &wrongDistro, wantErr: true},
 
 		// Mock-induced errors
@@ -307,6 +324,9 @@ func TestGUID(t *testing.T) {
 			guid, err := tc.distro.GUID()
 			if tc.wantErr {
 				require.Error(t, err, "Unexpected success obtaining GUID of non-eligible distro")
+				if tc.wantNotExistErr {
+					require.ErrorIs(t, err, wsl.ErrNotExist, "GUID error should have been ErrNotExist")
+				}
 				return
 			}
 			require.NoError(t, err, "could not obtain GUID")
@@ -339,30 +359,31 @@ func TestConfigurationSetters(t *testing.T) {
 		distro       distroType
 		syscallError bool
 
-		wantErr bool
+		wantErr         bool
+		wantErrNotExist bool
 	}{
 		// DefaultUID
 		"Success setting DefaultUID":                        {setting: DefaultUID},
 		"Error when setting DefaultUID: \\0 in name":        {setting: DefaultUID, distro: DistroInvalidName, wantErr: true},
-		"Error when setting DefaultUID: not registered":     {setting: DefaultUID, distro: DistroNotRegistered, wantErr: true},
+		"Error when setting DefaultUID: not registered":     {setting: DefaultUID, distro: DistroNotRegistered, wantErr: true, wantErrNotExist: true},
 		"Error when setting DefaultUID: syscall errors out": {setting: DefaultUID, syscallError: true, wantErr: true},
 
 		// InteropEnabled
 		"Success setting InteropEnabled":                        {setting: InteropEnabled},
 		"Error when setting InteropEnabled: \\0 in name":        {setting: InteropEnabled, distro: DistroInvalidName, wantErr: true},
-		"Error when setting InteropEnabled: not registered":     {setting: InteropEnabled, distro: DistroNotRegistered, wantErr: true},
+		"Error when setting InteropEnabled: not registered":     {setting: InteropEnabled, distro: DistroNotRegistered, wantErr: true, wantErrNotExist: true},
 		"Error when setting InteropEnabled: syscall errors out": {setting: InteropEnabled, syscallError: true, wantErr: true},
 
 		// PathAppended
 		"Success setting PathAppended":                        {setting: PathAppend},
 		"Error when setting PathAppended: \\0 in name":        {setting: PathAppend, distro: DistroInvalidName, wantErr: true},
-		"Error when setting PathAppended: not registered":     {setting: PathAppend, distro: DistroNotRegistered, wantErr: true},
+		"Error when setting PathAppended: not registered":     {setting: PathAppend, distro: DistroNotRegistered, wantErr: true, wantErrNotExist: true},
 		"Error when setting PathAppended: syscall errors out": {setting: PathAppend, syscallError: true, wantErr: true},
 
 		// DriveMountingEnabled
 		"Success setting DriveMountingEnabled":                        {setting: DriveMounting},
 		"Error when setting DriveMountingEnabled: \\0 in name":        {setting: DriveMounting, distro: DistroInvalidName, wantErr: true},
-		"Error when setting DriveMountingEnabled: not registered":     {setting: DriveMounting, distro: DistroNotRegistered, wantErr: true},
+		"Error when setting DriveMountingEnabled: not registered":     {setting: DriveMounting, distro: DistroNotRegistered, wantErr: true, wantErrNotExist: true},
 		"Error when setting DriveMountingEnabled: syscall errors out": {setting: DriveMounting, syscallError: true, wantErr: true},
 	}
 
@@ -439,7 +460,10 @@ func TestConfigurationSetters(t *testing.T) {
 				err = d.DriveMountingEnabled(false)
 			}
 			if tc.wantErr {
-				require.Errorf(t, err, "unexpected failure when setting config %s", details[tc.setting].name)
+				require.Errorf(t, err, "unexpected success when setting config %s", details[tc.setting].name)
+				if tc.wantErrNotExist {
+					require.ErrorIs(t, err, wsl.ErrNotExist, "expected setter to return ErrNotExist")
+				}
 				return
 			}
 			require.NoErrorf(t, err, "unexpected success when setting config %s", details[tc.setting].name)
@@ -488,11 +512,12 @@ func TestGetConfiguration(t *testing.T) {
 		distroName   string // Note: distros with custom distro names will not be registered
 		syscallError bool
 
-		wantErr bool
+		wantErr         bool
+		wantErrNotExist bool
 	}{
 		"Success": {},
 
-		"Error with non-registered distro":  {distroName: "IAmNotRegistered", wantErr: true},
+		"Error with non-registered distro":  {distroName: "IAmNotRegistered", wantErr: true, wantErrNotExist: true},
 		"Error with null character in name": {distroName: "MyName\x00IsNotValid", wantErr: true},
 
 		// Mock-induced errors
@@ -520,6 +545,9 @@ func TestGetConfiguration(t *testing.T) {
 
 			if tc.wantErr {
 				require.Error(t, err, "unexpected success in GetConfiguration")
+				if tc.wantErrNotExist {
+					require.ErrorIs(t, err, wsl.ErrNotExist, "expected GetConfiguration to return ErrNotExist")
+				}
 				return
 			}
 			require.NoError(t, err, "unexpected failure in GetConfiguration")

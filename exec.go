@@ -80,14 +80,11 @@ func (d *Distro) Command(ctx context.Context, cmd string) *Cmd {
 func (c *Cmd) Start() (err error) {
 	defer decorate.OnError(&err, "could not start Cmd on distro %s with command %q", c.distro.name, c.command)
 
-	// Based on exec/exec.go.
-	r, err := c.distro.isRegistered()
-	if err != nil {
+	if err := c.distro.mustBeRegistered(); err != nil {
 		return err
 	}
-	if !r {
-		return errors.New("distro is not registered")
-	}
+
+	// Based on exec/exec.go.
 
 	if c.Process != nil {
 		return errors.New("already started")

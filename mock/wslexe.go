@@ -3,6 +3,7 @@ package mock
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/ubuntu/gowsl/internal/state"
@@ -42,7 +43,7 @@ func (backend *Backend) Terminate(distroName string) error {
 
 	guid, key := backend.findDistroKey(distroName)
 	if guid == "" {
-		return errors.New("This is localized text, don't assert on it.\nError code: Wsl/Service/WSL_E_DISTRO_NOT_FOUND")
+		return fmt.Errorf("could not terminate distro: %w", ErrNotExist)
 	}
 
 	return key.state.Terminate()
@@ -63,7 +64,7 @@ func (backend *Backend) SetAsDefault(distroName string) error {
 
 	GUID, key := backend.findDistroKey(distroName)
 	if key == nil {
-		return errors.New("distro not registered")
+		return fmt.Errorf("could not set default: %w", ErrNotExist)
 	}
 
 	backend.lxssRootKey.Data["DefaultDistribution"] = GUID
@@ -104,7 +105,7 @@ func (backend Backend) Install(ctx context.Context, appxName string) (err error)
 	}
 
 	if appxName == "" {
-		return errors.New(`could not install "": Wsl/InstallDistro/WSL_E_DISTRO_NOT_FOUND`)
+		return fmt.Errorf("could not install: %w", ErrNotExist)
 	}
 
 	return nil

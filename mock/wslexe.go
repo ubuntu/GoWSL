@@ -113,7 +113,7 @@ func (backend Backend) Install(ctx context.Context, appxName string) (err error)
 }
 
 // Import creates a new distro from a source root filesystem.
-func (b *Backend) Import(ctx context.Context, distributionName, sourcePath, destinationPath string) error {
+func (backend *Backend) Import(ctx context.Context, distributionName, sourcePath, destinationPath string) error {
 	out, err := os.ReadFile(sourcePath)
 	if err != nil {
 		return fmt.Errorf("import error: %v", err)
@@ -122,7 +122,7 @@ func (b *Backend) Import(ctx context.Context, distributionName, sourcePath, dest
 		return Error{}
 	}
 
-	if err := b.WslRegisterDistribution(distributionName, sourcePath); err != nil {
+	if err := backend.WslRegisterDistribution(distributionName, sourcePath); err != nil {
 		return fmt.Errorf("import error: %v", err)
 	}
 

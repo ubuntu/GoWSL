@@ -166,6 +166,27 @@ func (d *Distro) Uninstall(ctx context.Context) (err error) {
 	return d.backend.WslUnregisterDistribution(d.Name())
 }
 
+func Import(ctx context.Context, distributionName, sourcePath, destinationPath string) (Distro, error) {
+	err := os.MkdirAll(destinationPath, 0700)
+	if err != nil {
+		return Distro{}, fmt.Errorf("could not create destination path: %v", err)
+	}
+
+	stat, err := os.Stat(sourcePath)
+	if err != nil {
+		return Distro{}, fmt.Errorf("could not stat source path: %v", err)
+	} else if stat.IsDir() {
+		return Distro{}, errors.New("source path is a directory")
+	}
+
+	err = selectBackend(ctx).Import(ctx, distributionName, sourcePath, destinationPath)
+	if err != nil {
+		return Distro{}, err
+	}
+
+	return NewDistro(ctx, distributionName), nil
+}
+
 // fixPath deals with the fact that WslRegisterDistribuion is
 // a bit picky with the path format.
 func fixPath(relative string) (string, error) {

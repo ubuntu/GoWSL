@@ -99,6 +99,15 @@ func (b Backend) Install(ctx context.Context, appxName string) error {
 	return nil
 }
 
+func (b Backend) Import(ctx context.Context, distributionName, sourcePath, destinationPath string) error {
+	_, err := wslExe(ctx, "--import", distributionName, destinationPath, sourcePath)
+	if err != nil {
+		return fmt.Errorf("could not install %s: %v", distributionName, err)
+	}
+
+	return nil
+}
+
 // wslExe is a helper function to run wsl.exe with the given arguments.
 // It returns the stdout, or an error containing both stdout and stderr.
 func wslExe(ctx context.Context, args ...string) ([]byte, error) {

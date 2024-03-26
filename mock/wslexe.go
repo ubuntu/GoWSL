@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/google/uuid"
 	"github.com/ubuntu/gowsl/internal/state"
@@ -106,6 +107,22 @@ func (backend Backend) Install(ctx context.Context, appxName string) (err error)
 
 	if appxName == "" {
 		return fmt.Errorf("could not install: %w", ErrNotExist)
+	}
+
+	return nil
+}
+
+func (b *Backend) Import(ctx context.Context, distributionName, sourcePath, destinationPath string) error {
+	out, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return fmt.Errorf("import error: %v", err)
+	}
+	if string(out) == "MOCK_ERROR" {
+		return Error{}
+	}
+
+	if err := b.WslRegisterDistribution(distributionName, sourcePath); err != nil {
+		return fmt.Errorf("import error: %v", err)
 	}
 
 	return nil

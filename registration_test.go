@@ -3,7 +3,10 @@ package gowsl_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -443,6 +446,107 @@ func TestUninstall(t *testing.T) {
 			installed, err := appxIsInstalled(ctx, "Ubuntu-22.04")
 			require.NoError(t, err, "appxIsInstalled should return no error")
 			require.False(t, installed, "Appx should have been uninstalled")
+		})
+	}
+}
+
+func TestImport(t *testing.T) {
+	const (
+		isOK int = iota
+		isBad
+		notExist
+	)
+
+	testCases := map[string]struct {
+		destinationDir      int
+		sourceRootfs        int
+		breakWslExe         bool
+		distroAlreadyExists bool
+
+		wantErr           bool
+		wantNotRegistered bool
+	}{
+		"Success": {},
+		"Success when destination directory does not exist": {destinationDir: notExist},
+
+		"Error when the destination directory cannot be created": {destinationDir: isBad, wantErr: true, wantNotRegistered: true},
+		"Error when the source root FS does not exist":           {sourceRootfs: notExist, wantErr: true, wantNotRegistered: true},
+		"Error when the source root FS is a directory":           {sourceRootfs: isBad, wantErr: true, wantNotRegistered: true},
+		"Error when wsl.exe returns error":                       {breakWslExe: true, wantErr: true, wantNotRegistered: true},
+		"Error when the distro already exists":                   {distroAlreadyExists: true, wantErr: true},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			if wsl.MockAvailable() {
+				t.Parallel()
+				ctx = wsl.WithMock(ctx, wslmock.New())
+			}
+
+			src := t.TempDir()
+			dst := t.TempDir()
+
+			switch tc.destinationDir {
+			case isOK:
+				dst = filepath.Join(dst, "destinationDir")
+			case isBad:
+				dst = filepath.Join(dst, "destinationFile")
+				err := os.WriteFile(dst, []byte{}, 0600)
+				require.NoError(t, err, "Setup: could not create destination file")
+			case notExist:
+			default:
+				panic("Unrecognized value in destinationDir enum")
+			}
+
+			var tarball string
+			switch tc.sourceRootfs {
+			case isOK:
+				var contents []byte
+				if tc.breakWslExe {
+					// This will also break the real WSL because it's not a
+					// valid tarball. Note that empty files ARE valid tarballs.
+					contents = []byte("MOCK_ERROR")
+				}
+				tarball = filepath.Join(src, "rootfs.tar.gz")
+				err := os.WriteFile(tarball, contents, 0600)
+				require.NoError(t, err, "Setup: could not writer fake tarball")
+			case notExist:
+				tarball = filepath.Join(src, "idontexist")
+			case isBad:
+				// It's bad because it is a directory
+				tarball = src
+			default:
+				panic("Unrecognized value in sourceRootfs enum")
+			}
+
+			distroName := uniqueDistroName(t)
+			if tc.distroAlreadyExists {
+				distroName = newTestDistro(t, ctx, tarball).Name()
+			}
+			defer uninstallDistro(wsl.NewDistro(ctx, distroName), false)
+
+			cancel := wslExeGuard(time.Minute)
+			d, err := wsl.Import(ctx, distroName, tarball, dst)
+			cancel()
+			if tc.wantErr {
+				require.Error(t, err, "Import should return error")
+			} else {
+				require.NoError(t, err, "Import should not return an error")
+				require.Equal(t, distroName, d.Name(), "Distro should have the name that it was imported with")
+			}
+
+			distros, err := registeredDistros(ctx)
+			require.NoError(t, err, "Could not fetch registered distros")
+
+			found := slices.ContainsFunc(distros, func(d wsl.Distro) bool {
+				return d.Name() == distroName
+			})
+			if tc.wantNotRegistered {
+				require.False(t, found, "Distro should not have been registered")
+				return
+			}
+			require.True(t, found, "Distro should have been registered")
 		})
 	}
 }

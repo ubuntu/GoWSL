@@ -166,6 +166,7 @@ func (d *Distro) Uninstall(ctx context.Context) (err error) {
 	return d.backend.WslUnregisterDistribution(d.Name())
 }
 
+// Import creates a new distro from a source root filesystem.
 func Import(ctx context.Context, distributionName, sourcePath, destinationPath string) (Distro, error) {
 	err := os.MkdirAll(destinationPath, 0700)
 	if err != nil {

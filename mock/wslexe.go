@@ -112,6 +112,7 @@ func (backend Backend) Install(ctx context.Context, appxName string) (err error)
 	return nil
 }
 
+// Import creates a new distro from a source root filesystem.
 func (b *Backend) Import(ctx context.Context, distributionName, sourcePath, destinationPath string) error {
 	out, err := os.ReadFile(sourcePath)
 	if err != nil {

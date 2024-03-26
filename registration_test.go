@@ -524,7 +524,12 @@ func TestImport(t *testing.T) {
 			if tc.distroAlreadyExists {
 				distroName = newTestDistro(t, ctx, tarball).Name()
 			}
-			defer uninstallDistro(wsl.NewDistro(ctx, distroName), false)
+			t.Cleanup(func() {
+				err := uninstallDistro(wsl.NewDistro(ctx, distroName), false)
+				if err != nil {
+					t.Logf("Cleanup: %v", err)
+				}
+			})
 
 			cancel := wslExeGuard(time.Minute)
 			d, err := wsl.Import(ctx, distroName, tarball, dst)

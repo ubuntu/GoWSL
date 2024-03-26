@@ -38,3 +38,9 @@ func (Backend) State(distributionName string) (s state.State, err error) {
 func (Backend) Install(ctx context.Context, appxName string) (err error) {
 	return errors.New("not implemented")
 }
+
+// Import creates a new distro from a source root filesystem.
+// This implementation will always fail on Linux.
+func (b Backend) Import(ctx context.Context, distributionName, sourcePath, destinationPath string) error {
+	return errors.New("not implemented")
+}

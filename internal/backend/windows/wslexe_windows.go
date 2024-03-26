@@ -99,6 +99,7 @@ func (b Backend) Install(ctx context.Context, appxName string) error {
 	return nil
 }
 
+// Import creates a new distro from a source root filesystem.
 func (b Backend) Import(ctx context.Context, distributionName, sourcePath, destinationPath string) error {
 	_, err := wslExe(ctx, "--import", distributionName, destinationPath, sourcePath)
 	if err != nil {

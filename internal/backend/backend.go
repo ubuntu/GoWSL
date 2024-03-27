@@ -32,6 +32,7 @@ type Backend interface {
 	Terminate(distroName string) error
 	SetAsDefault(distroName string) error
 	Install(ctx context.Context, appxName string) error
+	Import(ctx context.Context, distributionName, sourcePath, destinationPath string) error
 
 	// Win32
 	WslConfigureDistribution(distributionName string, defaultUID uint32, wslDistributionFlags flags.WslFlags) error

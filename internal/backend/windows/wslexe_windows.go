@@ -16,8 +16,8 @@ import (
 	"github.com/ubuntu/gowsl/internal/state"
 )
 
-// ErrWslTimeout is the error returned when wsl.exe commands don't respond in time.
-var ErrWslTimeout = errors.New("wsl.exe did not respond: consider restarting wslservice.exe")
+// errWslTimeout is the error returned when wsl.exe commands don't respond in time.
+var errWslTimeout = errors.New("wsl.exe did not respond: consider restarting wslservice.exe")
 
 // Shutdown shuts down all distros
 //
@@ -25,7 +25,7 @@ var ErrWslTimeout = errors.New("wsl.exe did not respond: consider restarting wsl
 //
 //	`wsl.exe --Shutdown
 func (Backend) Shutdown() error {
-	ctx, cancel := context.WithTimeoutCause(context.Background(), 10*time.Second, ErrWslTimeout)
+	ctx, cancel := context.WithTimeoutCause(context.Background(), 10*time.Second, errWslTimeout)
 	defer cancel()
 
 	_, err := wslExe(ctx, "--shutdown")
@@ -41,7 +41,7 @@ func (Backend) Shutdown() error {
 //
 //	`wsl.exe --Terminate <distroName>`
 func (Backend) Terminate(distroName string) error {
-	ctx, cancel := context.WithTimeoutCause(context.Background(), 5*time.Second, ErrWslTimeout)
+	ctx, cancel := context.WithTimeoutCause(context.Background(), 5*time.Second, errWslTimeout)
 	defer cancel()
 
 	_, err := wslExe(ctx, "--terminate", distroName)
@@ -57,7 +57,7 @@ func (Backend) Terminate(distroName string) error {
 //
 //	`wsl.exe --set-default <distroName>`
 func (Backend) SetAsDefault(distroName string) error {
-	ctx, cancel := context.WithTimeoutCause(context.Background(), 5*time.Second, ErrWslTimeout)
+	ctx, cancel := context.WithTimeoutCause(context.Background(), 5*time.Second, errWslTimeout)
 	defer cancel()
 
 	_, err := wslExe(ctx, "--set-default", distroName)
@@ -69,7 +69,7 @@ func (Backend) SetAsDefault(distroName string) error {
 
 // State returns the state of a particular distro as seen in `wsl.exe -l -v`.
 func (Backend) State(distributionName string) (s state.State, err error) {
-	ctx, cancel := context.WithTimeoutCause(context.Background(), 5*time.Second, ErrWslTimeout)
+	ctx, cancel := context.WithTimeoutCause(context.Background(), 5*time.Second, errWslTimeout)
 	defer cancel()
 
 	out, err := wslExe(ctx, "--list", "--all", "--verbose")

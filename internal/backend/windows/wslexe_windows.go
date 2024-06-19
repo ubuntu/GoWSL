@@ -41,7 +41,7 @@ func (Backend) Shutdown() error {
 //
 //	`wsl.exe --Terminate <distroName>`
 func (Backend) Terminate(distroName string) error {
-	ctx, cancel := context.WithTimeoutCause(context.Background(), 3*time.Second, ErrWslTimeout)
+	ctx, cancel := context.WithTimeoutCause(context.Background(), 5*time.Second, ErrWslTimeout)
 	defer cancel()
 
 	_, err := wslExe(ctx, "--terminate", distroName)
@@ -57,7 +57,7 @@ func (Backend) Terminate(distroName string) error {
 //
 //	`wsl.exe --set-default <distroName>`
 func (Backend) SetAsDefault(distroName string) error {
-	ctx, cancel := context.WithTimeoutCause(context.Background(), 1*time.Second, ErrWslTimeout)
+	ctx, cancel := context.WithTimeoutCause(context.Background(), 5*time.Second, ErrWslTimeout)
 	defer cancel()
 
 	_, err := wslExe(ctx, "--set-default", distroName)
@@ -69,7 +69,7 @@ func (Backend) SetAsDefault(distroName string) error {
 
 // State returns the state of a particular distro as seen in `wsl.exe -l -v`.
 func (Backend) State(distributionName string) (s state.State, err error) {
-	ctx, cancel := context.WithTimeoutCause(context.Background(), 1*time.Second, ErrWslTimeout)
+	ctx, cancel := context.WithTimeoutCause(context.Background(), 5*time.Second, ErrWslTimeout)
 	defer cancel()
 
 	out, err := wslExe(ctx, "--list", "--all", "--verbose")

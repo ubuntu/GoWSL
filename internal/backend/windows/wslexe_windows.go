@@ -6,13 +6,18 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/ubuntu/gowsl/internal/state"
 )
+
+// errWslTimeout is the error returned when wsl.exe commands don't respond in time.
+var errWslTimeout = errors.New("wsl.exe did not respond: consider restarting wslservice.exe")
 
 // Shutdown shuts down all distros
 //
@@ -20,7 +25,10 @@ import (
 //
 //	`wsl.exe --Shutdown
 func (Backend) Shutdown() error {
-	_, err := wslExe(context.Background(), "--shutdown")
+	ctx, cancel := context.WithTimeoutCause(context.Background(), 10*time.Second, errWslTimeout)
+	defer cancel()
+
+	_, err := wslExe(ctx, "--shutdown")
 	if err != nil {
 		return fmt.Errorf("could not shut WSL down: %w", err)
 	}
@@ -33,7 +41,10 @@ func (Backend) Shutdown() error {
 //
 //	`wsl.exe --Terminate <distroName>`
 func (Backend) Terminate(distroName string) error {
-	_, err := wslExe(context.Background(), "--terminate", distroName)
+	ctx, cancel := context.WithTimeoutCause(context.Background(), 5*time.Second, errWslTimeout)
+	defer cancel()
+
+	_, err := wslExe(ctx, "--terminate", distroName)
 	if err != nil {
 		return fmt.Errorf("could not terminate distro %q: %w", distroName, err)
 	}
@@ -46,7 +57,10 @@ func (Backend) Terminate(distroName string) error {
 //
 //	`wsl.exe --set-default <distroName>`
 func (Backend) SetAsDefault(distroName string) error {
-	_, err := wslExe(context.Background(), "--set-default", distroName)
+	ctx, cancel := context.WithTimeoutCause(context.Background(), 5*time.Second, errWslTimeout)
+	defer cancel()
+
+	_, err := wslExe(ctx, "--set-default", distroName)
 	if err != nil {
 		return fmt.Errorf("could not set %q as default: %w", distroName, err)
 	}
@@ -55,7 +69,10 @@ func (Backend) SetAsDefault(distroName string) error {
 
 // State returns the state of a particular distro as seen in `wsl.exe -l -v`.
 func (Backend) State(distributionName string) (s state.State, err error) {
-	out, err := wslExe(context.Background(), "--list", "--all", "--verbose")
+	ctx, cancel := context.WithTimeoutCause(context.Background(), 5*time.Second, errWslTimeout)
+	defer cancel()
+
+	out, err := wslExe(ctx, "--list", "--all", "--verbose")
 	if err != nil {
 		return s, fmt.Errorf("could not get states of distros: %w", err)
 	}

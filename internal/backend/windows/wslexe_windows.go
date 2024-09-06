@@ -144,13 +144,16 @@ func wslExe(ctx context.Context, args ...string) ([]byte, error) {
 		return stdout.Bytes(), nil
 	}
 
-	if strings.Contains(stdout.String(), "Wsl/Service/WSL_E_DISTRO_NOT_FOUND") {
+	out := stdout.String()
+	e := stderr.String()
+
+	if strings.Contains(out, "Wsl/Service/WSL_E_DISTRO_NOT_FOUND") {
 		return nil, ErrNotExist
 	}
 
-	if strings.Contains(stderr.String(), "Wsl/Service/WSL_E_DISTRO_NOT_FOUND") {
+	if strings.Contains(e, "Wsl/Service/WSL_E_DISTRO_NOT_FOUND") {
 		return nil, ErrNotExist
 	}
 
-	return nil, fmt.Errorf("%v. Stdout: %s. Stderr: %s", err, stdout.Bytes(), stderr.Bytes())
+	return nil, fmt.Errorf("%v. Stdout: %s. Stderr: %s", err, out, e)
 }

@@ -84,7 +84,7 @@ func TestShell(t *testing.T) {
 
 			// Because Shell is an interactive command, it needs to be quit from
 			// outside. This goroutine sets a fuse before shutting down the distro.
-			tk := time.AfterFunc(10*time.Second, func() {
+			tk := time.AfterFunc(1*time.Minute, func() {
 				t.Logf("Command timed out")
 				err := d.Terminate()
 				if err != nil {

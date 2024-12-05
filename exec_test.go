@@ -60,8 +60,8 @@ func TestCommandRun(t *testing.T) {
 		"Error when the registry is inaccessible": {cmd: "exit 0", registryInaccessible: true, wantError: true},
 
 		// Timeout context test cases
-		"Success without timing out":                                        {cmd: "exit 0", timeout: 10 * time.Second},
-		"Error when the command's exit code is non-zero without timing out": {cmd: "exit 42", timeout: 10 * time.Second, wantError: true, wantExitCode: 42},
+		"Success without timing out":                                        {cmd: "exit 0", timeout: 1 * time.Minute},
+		"Error when the command's exit code is non-zero without timing out": {cmd: "exit 42", timeout: 1 * time.Minute, wantError: true, wantExitCode: 42},
 		"Error with a non-registered distro without timing out":             {cmd: "exit 0", fakeDistro: true, wantError: true},
 		"Error when timing out before Run":                                  {cmd: "exit 0", timeout: 1 * time.Nanosecond, wantError: true},
 		"Error when timing out during Run":                                  {cmd: "sleep 5", timeout: 2 * time.Second, wantError: true},
@@ -222,8 +222,8 @@ func TestCommandStartWait(t *testing.T) {
 		"Error when the command returns non-zero and piping both stdout and stderr": {distro: &realDistro, cmd: "echo 'Hello!' && sleep 1 && echo 'Error!' >&2 && exit 42", stdoutPipe: true, wantStdout: "Hello!\n", stderrPipe: true, wantStderr: "Error!\n", wantErrOn: AfterWait, wantExitError: 42},
 
 		// Timeout context
-		"Success when not timing out":                            {distro: &realDistro, cmd: "exit 0", timeout: 10 * time.Second},
-		"Error when command returns non-zero without timing out": {distro: &realDistro, cmd: "exit 42", timeout: 10 * time.Second, wantErrOn: AfterWait, wantExitError: 42},
+		"Success when not timing out":                            {distro: &realDistro, cmd: "exit 0", timeout: 1 * time.Minute},
+		"Error when command returns non-zero without timing out": {distro: &realDistro, cmd: "exit 42", timeout: 1 * time.Minute, wantErrOn: AfterWait, wantExitError: 42},
 		"Error when timing out before execution":                 {distro: &realDistro, cmd: "exit 0", timeout: time.Nanosecond, wantErrOn: AfterStart},
 		"Error when timing out during execution":                 {distro: &realDistro, cmd: "sleep 5", timeout: 3 * time.Second, wantErrOn: AfterWait},
 

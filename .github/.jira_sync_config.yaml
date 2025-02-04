@@ -1,0 +1,9 @@
+settings:
+  components:
+    - WSL
+  labels:
+    - jira
+  jira_project_key: UDENG
+  status_mapping:
+    opened: Untriaged
+    closed: Done

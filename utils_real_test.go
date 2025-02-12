@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -117,42 +118,43 @@ func registeredDistros(ctx context.Context) (distros []wsl.Distro, err error) {
 	return distros, err
 }
 
-// defaultDistro gets the default distro's name via wsl.exe to bypass wsl.DefaultDistro in order to
-// better decouple tests.
+// defaultDistro gets the default distro's name via wsl.exe --status to bypass wsl.Default in order to better decouple tests.
 func defaultDistro(ctx context.Context) (string, bool, error) {
 	defer wslExeGuard(5 * time.Second)()
 
-	out, err := exec.Command("powershell.exe", "-Command", "$env:WSL_UTF8=1; wsl.exe --list --verbose").CombinedOutput()
+	out, err := exec.Command("powershell.exe", "-NoProfile", "-Command", "$env:WSL_UTF8=1; wsl.exe --status").CombinedOutput()
 	if err != nil {
-		if target := (&exec.ExitError{}); !errors.As(err, &target) {
-			return "", false, fmt.Errorf("failed to find current default distro: %v", err)
-		}
-		// cannot read from target.StdErr because message is printed to Stdout
-		if !strings.Contains(string(out), "Wsl/WSL_E_DEFAULT_DISTRO_NOT_FOUND") {
-			return "", false, fmt.Errorf("failed to find current default distro: %v. Output: %s", err, out)
-		}
-		return "", false, nil // No distros installed: no default
+		return "", false, fmt.Errorf("failed to find current default distro: %v", err)
 	}
 
+	// wsl --status output looks like
+	// When there is a default distro:
+	// ```
+	// Default Distribution: Ubuntu-20.04
+	// Default Version: 2
+	// ```
+	// When there is no default distro:
+	// ```
+	// Default Version: 2
+	// ```
+	//
+	// The first field (considering ":" as separator) is localized, so we cannot rely on it for comparisons.
+	// The second field, though, is either the WSL version (1 or 2) or the default distro name.
 	s := bufio.NewScanner(bytes.NewReader(out))
-	s.Scan() // Ignore first line (table header)
 	for s.Scan() {
-		line := s.Text()
-		if !strings.HasPrefix(line, "*") {
+		fields := strings.Split(s.Text(), ":")
+		if len(fields) < 2 { //ill-formed line?
 			continue
 		}
-		data := strings.Fields(line)
-		if len(data) < 2 {
-			return "", false, fmt.Errorf("failed to parse 'wsl.exe --list --verbose' output, line %q", line)
+
+		if _, err := strconv.Atoi(strings.TrimSpace(fields[1])); err == nil {
+			// it's a number, so must be the version line
+			continue
 		}
-		return data[1], true, nil
+
+		return strings.TrimSpace(fields[1]), true, nil
 	}
 
-	if err := s.Err(); err != nil {
-		return "", false, err
-	}
-
-	// No distro is default (but some exist, likely in the process of being installed/unistalled)
 	return "", false, nil
 }
 

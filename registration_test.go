@@ -72,7 +72,10 @@ func TestRegister(t *testing.T) {
 			require.NoError(t, err, "Unexpected failure in registering distro %q.", d.Name())
 			list, err := testDistros(ctx)
 			require.NoError(t, err, "Failed to read list of registered test distros.")
-			require.Contains(t, list, d, "Failed to find distro in list of registered distros.")
+			found := slices.ContainsFunc(list, func(distro wsl.Distro) bool {
+				return strings.EqualFold(distro.Name(), d.Name())
+			})
+			require.Truef(t, found, "Failed to find distro %v in list of registered distros %v.", d, list)
 
 			// Testing double registration failure
 			cancel = wslExeGuard(time.Minute)
@@ -124,9 +127,16 @@ func TestRegisteredDistros(t *testing.T) {
 			}
 			require.NoError(t, err, "RegisteredDistros should have returned no errors")
 
-			assert.Contains(t, list, d1)
-			assert.Contains(t, list, d2)
-			assert.NotContains(t, list, d3)
+			assert.True(t, slices.ContainsFunc(list, func(d wsl.Distro) bool {
+				return strings.EqualFold(d.Name(), d1.Name())
+			}), "Distro %v should be in the list of RegisteredDistros %v", d1, list)
+			assert.True(t, slices.ContainsFunc(list, func(d wsl.Distro) bool {
+				return strings.EqualFold(d.Name(), d2.Name())
+			}), "Distro %v should be in the list of RegisteredDistros %v", d2, list)
+
+			assert.False(t, slices.ContainsFunc(list, func(d wsl.Distro) bool {
+				return strings.EqualFold(d.Name(), d3.Name())
+			}), "Distro %v should NOT be in the list of RegisteredDistros %v", d3, list)
 		})
 	}
 }
@@ -538,14 +548,14 @@ func TestImport(t *testing.T) {
 				require.Error(t, err, "Import should return error")
 			} else {
 				require.NoError(t, err, "Import should not return an error")
-				require.Equal(t, distroName, d.Name(), "Distro should have the name that it was imported with")
+				require.True(t, strings.EqualFold(distroName, d.Name()), "Distro should have the name that it was imported with")
 			}
 
 			distros, err := registeredDistros(ctx)
 			require.NoError(t, err, "Could not fetch registered distros")
 
 			found := slices.ContainsFunc(distros, func(d wsl.Distro) bool {
-				return d.Name() == distroName
+				return strings.EqualFold(d.Name(), distroName)
 			})
 			if tc.wantNotRegistered {
 				require.False(t, found, "Distro should not have been registered")

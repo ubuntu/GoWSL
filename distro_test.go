@@ -547,29 +547,34 @@ func TestGetConfiguration(t *testing.T) {
 				d = wsl.NewDistro(ctx, uniqueDistroName(t)+tc.distroName)
 			}
 
-			c, err := d.GetConfiguration()
+			// Verifies case insensitiveness of distro names
+			upper := wsl.NewDistro(ctx, strings.ToUpper(d.Name()))
+			lower := wsl.NewDistro(ctx, strings.ToUpper(d.Name()))
+			for _, distro := range []*wsl.Distro{&d, &upper, &lower} {
+				c, err := distro.GetConfiguration()
 
-			if tc.wantErr {
-				require.Error(t, err, "unexpected success in GetConfiguration")
-				if tc.wantErrNotExist {
-					require.ErrorIs(t, err, wsl.ErrNotExist, "expected GetConfiguration to return ErrNotExist")
+				if tc.wantErr {
+					require.Error(t, err, "unexpected success in GetConfiguration")
+					if tc.wantErrNotExist {
+						require.ErrorIs(t, err, wsl.ErrNotExist, "expected GetConfiguration to return ErrNotExist")
+					}
+					return
 				}
-				return
-			}
-			require.NoError(t, err, "unexpected failure in GetConfiguration")
-			assert.Equal(t, uint8(2), c.Version)
-			assert.Zero(t, c.DefaultUID)
-			assert.True(t, c.InteropEnabled)
-			assert.True(t, c.PathAppended)
-			assert.True(t, c.DriveMountingEnabled)
+				require.NoError(t, err, "unexpected failure in GetConfiguration")
+				assert.Equal(t, uint8(2), c.Version)
+				assert.Zero(t, c.DefaultUID)
+				assert.True(t, c.InteropEnabled)
+				assert.True(t, c.PathAppended)
+				assert.True(t, c.DriveMountingEnabled)
 
-			defaultEnvs := map[string]string{
-				"HOSTTYPE": "x86_64",
-				"LANG":     "en_US.UTF-8",
-				"PATH":     "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games",
-				"TERM":     "xterm-256color",
+				defaultEnvs := map[string]string{
+					"HOSTTYPE": "x86_64",
+					"LANG":     "en_US.UTF-8",
+					"PATH":     "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games",
+					"TERM":     "xterm-256color",
+				}
+				assert.Equal(t, c.DefaultEnvironmentVariables, defaultEnvs)
 			}
-			assert.Equal(t, c.DefaultEnvironmentVariables, defaultEnvs)
 		})
 	}
 }

@@ -655,6 +655,28 @@ func TestDistroState(t *testing.T) {
 	}
 }
 
+func TestEqual(t *testing.T) {
+	ctx, _ := setupBackend(t, context.Background())
+
+	d := newTestDistro(t, ctx, rootFS)
+	upper := wsl.NewDistro(ctx, strings.ToUpper(d.Name()))
+	lower := wsl.NewDistro(ctx, strings.ToLower(d.Name()))
+
+	require.True(t, d.Equal(d), "Distro should be equal to itself")
+	require.True(t, d.Equal(upper), "Distro should be equal to itself despite the name casing")
+	require.True(t, d.Equal(lower), "Distro should be equal to itself despite the name casing")
+
+	unrelated := wsl.NewDistro(ctx, uniqueDistroName(t))
+	upper = wsl.NewDistro(ctx, strings.ToUpper(unrelated.Name()))
+	lower = wsl.NewDistro(ctx, strings.ToLower(unrelated.Name()))
+
+	require.False(t, d.Equal(unrelated), "Distro should be equal to another distro")
+	require.False(t, d.Equal(upper), "Distro should not be equal to another distro despite the name casing")
+	require.False(t, d.Equal(lower), "Distro should not be equal to another distro despite the name casing")
+	require.True(t, unrelated.Equal(upper), "Distro should be equal to itself despite the name casing")
+	require.True(t, unrelated.Equal(lower), "Distro should be equal to itself despite the name casing")
+}
+
 //nolint:revive // No, I wont' put the context before the *testing.T.
 func asyncNewTestDistro(t *testing.T, ctx context.Context, rootFs string) wsl.Distro {
 	t.Helper()

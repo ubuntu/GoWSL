@@ -638,14 +638,19 @@ func TestDistroState(t *testing.T) {
 				require.Failf(t, "Setup: unknown action enum", "Value: %d", tc.action)
 			}
 
-			got, err := tc.distro.State()
-			if tc.wantErr {
-				require.Error(t, err, "distro.State should return an error")
-				return
-			}
-			require.NoError(t, err, "distro.State should not return an error")
+			// The expected state shall be the same independent of the distro name casing.
+			upper := wsl.NewDistro(ctx, strings.ToUpper(tc.distro.Name()))
+			lower := wsl.NewDistro(ctx, strings.ToLower(tc.distro.Name()))
+			for _, distro := range []*wsl.Distro{tc.distro, &upper, &lower} {
+				got, err := distro.State()
+				if tc.wantErr {
+					require.Error(t, err, "distro.State should return an error")
+					continue
+				}
+				require.NoError(t, err, "distro.State should not return an error")
 
-			require.Equal(t, tc.want.String(), got.String(), "distro.State() does not match expected value")
+				require.Equal(t, tc.want.String(), got.String(), "distro.State() does not match expected value")
+			}
 		})
 	}
 }

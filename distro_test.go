@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"regexp"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -321,17 +322,22 @@ func TestGUID(t *testing.T) {
 				t.Parallel()
 			}
 
-			guid, err := tc.distro.GUID()
-			if tc.wantErr {
-				require.Error(t, err, "Unexpected success obtaining GUID of non-eligible distro")
-				if tc.wantNotExistErr {
-					require.ErrorIs(t, err, wsl.ErrNotExist, "GUID error should have been ErrNotExist")
+			// Verifies case insensitiveness of distro names
+			upper := wsl.NewDistro(ctx, strings.ToUpper(tc.distro.Name()))
+			lower := wsl.NewDistro(ctx, strings.ToUpper(tc.distro.Name()))
+			for _, d := range []*wsl.Distro{tc.distro, &upper, &lower} {
+				guid, err := d.GUID()
+				if tc.wantErr {
+					require.Error(t, err, "Unexpected success obtaining GUID of non-eligible distro")
+					if tc.wantNotExistErr {
+						require.ErrorIs(t, err, wsl.ErrNotExist, "GUID error should have been ErrNotExist")
+					}
+					continue
 				}
-				return
+				require.NoError(t, err, "could not obtain GUID")
+				require.NotEqual(t, (uuid.UUID{}), guid, "GUID was not initialized")
+				require.Regexpf(t, guidRegex, guid.String(), "GUID does not match pattern")
 			}
-			require.NoError(t, err, "could not obtain GUID")
-			require.NotEqual(t, (uuid.UUID{}), guid, "GUID was not initialized")
-			require.Regexpf(t, guidRegex, guid.String(), "GUID does not match pattern")
 		})
 	}
 }

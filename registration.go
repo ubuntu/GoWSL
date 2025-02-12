@@ -83,8 +83,8 @@ func registeredDistros(backend backend.Backend) (distros map[string]uuid.UUID, e
 		if err != nil {
 			return nil, err
 		}
-
-		distros[name] = guid
+		// Let's normalize storing distro names as Unicode lower case, to prevent case sensitivity issues.
+		distros[strings.ToLower(name)] = guid
 	}
 
 	return distros, nil

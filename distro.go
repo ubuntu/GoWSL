@@ -62,7 +62,7 @@ func (d *Distro) GUID() (id uuid.UUID, err error) {
 	if err != nil {
 		return id, err
 	}
-	id, ok := distros[d.Name()]
+	id, ok := distros[strings.ToLower(d.Name())]
 	if !ok {
 		return id, ErrNotExist
 	}

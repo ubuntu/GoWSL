@@ -576,6 +576,11 @@ func requireInstallFromAppxWindows(t *testing.T, ctx context.Context, appxName s
 
 	d = wsl.NewDistro(ctx, distroName)
 	_ = d.Unregister()
+	// A previous unsuccessful installation may have left leftovers inside HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss\.
+	// We need to find the key (guid) whose names match appxName and delete that key.
+	if err := cleanupRegistry(t, d); err != nil {
+		t.Logf("when cleaning up potential leftovers inside the registry: %v", err)
+	}
 
 	cmd := exec.CommandContext(ctx,
 		"wsl.exe",

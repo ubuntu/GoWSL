@@ -649,7 +649,13 @@ func TestDistroState(t *testing.T) {
 				}
 				require.NoError(t, err, "distro.State should not return an error")
 
-				require.Equal(t, tc.want.String(), got.String(), "distro.State() does not match expected value")
+				if tc.want == wsl.Installing {
+					// The "Installing" state is transient, thus inherently racy. By the time this loop finished
+					// installation may already have finished as well and the distro may be either running or stopped, But certainly not NotRegistered.
+					require.NotEqualf(t, wsl.NonRegistered, got, "%s .State() should be one of Installing, Running, or Stopped", distro.Name())
+					continue
+				}
+				require.Equalf(t, tc.want.String(), got.String(), "%s .State() does not match expected value", distro.Name())
 			}
 		})
 	}

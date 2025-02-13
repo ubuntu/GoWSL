@@ -15,8 +15,8 @@ jobs:
     # to the whole Github-Azure-WSL orchestra.
     strategy:
       matrix:
-        os: [ubuntu, windows]
-    runs-on: ${{ matrix.os }}-latest
+        os: [ubuntu-latest, windows-2025]
+    runs-on: ${{ matrix.os }}
     steps:
     - name: Set up Git
       shell: bash
@@ -49,7 +49,18 @@ jobs:
       # We skip it on Windows because -race depends on Cgo, which is
       # complicated to enable (it requires Cygwin, MSVC support is
       # broken)
-      if: ${{ matrix.os }} == "ubuntu"
+      if: startsWith(matrix.os, 'ubuntu')
       shell: bash
       run: go test -tags="gowslmock" -shuffle=on -race
+    - name: Set up WSL
+      if: startsWith(matrix.os, 'windows')
+      uses: Ubuntu/WSL/.github/actions/wsl-install@main
+    - name: Test with the real backend
+      if: startsWith(matrix.os, 'windows')
+      shell: powershell
+      run: |
+        # Preparing repo
+        .\prepare-repository.ps1 -AcceptAll
+        go test -shuffle=on -timeout 20m
+        if ( ! $? ) { Exit(1) }
 

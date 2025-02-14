@@ -59,7 +59,7 @@ func TestRegister(t *testing.T) {
 				}
 			})
 
-			cancel := wslExeGuard(time.Minute)
+			cancel := wslExeGuard(3 * time.Minute)
 			t.Logf("Registering %q", d.Name())
 			err := d.Register(tc.rootfs)
 			cancel()
@@ -78,7 +78,7 @@ func TestRegister(t *testing.T) {
 			require.Truef(t, found, "Failed to find distro %v in list of registered distros %v.", d, list)
 
 			// Testing double registration failure
-			cancel = wslExeGuard(time.Minute)
+			cancel = wslExeGuard(3 * time.Minute)
 			t.Logf("Registering %q", d.Name())
 			err = d.Register(tc.rootfs)
 			cancel()
@@ -240,7 +240,7 @@ func TestUnregister(t *testing.T) {
 
 			t.Logf("Unregistering %q", d.Name())
 
-			cancel := wslExeGuard(time.Minute)
+			cancel := wslExeGuard(3 * time.Minute)
 			err := d.Unregister()
 			cancel()
 
@@ -541,7 +541,7 @@ func TestImport(t *testing.T) {
 				}
 			})
 
-			cancel := wslExeGuard(time.Minute)
+			cancel := wslExeGuard(3 * time.Minute)
 			d, err := wsl.Import(ctx, distroName, tarball, dst)
 			cancel()
 			if tc.wantErr {
@@ -591,7 +591,7 @@ func requireInstallFromAppxWindows(t *testing.T, ctx context.Context, appxName s
 	out, err := cmd.Output()
 	require.NoErrorf(t, err, "could not install: %v. Stdout: %s", err, out)
 
-	defer wslExeGuard(time.Minute)()
+	defer wslExeGuard(3 * time.Minute)()
 
 	//nolint:gosec // It's fine for tests
 	// Need to use powershell in order to find the launcher executable

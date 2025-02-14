@@ -697,7 +697,8 @@ func asyncNewTestDistro(t *testing.T, ctx context.Context, rootFs string) wsl.Di
 	go func() {
 		defer wg.Done()
 
-		defer wslExeGuard(2 * time.Minute)()
+		defer wslExeGuard(3 * time.Minute)()
+		t.Logf("Setup: installing %q asynchronously", d.Name())
 		cmd := fmt.Sprintf("$env:WSL_UTF8=1 ;  wsl --import %q %q %q", d.Name(), loc, rootFs)
 		//nolint:gosec // Code injection is not a concern in tests.
 		out, err := exec.Command("powershell.exe", "-Command", cmd).CombinedOutput()

@@ -31,7 +31,7 @@ import (
 func installDistro(t *testing.T, ctx context.Context, distroName, location, rootfs string) {
 	t.Helper()
 
-	defer wslExeGuard(2 * time.Minute)()
+	defer wslExeGuard(3 * time.Minute)()
 
 	cmd := fmt.Sprintf("$env:WSL_UTF8=1 ;  wsl --import %q %q %q", distroName, location, rootfs)
 

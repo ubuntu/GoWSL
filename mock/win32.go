@@ -335,7 +335,11 @@ func (b *Backend) findDistroKey(distroName string) (GUID string, key *RegistryKe
 		if !ok {
 			continue
 		}
-		if name != distroName {
+		n, ok := name.(string)
+		if !ok { // not a string? garbage?
+			continue
+		}
+		if !strings.EqualFold(n, distroName) {
 			continue
 		}
 

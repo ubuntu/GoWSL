@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/ubuntu/decorate"
@@ -43,6 +44,11 @@ func NewDistro(ctx context.Context, name string) Distro {
 	}
 }
 
+// Equal compares two distros for equality independent of their name casing.
+func (d Distro) Equal(other Distro) bool {
+	return d.backend == other.backend && strings.EqualFold(d.name, other.name)
+}
+
 // Name is a getter for the DistroName as shown in "wsl.exe --list".
 func (d Distro) Name() string {
 	return d.name
@@ -56,7 +62,7 @@ func (d *Distro) GUID() (id uuid.UUID, err error) {
 	if err != nil {
 		return id, err
 	}
-	id, ok := distros[d.Name()]
+	id, ok := distros[strings.ToLower(d.Name())]
 	if !ok {
 		return id, ErrNotExist
 	}

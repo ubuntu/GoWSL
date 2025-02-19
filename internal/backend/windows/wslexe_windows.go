@@ -98,7 +98,7 @@ func (Backend) State(distributionName string) (s state.State, err error) {
 			data = data[1:]
 		}
 
-		if data[0] == distributionName {
+		if strings.EqualFold(data[0], distributionName) {
 			return state.NewFromString(data[1])
 		}
 	}

@@ -324,7 +324,7 @@ func TestGUID(t *testing.T) {
 
 			// Verifies case insensitiveness of distro names
 			upper := wsl.NewDistro(ctx, strings.ToUpper(tc.distro.Name()))
-			lower := wsl.NewDistro(ctx, strings.ToUpper(tc.distro.Name()))
+			lower := wsl.NewDistro(ctx, strings.ToLower(tc.distro.Name()))
 			for _, d := range []*wsl.Distro{tc.distro, &upper, &lower} {
 				guid, err := d.GUID()
 				if tc.wantErr {
@@ -549,7 +549,7 @@ func TestGetConfiguration(t *testing.T) {
 
 			// Verifies case insensitiveness of distro names
 			upper := wsl.NewDistro(ctx, strings.ToUpper(d.Name()))
-			lower := wsl.NewDistro(ctx, strings.ToUpper(d.Name()))
+			lower := wsl.NewDistro(ctx, strings.ToLower(d.Name()))
 			for _, distro := range []*wsl.Distro{&d, &upper, &lower} {
 				c, err := distro.GetConfiguration()
 

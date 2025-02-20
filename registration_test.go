@@ -59,7 +59,7 @@ func TestRegister(t *testing.T) {
 				}
 			})
 
-			cancel := wslExeGuard(time.Minute)
+			cancel := wslExeGuard(3 * time.Minute)
 			t.Logf("Registering %q", d.Name())
 			err := d.Register(tc.rootfs)
 			cancel()
@@ -72,10 +72,13 @@ func TestRegister(t *testing.T) {
 			require.NoError(t, err, "Unexpected failure in registering distro %q.", d.Name())
 			list, err := testDistros(ctx)
 			require.NoError(t, err, "Failed to read list of registered test distros.")
-			require.Contains(t, list, d, "Failed to find distro in list of registered distros.")
+			found := slices.ContainsFunc(list, func(distro wsl.Distro) bool {
+				return strings.EqualFold(distro.Name(), d.Name())
+			})
+			require.Truef(t, found, "Failed to find distro %v in list of registered distros %v.", d, list)
 
 			// Testing double registration failure
-			cancel = wslExeGuard(time.Minute)
+			cancel = wslExeGuard(3 * time.Minute)
 			t.Logf("Registering %q", d.Name())
 			err = d.Register(tc.rootfs)
 			cancel()
@@ -124,9 +127,16 @@ func TestRegisteredDistros(t *testing.T) {
 			}
 			require.NoError(t, err, "RegisteredDistros should have returned no errors")
 
-			assert.Contains(t, list, d1)
-			assert.Contains(t, list, d2)
-			assert.NotContains(t, list, d3)
+			assert.True(t, slices.ContainsFunc(list, func(d wsl.Distro) bool {
+				return strings.EqualFold(d.Name(), d1.Name())
+			}), "Distro %v should be in the list of RegisteredDistros %v", d1, list)
+			assert.True(t, slices.ContainsFunc(list, func(d wsl.Distro) bool {
+				return strings.EqualFold(d.Name(), d2.Name())
+			}), "Distro %v should be in the list of RegisteredDistros %v", d2, list)
+
+			assert.False(t, slices.ContainsFunc(list, func(d wsl.Distro) bool {
+				return strings.EqualFold(d.Name(), d3.Name())
+			}), "Distro %v should NOT be in the list of RegisteredDistros %v", d3, list)
 		})
 	}
 }
@@ -230,7 +240,7 @@ func TestUnregister(t *testing.T) {
 
 			t.Logf("Unregistering %q", d.Name())
 
-			cancel := wslExeGuard(time.Minute)
+			cancel := wslExeGuard(3 * time.Minute)
 			err := d.Unregister()
 			cancel()
 
@@ -531,21 +541,21 @@ func TestImport(t *testing.T) {
 				}
 			})
 
-			cancel := wslExeGuard(time.Minute)
+			cancel := wslExeGuard(3 * time.Minute)
 			d, err := wsl.Import(ctx, distroName, tarball, dst)
 			cancel()
 			if tc.wantErr {
 				require.Error(t, err, "Import should return error")
 			} else {
 				require.NoError(t, err, "Import should not return an error")
-				require.Equal(t, distroName, d.Name(), "Distro should have the name that it was imported with")
+				require.True(t, strings.EqualFold(distroName, d.Name()), "Distro should have the name that it was imported with")
 			}
 
 			distros, err := registeredDistros(ctx)
 			require.NoError(t, err, "Could not fetch registered distros")
 
 			found := slices.ContainsFunc(distros, func(d wsl.Distro) bool {
-				return d.Name() == distroName
+				return strings.EqualFold(d.Name(), distroName)
 			})
 			if tc.wantNotRegistered {
 				require.False(t, found, "Distro should not have been registered")
@@ -566,6 +576,11 @@ func requireInstallFromAppxWindows(t *testing.T, ctx context.Context, appxName s
 
 	d = wsl.NewDistro(ctx, distroName)
 	_ = d.Unregister()
+	// A previous unsuccessful installation may have left leftovers inside HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss\.
+	// We need to find the key (guid) whose names match appxName and delete that key.
+	if err := cleanupRegistry(t, d); err != nil {
+		t.Logf("when cleaning up potential leftovers inside the registry: %v", err)
+	}
 
 	cmd := exec.CommandContext(ctx,
 		"wsl.exe",
@@ -576,7 +591,7 @@ func requireInstallFromAppxWindows(t *testing.T, ctx context.Context, appxName s
 	out, err := cmd.Output()
 	require.NoErrorf(t, err, "could not install: %v. Stdout: %s", err, out)
 
-	defer wslExeGuard(time.Minute)()
+	defer wslExeGuard(3 * time.Minute)()
 
 	//nolint:gosec // It's fine for tests
 	// Need to use powershell in order to find the launcher executable

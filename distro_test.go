@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"regexp"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -321,17 +322,22 @@ func TestGUID(t *testing.T) {
 				t.Parallel()
 			}
 
-			guid, err := tc.distro.GUID()
-			if tc.wantErr {
-				require.Error(t, err, "Unexpected success obtaining GUID of non-eligible distro")
-				if tc.wantNotExistErr {
-					require.ErrorIs(t, err, wsl.ErrNotExist, "GUID error should have been ErrNotExist")
+			// Verifies case insensitiveness of distro names
+			upper := wsl.NewDistro(ctx, strings.ToUpper(tc.distro.Name()))
+			lower := wsl.NewDistro(ctx, strings.ToLower(tc.distro.Name()))
+			for _, d := range []*wsl.Distro{tc.distro, &upper, &lower} {
+				guid, err := d.GUID()
+				if tc.wantErr {
+					require.Error(t, err, "Unexpected success obtaining GUID of non-eligible distro")
+					if tc.wantNotExistErr {
+						require.ErrorIs(t, err, wsl.ErrNotExist, "GUID error should have been ErrNotExist")
+					}
+					continue
 				}
-				return
+				require.NoError(t, err, "could not obtain GUID")
+				require.NotEqual(t, (uuid.UUID{}), guid, "GUID was not initialized")
+				require.Regexpf(t, guidRegex, guid.String(), "GUID does not match pattern")
 			}
-			require.NoError(t, err, "could not obtain GUID")
-			require.NotEqual(t, (uuid.UUID{}), guid, "GUID was not initialized")
-			require.Regexpf(t, guidRegex, guid.String(), "GUID does not match pattern")
 		})
 	}
 }
@@ -541,29 +547,34 @@ func TestGetConfiguration(t *testing.T) {
 				d = wsl.NewDistro(ctx, uniqueDistroName(t)+tc.distroName)
 			}
 
-			c, err := d.GetConfiguration()
+			// Verifies case insensitiveness of distro names
+			upper := wsl.NewDistro(ctx, strings.ToUpper(d.Name()))
+			lower := wsl.NewDistro(ctx, strings.ToLower(d.Name()))
+			for _, distro := range []*wsl.Distro{&d, &upper, &lower} {
+				c, err := distro.GetConfiguration()
 
-			if tc.wantErr {
-				require.Error(t, err, "unexpected success in GetConfiguration")
-				if tc.wantErrNotExist {
-					require.ErrorIs(t, err, wsl.ErrNotExist, "expected GetConfiguration to return ErrNotExist")
+				if tc.wantErr {
+					require.Error(t, err, "unexpected success in GetConfiguration")
+					if tc.wantErrNotExist {
+						require.ErrorIs(t, err, wsl.ErrNotExist, "expected GetConfiguration to return ErrNotExist")
+					}
+					return
 				}
-				return
-			}
-			require.NoError(t, err, "unexpected failure in GetConfiguration")
-			assert.Equal(t, uint8(2), c.Version)
-			assert.Zero(t, c.DefaultUID)
-			assert.True(t, c.InteropEnabled)
-			assert.True(t, c.PathAppended)
-			assert.True(t, c.DriveMountingEnabled)
+				require.NoError(t, err, "unexpected failure in GetConfiguration")
+				assert.Equal(t, uint8(2), c.Version)
+				assert.Zero(t, c.DefaultUID)
+				assert.True(t, c.InteropEnabled)
+				assert.True(t, c.PathAppended)
+				assert.True(t, c.DriveMountingEnabled)
 
-			defaultEnvs := map[string]string{
-				"HOSTTYPE": "x86_64",
-				"LANG":     "en_US.UTF-8",
-				"PATH":     "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games",
-				"TERM":     "xterm-256color",
+				defaultEnvs := map[string]string{
+					"HOSTTYPE": "x86_64",
+					"LANG":     "en_US.UTF-8",
+					"PATH":     "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games",
+					"TERM":     "xterm-256color",
+				}
+				assert.Equal(t, c.DefaultEnvironmentVariables, defaultEnvs)
 			}
-			assert.Equal(t, c.DefaultEnvironmentVariables, defaultEnvs)
 		})
 	}
 }
@@ -627,16 +638,49 @@ func TestDistroState(t *testing.T) {
 				require.Failf(t, "Setup: unknown action enum", "Value: %d", tc.action)
 			}
 
-			got, err := tc.distro.State()
-			if tc.wantErr {
-				require.Error(t, err, "distro.State should return an error")
-				return
-			}
-			require.NoError(t, err, "distro.State should not return an error")
+			// The expected state shall be the same independent of the distro name casing.
+			upper := wsl.NewDistro(ctx, strings.ToUpper(tc.distro.Name()))
+			lower := wsl.NewDistro(ctx, strings.ToLower(tc.distro.Name()))
+			for _, distro := range []*wsl.Distro{tc.distro, &upper, &lower} {
+				got, err := distro.State()
+				if tc.wantErr {
+					require.Error(t, err, "distro.State should return an error")
+					continue
+				}
+				require.NoError(t, err, "distro.State should not return an error")
 
-			require.Equal(t, tc.want.String(), got.String(), "distro.State() does not match expected value")
+				if tc.want == wsl.Installing {
+					// The "Installing" state is transient, thus inherently racy. By the time this loop finished
+					// installation may already have finished as well and the distro may be either running or stopped, But certainly not NotRegistered.
+					require.NotEqualf(t, wsl.NonRegistered, got, "%s .State() should be one of Installing, Running, or Stopped", distro.Name())
+					continue
+				}
+				require.Equalf(t, tc.want.String(), got.String(), "%s .State() does not match expected value", distro.Name())
+			}
 		})
 	}
+}
+
+func TestEqual(t *testing.T) {
+	ctx, _ := setupBackend(t, context.Background())
+
+	d := newTestDistro(t, ctx, rootFS)
+	upper := wsl.NewDistro(ctx, strings.ToUpper(d.Name()))
+	lower := wsl.NewDistro(ctx, strings.ToLower(d.Name()))
+
+	require.True(t, d.Equal(d), "Distro should be equal to itself")
+	require.True(t, d.Equal(upper), "Distro should be equal to itself despite the name casing")
+	require.True(t, d.Equal(lower), "Distro should be equal to itself despite the name casing")
+
+	unrelated := wsl.NewDistro(ctx, uniqueDistroName(t))
+	upper = wsl.NewDistro(ctx, strings.ToUpper(unrelated.Name()))
+	lower = wsl.NewDistro(ctx, strings.ToLower(unrelated.Name()))
+
+	require.False(t, d.Equal(unrelated), "Distro should be equal to another distro")
+	require.False(t, d.Equal(upper), "Distro should not be equal to another distro despite the name casing")
+	require.False(t, d.Equal(lower), "Distro should not be equal to another distro despite the name casing")
+	require.True(t, unrelated.Equal(upper), "Distro should be equal to itself despite the name casing")
+	require.True(t, unrelated.Equal(lower), "Distro should be equal to itself despite the name casing")
 }
 
 //nolint:revive // No, I wont' put the context before the *testing.T.
@@ -653,7 +697,8 @@ func asyncNewTestDistro(t *testing.T, ctx context.Context, rootFs string) wsl.Di
 	go func() {
 		defer wg.Done()
 
-		defer wslExeGuard(2 * time.Minute)()
+		defer wslExeGuard(3 * time.Minute)()
+		t.Logf("Setup: installing %q asynchronously", d.Name())
 		cmd := fmt.Sprintf("$env:WSL_UTF8=1 ;  wsl --import %q %q %q", d.Name(), loc, rootFs)
 		//nolint:gosec // Code injection is not a concern in tests.
 		out, err := exec.Command("powershell.exe", "-Command", cmd).CombinedOutput()

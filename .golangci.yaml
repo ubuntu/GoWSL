@@ -4,7 +4,6 @@
 #     golangci-lint run --fix
 #
 # Use argument --build-tags="gowslmock" to lint the mock files.
-
 linters:
   # linters to run in addition to default ones
   enable:
@@ -34,10 +33,8 @@ linters:
     - unparam
     - usestdlibvars
     - whitespace
-
 run:
   timeout: 5m
-
 # Get all linter issues, even if duplicated
 issues:
   exclude-use-default: false
@@ -60,18 +57,12 @@ issues:
     - unused-parameter
     # Sometimes it is more readable it do a `if err:=a(); err != nil` tha simpy `return a()`
     - if-return
-
-nolintlint:
-  require-explanation: true
-  require-specific: true
-
 linters-settings:
-   # Forbid the usage of deprecated ioutil and debug prints
+  # Forbid the usage of deprecated ioutil and debug prints
   forbidigo:
     forbid:
       - ioutil\.
       - ^print.*$
-  staticcheck:
-    # Should be better for it to be autodetected
-    # https://github.com/golangci/golangci-lint/issues/2234
-    go: "1.22.1"
+  nolintlint:
+    require-explanation: true
+    require-specific: true

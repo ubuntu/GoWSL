@@ -1,10 +1,9 @@
 module github.com/ubuntu/gowsl
 
 go 1.22.0
+toolchain go1.23.7
 
-toolchain go1.22.1
-
-require golang.org/x/sys v0.30.0
+require golang.org/x/sys v0.31.0
 
 require (
 	github.com/google/uuid v1.6.0

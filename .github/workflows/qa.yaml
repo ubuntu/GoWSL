@@ -34,12 +34,12 @@ jobs:
       run: |
         go build ./...
     - name: Lint with mock back-end
-      uses: golangci/golangci-lint-action@v6
+      uses: golangci/golangci-lint-action@v8
       with:
         version: v1.56.2
         args:  --build-tags="gowslmock"
     - name: Lint with real back-end
-      uses: golangci/golangci-lint-action@v6
+      uses: golangci/golangci-lint-action@v8
       with:
         version: v1.56.2
     - name: Test with mocks

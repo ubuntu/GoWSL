@@ -3,11 +3,11 @@ package gowsl_test
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"strings"
 	"testing"
 
-	"github.com/0xrawsec/golang-utils/log"
 	"github.com/stretchr/testify/require"
 	wsl "github.com/ubuntu/gowsl"
 )
@@ -65,13 +65,13 @@ func cleanUpTestWslInstances(ctx context.Context) {
 		for _, d := range testInstances {
 			s = s + "\n - " + d.Name()
 		}
-		log.Warnf("Cleanup: The following WSL distros were not properly cleaned up:%s", s)
+		slog.Warn("Cleanup: Some WSL distros were not properly cleaned up:", "distro", s)
 	}
 
 	for _, d := range testInstances {
 		err := uninstallDistro(d, true)
 		if err != nil {
-			log.Warnf("Cleanup: %v\n", err)
+			slog.Warn("Cleanup:", "error", err)
 		}
 	}
 }
@@ -88,7 +88,7 @@ func backUpDefaultDistro(ctx context.Context) (func(), error) {
 	}
 	restore := func() {
 		if err := setDefaultDistro(ctx, distroName); err != nil {
-			log.Warnf("failed to restore default distro: %v", err)
+			slog.Warn("failed to restore default distro:", "error", err)
 		}
 	}
 	return restore, nil

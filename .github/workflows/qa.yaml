@@ -18,49 +18,49 @@ jobs:
         os: [ubuntu-latest, windows-2025]
     runs-on: ${{ matrix.os }}
     steps:
-    - name: Set up Git
-      shell: bash
-      run : |
-        git config --global core.autocrlf false
-        git config --global core.eol lf
-    - name: Check out repository
-      uses: actions/checkout@v4
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: go.mod
-    - name: Build
-      shell: bash
-      run: |
-        go build ./...
-    - name: Lint with mock back-end
-      uses: golangci/golangci-lint-action@v6
-      with:
-        version: v1.56.2
-        args:  --build-tags="gowslmock"
-    - name: Lint with real back-end
-      uses: golangci/golangci-lint-action@v6
-      with:
-        version: v1.56.2
-    - name: Test with mocks
-      shell: bash
-      run: go test -tags="gowslmock" -shuffle=on
-    - name: Test with mocks, race flag enabled
-      # We skip it on Windows because -race depends on Cgo, which is
-      # complicated to enable (it requires Cygwin, MSVC support is
-      # broken)
-      if: startsWith(matrix.os, 'ubuntu')
-      shell: bash
-      run: go test -tags="gowslmock" -shuffle=on -race
-    - name: Set up WSL
-      if: startsWith(matrix.os, 'windows')
-      uses: Ubuntu/WSL/.github/actions/wsl-install@main
-    - name: Test with the real backend
-      if: startsWith(matrix.os, 'windows')
-      shell: powershell
-      run: |
-        # Preparing repo
-        .\prepare-repository.ps1 -AcceptAll
-        go test -shuffle=on -timeout 20m
-        if ( ! $? ) { Exit(1) }
-
+      - name: Set up Git
+        shell: bash
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        shell: bash
+        run: |
+          go build ./...
+      - name: Lint with mock back-end
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64.2
+          args: --build-tags="gowslmock"
+      - name: Lint with real back-end
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64.2
+      - name: Test with mocks
+        shell: bash
+        run: go test -tags="gowslmock" -shuffle=on
+      - name: Test with mocks, race flag enabled
+        # We skip it on Windows because -race depends on Cgo, which is
+        # complicated to enable (it requires Cygwin, MSVC support is
+        # broken)
+        if: startsWith(matrix.os, 'ubuntu')
+        shell: bash
+        run: go test -tags="gowslmock" -shuffle=on -race
+      - name: Get WSL image
+        if: startsWith(matrix.os, 'windows')
+        uses: ./.github/actions/get-wsl-image
+        with:
+          arch: "amd64"
+          output_path: "./images/daily-image.wsl"
+      - name: Test with the real backend
+        if: startsWith(matrix.os, 'windows')
+        shell: powershell
+        run: |
+          go test -shuffle=on -timeout 20m
+          if ( ! $? ) { Exit(1) }

@@ -173,8 +173,7 @@ func (c *Cmd) Output() (out []byte, err error) {
 	if err != nil && captureErr {
 		target := &exec.ExitError{}
 		if errors.As(err, &target) {
-			//nolint:forcetypeassert
-			// copied from stdlib. We know this to be true because it is set further up in this same function
+			//nolint:forcetypeassert // copied from stdlib. We know this to be true because it is set further up in this same function
 			target.Stderr = c.Stderr.(*prefixSuffixSaver).Bytes()
 		}
 	}

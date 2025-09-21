@@ -255,8 +255,8 @@ func callDll(proc *syscall.LazyProc, args ...uintptr) (uint32, error) {
 // processEnvVariables takes the (**char, length) obtained from Win32's API and returs a
 // map[variableName]variableValue. It also deallocates each of the *char strings as well
 // as the **char array.
-func processEnvVariables(cStringArray **char, len uint64) map[string]string {
-	stringPtrs := unsafe.Slice(cStringArray, len)
+func processEnvVariables(cStringArray **char, length uint64) map[string]string {
+	stringPtrs := unsafe.Slice(cStringArray, length)
 
 	env := make(map[string]string)
 	for _, cStr := range stringPtrs {

@@ -61,17 +61,17 @@ func cleanUpTestWslInstances(ctx context.Context) {
 		return
 	}
 	if len(testInstances) != 0 {
-		s := ""
+		var distros []string
 		for _, d := range testInstances {
-			s = s + "\n - " + d.Name()
+			distros = append(distros, d.Name())
 		}
-		slog.Warn("Cleanup: Some WSL distros were not properly cleaned up:", "distro", s)
+		slog.Warn("Cleanup: Some WSL distros were not properly cleaned up", "distros", distros)
 	}
 
 	for _, d := range testInstances {
 		err := uninstallDistro(d, true)
 		if err != nil {
-			slog.Warn("Cleanup:", "error", err)
+			slog.Warn("Cleanup", "error", err)
 		}
 	}
 }
@@ -88,7 +88,7 @@ func backUpDefaultDistro(ctx context.Context) (func(), error) {
 	}
 	restore := func() {
 		if err := setDefaultDistro(ctx, distroName); err != nil {
-			slog.Warn("failed to restore default distro:", "error", err)
+			slog.Warn("Failed to restore default distro", "error", err)
 		}
 	}
 	return restore, nil

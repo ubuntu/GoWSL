@@ -695,7 +695,7 @@ print("Your text was", v)
 			// - In the happy path (all checks pass) we'll have waited on the command already, so
 			//   this second wait is superfluous.
 			// - If a check fails, we don't really care about any subsequent errors like this one.
-			defer cmd.Wait() //nolint:errcheck
+			defer cmd.Wait() //nolint:errcheck // See above.
 
 			buffer := make([]byte, 1024)
 

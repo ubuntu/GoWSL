@@ -18,8 +18,7 @@ const (
 )
 
 var (
-	emptyRootFS string // Empty non-functional image. It registers instantly.
-	rootFS      string // Fully functional rootfs
+	rootFS string // Fully functional rootfs
 )
 
 func TestMain(m *testing.M) {
@@ -53,12 +52,11 @@ func TestMain(m *testing.M) {
 
 // setUpRootFS sets the rootFS and emptyRootFS variables, and optionally creates the files.
 //
-// - For the real tests, .\prepare-repository.ps1 should be ran before running the tests.
-// - For the mocked tests, emporary empty files are created to stand for the rootFS.
+// - For the real tests, a real working image should be placed at images/daily-image.wsl before running the tests.
+// - For the mocked tests, temporary empty files are created to stand for the rootFS.
 func setUpRootFS() (cleanup func()) {
 	if !wsl.MockAvailable() {
-		rootFS = "images/rootfs.tar.gz"
-		emptyRootFS = "images/empty.tar.gz"
+		rootFS = "images/daily-image.wsl"
 		return func() {}
 	}
 
@@ -68,15 +66,11 @@ func setUpRootFS() (cleanup func()) {
 	}
 
 	rootFS = filepath.Join(rootFSDir, "empty1.tar.gz")
-	emptyRootFS = filepath.Join(rootFSDir, "empty2.tar.gz")
-
-	for _, fname := range []string{rootFS, emptyRootFS} {
-		f, err := os.Create(fname)
-		if err != nil {
-			log.Fatalf("Setup: could not touch rootfs %q: %v", fname, err)
-		}
-		f.Close()
+	f, err := os.Create(rootFS)
+	if err != nil {
+		log.Fatalf("Setup: could not touch rootfs %q: %v", rootFS, err)
 	}
+	f.Close()
 
 	return func() {
 		os.RemoveAll(rootFSDir)

@@ -116,9 +116,7 @@ func keepAwake(t *testing.T, ctx context.Context, d *wsl.Distro) context.CancelF
 
 	return func() {
 		cancel()
-		//nolint:errcheck
-		// not checking error because it is guaranteed to fail: it can only
-		// finish by being interrupted. This is the intended behaviour.
+		//nolint:errcheck // this is guaranteed to fail: it can only finish by being interrupted. This is the intended behaviour.
 		cmd.Wait()
 	}
 }

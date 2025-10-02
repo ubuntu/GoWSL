@@ -36,7 +36,7 @@ func installDistro(t *testing.T, ctx context.Context, distroName, location, root
 	cmd := fmt.Sprintf("$env:WSL_UTF8=1 ;  wsl --import %q %q %q", distroName, location, rootfs)
 
 	//nolint:gosec // Code injection is not a concern in tests.
-	out, err := exec.Command("powershell.exe", "-Command", cmd).CombinedOutput()
+	out, err := exec.CommandContext(ctx, "powershell.exe", "-Command", cmd).CombinedOutput()
 	require.NoErrorf(t, err, "Setup: failed to register %q: %s", distroName, out)
 }
 
@@ -122,7 +122,7 @@ func registeredDistros(ctx context.Context) (distros []wsl.Distro, err error) {
 func defaultDistro(ctx context.Context) (string, bool, error) {
 	defer wslExeGuard(5 * time.Second)()
 
-	out, err := exec.Command("powershell.exe", "-NoProfile", "-Command", "$env:WSL_UTF8=1; wsl.exe --status").CombinedOutput()
+	out, err := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-Command", "$env:WSL_UTF8=1; wsl.exe --status").CombinedOutput()
 	if err != nil {
 		return "", false, fmt.Errorf("failed to find current default distro: %v", err)
 	}
@@ -164,7 +164,7 @@ func setDefaultDistro(ctx context.Context, distroName string) error {
 
 	// No threat of code injection, wsl.exe will only interpret this text as a distro name
 	// and throw ErrNotExist if it does not exist.
-	out, err := exec.Command("wsl.exe", "--set-default", distroName).CombinedOutput()
+	out, err := exec.CommandContext(ctx, "wsl.exe", "--set-default", distroName).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to set distro %q back as default: %v. Output: %s", distroName, err, out)
 	}

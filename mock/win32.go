@@ -77,9 +77,9 @@ func (b *Backend) WslGetDistributionConfiguration(distributionName string,
 	defer key.mu.RUnlock()
 
 	// Ignoring tipe assert linter because we're the only ones with access to these fields
-	*distributionVersion = key.Data["Version"].(uint8)         //nolint: forcetypeassert
-	*defaultUID = key.Data["DefaultUid"].(uint32)              //nolint: forcetypeassert
-	*wslDistributionFlags = key.Data["Flags"].(flags.WslFlags) //nolint: forcetypeassert
+	*distributionVersion = key.Data["Version"].(uint8)         //nolint: forcetypeassert // we're the only ones with access to these fields.
+	*defaultUID = key.Data["DefaultUid"].(uint32)              //nolint: forcetypeassert // we're the only ones with access to these fields.
+	*wslDistributionFlags = key.Data["Flags"].(flags.WslFlags) //nolint: forcetypeassert // we're the only ones with access to these fields.
 
 	*defaultEnvironmentVariables = map[string]string{
 		"HOSTTYPE": "x86_64",

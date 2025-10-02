@@ -109,8 +109,8 @@ func TestRegisteredDistros(t *testing.T) {
 
 			ctx, modifyMock := setupBackend(t, context.Background())
 
-			d1 := newTestDistro(t, ctx, emptyRootFS)
-			d2 := newTestDistro(t, ctx, emptyRootFS)
+			d1 := newTestDistro(t, ctx, rootFS)
+			d2 := newTestDistro(t, ctx, rootFS)
 			d3 := wsl.NewDistro(ctx, uniqueDistroName(t))
 
 			if tc.registryInaccessible {
@@ -174,7 +174,7 @@ func TestIsRegistered(t *testing.T) {
 
 			var distro wsl.Distro
 			if tc.register {
-				distro = newTestDistro(t, ctx, emptyRootFS)
+				distro = newTestDistro(t, ctx, rootFS)
 			} else {
 				distro = wsl.NewDistro(ctx, uniqueDistroName(t))
 			}
@@ -227,7 +227,7 @@ func TestUnregister(t *testing.T) {
 			if tc.nonRegistered {
 				d = wsl.NewDistro(ctx, uniqueDistroName(t)+tc.distroname)
 			} else {
-				d = newTestDistro(t, ctx, emptyRootFS)
+				d = newTestDistro(t, ctx, rootFS)
 			}
 
 			if tc.registryInaccessible || tc.syscallError {
@@ -410,7 +410,7 @@ func TestUninstall(t *testing.T) {
 					defer requireUninstallAppx(t, ctx, "CanonicalGroupLimited.Ubuntu22.04LTS")
 				}
 			case imported:
-				d = newTestDistro(t, ctx, emptyRootFS)
+				d = newTestDistro(t, ctx, rootFS)
 			}
 
 			// Delayed options to avoid breaking the setup
@@ -509,18 +509,15 @@ func TestImport(t *testing.T) {
 				panic("Unrecognized value in destinationDir enum")
 			}
 
-			var tarball string
+			tarball := rootFS
 			switch tc.sourceRootfs {
 			case isOK:
-				var contents []byte
 				if tc.breakWslExe {
-					// This will also break the real WSL because it's not a
-					// valid tarball. Note that empty files ARE valid tarballs.
-					contents = []byte("MOCK_ERROR")
+					tarball = filepath.Join(src, "rootfs.tar.gz")
+					// This will break the real WSL because it's not a valid tarball.
+					err := os.WriteFile(tarball, []byte("MOCK_ERROR"), 0600)
+					require.NoError(t, err, "Setup: could not writer fake tarball")
 				}
-				tarball = filepath.Join(src, "rootfs.tar.gz")
-				err := os.WriteFile(tarball, contents, 0600)
-				require.NoError(t, err, "Setup: could not writer fake tarball")
 			case notExist:
 				tarball = filepath.Join(src, "idontexist")
 			case isBad:
@@ -635,7 +632,7 @@ func requireInstallFromAppxMock(t *testing.T, ctx context.Context, m *wslmock.Ba
 	t.Helper()
 
 	d = wsl.NewDistro(ctx, distroName)
-	err := d.Register(emptyRootFS)
+	err := d.Register(rootFS)
 	require.NoError(t, err, "Setup: could not register")
 
 	guid, err := d.GUID()

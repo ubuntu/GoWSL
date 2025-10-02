@@ -148,7 +148,7 @@ func TestDefaultDistro(t *testing.T) {
 
 			var d wsl.Distro
 			if !tc.dontCreateDistro {
-				d = newTestDistro(t, ctx, emptyRootFS)
+				d = newTestDistro(t, ctx, rootFS)
 				err := setDefaultDistro(ctx, d.Name())
 				require.NoError(t, err, "Setup: could not set the default distro")
 				want = d.Name()
@@ -220,7 +220,7 @@ func TestDistroSetAsDefault(t *testing.T) {
 			if tc.nonRegisteredDistro {
 				d = wsl.NewDistro(ctx, uniqueDistroName(t))
 			} else {
-				d = newTestDistro(t, ctx, emptyRootFS)
+				d = newTestDistro(t, ctx, rootFS)
 			}
 
 			err := d.SetAsDefault()
@@ -281,7 +281,7 @@ func TestGUID(t *testing.T) {
 	fakeDistro := wsl.NewDistro(ctx, uniqueDistroName(t))
 	wrongDistro := wsl.NewDistro(ctx, uniqueDistroName(t)+"\x00invalidcharacter")
 
-	err := realDistro.Register(emptyRootFS)
+	err := realDistro.Register(rootFS)
 	require.NoError(t, err, "could not register empty distro")
 
 	//nolint:errcheck // We don't care about cleanup errors
@@ -618,7 +618,7 @@ func TestDistroState(t *testing.T) {
 				if wsl.MockAvailable() {
 					t.Skip("Skipping because mock registers instantly")
 				}
-				d := asyncNewTestDistro(t, ctx, emptyRootFS)
+				d := asyncNewTestDistro(t, ctx, rootFS)
 				tc.distro = &d
 				require.Eventually(t, func() bool {
 					r, err := d.IsRegistered()

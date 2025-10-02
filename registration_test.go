@@ -509,18 +509,15 @@ func TestImport(t *testing.T) {
 				panic("Unrecognized value in destinationDir enum")
 			}
 
-			var tarball string
+			tarball := rootFS
 			switch tc.sourceRootfs {
 			case isOK:
-				var contents []byte
 				if tc.breakWslExe {
-					// This will also break the real WSL because it's not a
-					// valid tarball. Note that empty files ARE valid tarballs.
-					contents = []byte("MOCK_ERROR")
+					tarball = filepath.Join(src, "rootfs.tar.gz")
+					// This will break the real WSL because it's not a valid tarball.
+					err := os.WriteFile(tarball, []byte("MOCK_ERROR"), 0600)
+					require.NoError(t, err, "Setup: could not writer fake tarball")
 				}
-				tarball = filepath.Join(src, "rootfs.tar.gz")
-				err := os.WriteFile(tarball, contents, 0600)
-				require.NoError(t, err, "Setup: could not writer fake tarball")
 			case notExist:
 				tarball = filepath.Join(src, "idontexist")
 			case isBad:

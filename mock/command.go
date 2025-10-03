@@ -66,6 +66,7 @@ var translateCommand = map[string]mockedCommand{
 
 	// Other
 	"useradd testuser": {linux: "exit 0", windows: "EXIT 0"},
+	"hostname":         {linux: "hostname", windows: "hostname"},
 }
 
 // newCommandProcess starts a process of type:
